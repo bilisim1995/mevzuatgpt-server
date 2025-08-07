@@ -1,0 +1,415 @@
+"""
+Document processing tasks
+Handles PDF text extraction, chunking, embedding generation, and storage
+"""
+
+import logging
+import asyncio
+import traceback
+from typing import List, Dict, Any, Optional
+from uuid import UUID
+from datetime import datetime
+import PyPDF2
+import io
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+from tasks.celery_app import celery_app, CeleryTaskError, TaskStates
+from core.database import get_db_session
+from services.storage_service import StorageService
+from services.document_service import DocumentService
+from services.embedding_service import EmbeddingService
+from utils.exceptions import AppException
+
+logger = logging.getLogger(__name__)
+
+# Text splitter configuration
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=200,
+    length_function=len,
+    separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
+)
+
+@celery_app.task(bind=True, name="process_document_task")
+def process_document_task(self, document_id: str):
+    """
+    Process uploaded document: extract text, generate embeddings, store in vector database
+    
+    Args:
+        document_id: UUID of the document to process
+        
+    Returns:
+        Processing result dictionary
+    """
+    logger.info(f"Starting document processing for document_id: {document_id}")
+    
+    try:
+        # Run async processing in event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            result = loop.run_until_complete(_process_document_async(document_id))
+            return result
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Document processing failed for {document_id}: {str(e)}")
+        logger.error(traceback.format_exc())
+        
+        # Update document status to failed
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(_update_document_status(document_id, "failed", str(e)))
+            finally:
+                loop.close()
+        except Exception as status_error:
+            logger.error(f"Failed to update document status: {str(status_error)}")
+        
+        # Retry the task if possible
+        if self.request.retries < self.max_retries:
+            logger.info(f"Retrying document processing for {document_id} (attempt {self.request.retries + 1})")
+            raise self.retry(countdown=60, exc=e)
+        
+        raise CeleryTaskError(f"Document processing failed after {self.max_retries} attempts: {str(e)}")
+
+async def _process_document_async(document_id: str) -> Dict[str, Any]:
+    """
+    Async document processing implementation
+    
+    Args:
+        document_id: Document UUID
+        
+    Returns:
+        Processing result
+        
+    Raises:
+        AppException: If processing fails
+    """
+    try:
+        async with get_db_session() as db:
+            # Initialize services
+            storage_service = StorageService()
+            document_service = DocumentService(db)
+            embedding_service = EmbeddingService(db)
+            
+            # Update status to processing
+            await _update_document_status(document_id, "processing")
+            
+            # Step 1: Get document from database
+            logger.info(f"Retrieving document metadata: {document_id}")
+            document = await document_service.get_document_by_id(document_id)
+            
+            if not document:
+                raise AppException(
+                    message="Document not found",
+                    error_code="DOCUMENT_NOT_FOUND"
+                )
+            
+            # Step 2: Download PDF from storage
+            logger.info(f"Downloading PDF from storage: {document.file_url}")
+            pdf_content = await storage_service.download_file(document.file_url)
+            
+            # Step 3: Extract text from PDF
+            logger.info(f"Extracting text from PDF: {document.file_name}")
+            extracted_text = _extract_text_from_pdf(pdf_content)
+            
+            if not extracted_text.strip():
+                raise AppException(
+                    message="No text could be extracted from PDF",
+                    error_code="PDF_TEXT_EXTRACTION_FAILED"
+                )
+            
+            # Step 4: Split text into chunks
+            logger.info(f"Splitting text into chunks for document: {document_id}")
+            text_chunks = text_splitter.split_text(extracted_text)
+            
+            if not text_chunks:
+                raise AppException(
+                    message="Failed to split text into chunks",
+                    error_code="TEXT_CHUNKING_FAILED"
+                )
+            
+            logger.info(f"Generated {len(text_chunks)} text chunks")
+            
+            # Step 5: Generate embeddings for chunks
+            logger.info(f"Generating embeddings for {len(text_chunks)} chunks")
+            embeddings = await embedding_service.generate_embeddings_batch(text_chunks)
+            
+            # Step 6: Prepare chunk data with metadata
+            chunk_data = []
+            for i, (chunk_text, embedding) in enumerate(zip(text_chunks, embeddings)):
+                metadata = {
+                    "chunk_index": i,
+                    "chunk_length": len(chunk_text),
+                    "document_title": document.title,
+                    "document_category": document.category,
+                    "source_institution": document.source_institution,
+                    "processing_timestamp": datetime.utcnow().isoformat()
+                }
+                
+                chunk_data.append({
+                    "content": chunk_text,
+                    "embedding": embedding,
+                    "metadata": metadata
+                })
+            
+            # Step 7: Store embeddings in database
+            logger.info(f"Storing {len(chunk_data)} embeddings in database")
+            stored_embeddings = await embedding_service.store_embeddings(
+                document_id=UUID(document_id),
+                chunks=chunk_data
+            )
+            
+            # Step 8: Update document status to completed
+            await _update_document_status(document_id, "completed")
+            
+            result = {
+                "document_id": document_id,
+                "status": "completed",
+                "text_length": len(extracted_text),
+                "chunks_created": len(text_chunks),
+                "embeddings_stored": len(stored_embeddings),
+                "processing_time": datetime.utcnow().isoformat()
+            }
+            
+            logger.info(f"Document processing completed successfully: {document_id}")
+            return result
+            
+    except Exception as e:
+        logger.error(f"Document processing failed: {str(e)}")
+        raise
+
+def _extract_text_from_pdf(pdf_content: bytes) -> str:
+    """
+    Extract text from PDF content using PyPDF2
+    
+    Args:
+        pdf_content: PDF file content as bytes
+        
+    Returns:
+        Extracted text content
+        
+    Raises:
+        AppException: If text extraction fails
+    """
+    try:
+        # Create PDF reader from bytes
+        pdf_file = io.BytesIO(pdf_content)
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        
+        # Extract text from all pages
+        extracted_text = []
+        
+        for page_num, page in enumerate(pdf_reader.pages):
+            try:
+                page_text = page.extract_text()
+                if page_text.strip():  # Only add non-empty pages
+                    extracted_text.append(page_text)
+                    logger.debug(f"Extracted text from page {page_num + 1}: {len(page_text)} characters")
+            except Exception as page_error:
+                logger.warning(f"Failed to extract text from page {page_num + 1}: {str(page_error)}")
+                continue
+        
+        if not extracted_text:
+            raise AppException(
+                message="No text content found in PDF",
+                error_code="PDF_NO_TEXT_CONTENT"
+            )
+        
+        # Combine all pages
+        full_text = "\n\n".join(extracted_text)
+        
+        # Clean up the text
+        full_text = _clean_extracted_text(full_text)
+        
+        logger.info(f"Successfully extracted {len(full_text)} characters from PDF")
+        return full_text
+        
+    except PyPDF2.errors.PdfReadError as e:
+        logger.error(f"PDF read error: {str(e)}")
+        raise AppException(
+            message="Invalid or corrupted PDF file",
+            detail=str(e),
+            error_code="PDF_READ_ERROR"
+        )
+    except Exception as e:
+        logger.error(f"Text extraction error: {str(e)}")
+        raise AppException(
+            message="Failed to extract text from PDF",
+            detail=str(e),
+            error_code="PDF_TEXT_EXTRACTION_ERROR"
+        )
+
+def _clean_extracted_text(text: str) -> str:
+    """
+    Clean extracted text by removing excessive whitespace and formatting issues
+    
+    Args:
+        text: Raw extracted text
+        
+    Returns:
+        Cleaned text
+    """
+    # Remove excessive whitespace
+    import re
+    
+    # Replace multiple whitespace with single space
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Remove excessive line breaks
+    text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)
+    
+    # Clean up common PDF artifacts
+    text = text.replace('\x00', '')  # Remove null bytes
+    text = text.replace('\ufffd', '')  # Remove replacement characters
+    
+    # Normalize Turkish characters
+    turkish_char_map = {
+        'Ğ': 'Ğ', 'ğ': 'ğ', 'Ü': 'Ü', 'ü': 'ü', 'Ş': 'Ş', 'ş': 'ş',
+        'İ': 'İ', 'ı': 'ı', 'Ö': 'Ö', 'ö': 'ö', 'Ç': 'Ç', 'ç': 'ç'
+    }
+    
+    for old_char, new_char in turkish_char_map.items():
+        text = text.replace(old_char, new_char)
+    
+    return text.strip()
+
+async def _update_document_status(
+    document_id: str, 
+    status: str, 
+    error_message: Optional[str] = None
+) -> bool:
+    """
+    Update document processing status in database
+    
+    Args:
+        document_id: Document UUID
+        status: New processing status
+        error_message: Error message if status is failed
+        
+    Returns:
+        True if updated successfully
+    """
+    try:
+        async with get_db_session() as db:
+            document_service = DocumentService(db)
+            return await document_service.update_processing_status(
+                document_id, status, error_message
+            )
+    except Exception as e:
+        logger.error(f"Failed to update document status: {str(e)}")
+        return False
+
+@celery_app.task(bind=True, name="cleanup_failed_documents")
+def cleanup_failed_documents(self):
+    """
+    Periodic task to clean up failed document processing attempts
+    """
+    logger.info("Starting cleanup of failed documents")
+    
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            result = loop.run_until_complete(_cleanup_failed_documents_async())
+            return result
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Failed document cleanup error: {str(e)}")
+        raise
+
+async def _cleanup_failed_documents_async() -> Dict[str, Any]:
+    """
+    Async implementation of failed documents cleanup
+    
+    Returns:
+        Cleanup result statistics
+    """
+    try:
+        async with get_db_session() as db:
+            # Find documents that have been in 'processing' state for too long (>1 hour)
+            from sqlalchemy import select, update, and_
+            from models.database import Document
+            from datetime import datetime, timedelta
+            
+            cutoff_time = datetime.utcnow() - timedelta(hours=1)
+            
+            # Find stuck processing documents
+            stuck_query = select(Document).where(
+                and_(
+                    Document.processing_status == "processing",
+                    Document.updated_at < cutoff_time
+                )
+            )
+            
+            result = await db.execute(stuck_query)
+            stuck_documents = result.scalars().all()
+            
+            # Update stuck documents to failed status
+            cleanup_count = 0
+            for doc in stuck_documents:
+                update_stmt = (
+                    update(Document)
+                    .where(Document.id == doc.id)
+                    .values(
+                        processing_status="failed",
+                        processing_error="Processing timeout - exceeded maximum processing time"
+                    )
+                )
+                
+                await db.execute(update_stmt)
+                cleanup_count += 1
+                
+                logger.info(f"Marked stuck document as failed: {doc.id}")
+            
+            await db.commit()
+            
+            result = {
+                "cleanup_time": datetime.utcnow().isoformat(),
+                "documents_cleaned": cleanup_count,
+                "cutoff_time": cutoff_time.isoformat()
+            }
+            
+            logger.info(f"Cleanup completed: {cleanup_count} documents marked as failed")
+            return result
+            
+    except Exception as e:
+        logger.error(f"Failed documents cleanup error: {str(e)}")
+        raise
+
+@celery_app.task(bind=True, name="reprocess_failed_document")
+def reprocess_failed_document(self, document_id: str):
+    """
+    Retry processing for a failed document
+    
+    Args:
+        document_id: Document UUID to reprocess
+        
+    Returns:
+        Reprocessing result
+    """
+    logger.info(f"Reprocessing failed document: {document_id}")
+    
+    try:
+        # Reset document status to pending
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            loop.run_until_complete(_update_document_status(document_id, "pending"))
+        finally:
+            loop.close()
+        
+        # Trigger normal processing
+        return process_document_task.delay(document_id)
+        
+    except Exception as e:
+        logger.error(f"Failed to reprocess document {document_id}: {str(e)}")
+        raise CeleryTaskError(f"Document reprocessing failed: {str(e)}")
