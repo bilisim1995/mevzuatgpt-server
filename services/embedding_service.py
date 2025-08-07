@@ -322,6 +322,7 @@ class EmbeddingService:
         """
         try:
             # Count total embeddings
+            from sqlalchemy import func
             total_query = select(func.count(Embedding.id))
             total_result = await self.db.execute(total_query)
             total_embeddings = total_result.scalar()

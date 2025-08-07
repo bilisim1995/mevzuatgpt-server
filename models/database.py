@@ -4,9 +4,10 @@ Database table definitions with relationships and constraints
 """
 
 from sqlalchemy import Column, String, Text, DateTime, Boolean, Integer, BigInteger, Float, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB, VECTOR
+from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from pgvector.sqlalchemy import Vector
 import uuid
 
 from core.database import Base
@@ -80,8 +81,8 @@ class Embedding(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(UUID(as_uuid=True), ForeignKey("mevzuat_documents.id", ondelete="CASCADE"), nullable=False)
     content = Column(Text, nullable=False)
-    embedding = Column(VECTOR(3072), nullable=False)  # text-embedding-3-large dimension
-    metadata = Column(JSONB, nullable=True)
+    embedding = Column(Vector(3072), nullable=False)  # text-embedding-3-large dimension
+    chunk_metadata = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships

@@ -21,85 +21,84 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = ["*"]
     
     # Database
-    DATABASE_URL: str = Field(..., env="DATABASE_URL")
-    DATABASE_POOL_SIZE: int = Field(default=10, env="DATABASE_POOL_SIZE")
-    DATABASE_MAX_OVERFLOW: int = Field(default=20, env="DATABASE_MAX_OVERFLOW")
+    DATABASE_URL: str = "postgresql://localhost/mevzuatgpt"
+    DATABASE_POOL_SIZE: int = 10
+    DATABASE_MAX_OVERFLOW: int = 20
     
     # Supabase
-    SUPABASE_URL: str = Field(..., env="SUPABASE_URL")
-    SUPABASE_KEY: str = Field(..., env="SUPABASE_KEY")
-    SUPABASE_SERVICE_KEY: str = Field(..., env="SUPABASE_SERVICE_KEY")
+    SUPABASE_URL: str = "https://your-project.supabase.co"
+    SUPABASE_KEY: str = "your-supabase-key"
+    SUPABASE_SERVICE_KEY: str = "your-service-key"
     
     # JWT Authentication
-    JWT_SECRET_KEY: str = Field(..., env="JWT_SECRET_KEY")
-    JWT_ALGORITHM: str = Field(default="HS256", env="JWT_ALGORITHM")
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, env="JWT_ACCESS_TOKEN_EXPIRE_MINUTES")
-    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, env="JWT_REFRESH_TOKEN_EXPIRE_DAYS")
+    JWT_SECRET_KEY: str = "your-jwt-secret-key"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # OpenAI
-    OPENAI_API_KEY: str = Field(..., env="OPENAI_API_KEY")
-    OPENAI_MODEL: str = Field(default="gpt-4o", env="OPENAI_MODEL")  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024
-    OPENAI_EMBEDDING_MODEL: str = Field(default="text-embedding-3-large", env="OPENAI_EMBEDDING_MODEL")
-    OPENAI_MAX_TOKENS: int = Field(default=4000, env="OPENAI_MAX_TOKENS")
+    OPENAI_API_KEY: str = "your-openai-api-key"
+    OPENAI_MODEL: str = "gpt-4o"  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-large"
+    OPENAI_MAX_TOKENS: int = 4000
     
     # Bunny.net Storage
-    BUNNY_STORAGE_API_KEY: str = Field(..., env="BUNNY_STORAGE_API_KEY")
-    BUNNY_STORAGE_ZONE: str = Field(..., env="BUNNY_STORAGE_ZONE")
-    BUNNY_STORAGE_REGION: str = Field(default="de", env="BUNNY_STORAGE_REGION")
-    BUNNY_STORAGE_ENDPOINT: str = Field(..., env="BUNNY_STORAGE_ENDPOINT")
+    BUNNY_STORAGE_API_KEY: str = "your-bunny-api-key"
+    BUNNY_STORAGE_ZONE: str = "your-storage-zone"
+    BUNNY_STORAGE_REGION: str = "de"
+    BUNNY_STORAGE_ENDPOINT: str = "your-bunny-endpoint"
     
     # Redis & Celery
-    REDIS_URL: str = Field(..., env="REDIS_URL")
-    CELERY_BROKER_URL: str = Field(..., env="CELERY_BROKER_URL")
-    CELERY_RESULT_BACKEND: str = Field(..., env="CELERY_RESULT_BACKEND")
+    REDIS_URL: str = "redis://localhost:6379"
+    CELERY_BROKER_URL: str = "redis://localhost:6379"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379"
     
     # File Upload Settings
-    MAX_FILE_SIZE: int = Field(default=50 * 1024 * 1024, env="MAX_FILE_SIZE")  # 50MB
-    ALLOWED_FILE_TYPES: List[str] = Field(default=["pdf"], env="ALLOWED_FILE_TYPES")
+    MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
+    ALLOWED_FILE_TYPES: List[str] = ["pdf"]
     
     # Logging
-    LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
-    LOG_FORMAT: str = Field(
-        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        env="LOG_FORMAT"
-    )
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     
     # Rate Limiting
-    RATE_LIMIT_REQUESTS: int = Field(default=100, env="RATE_LIMIT_REQUESTS")
-    RATE_LIMIT_WINDOW: int = Field(default=60, env="RATE_LIMIT_WINDOW")  # seconds
+    RATE_LIMIT_REQUESTS: int = 100
+    RATE_LIMIT_WINDOW: int = 60  # seconds
     
     # Vector Search
-    EMBEDDING_DIMENSION: int = Field(default=3072, env="EMBEDDING_DIMENSION")  # text-embedding-3-large
-    SEARCH_LIMIT: int = Field(default=10, env="SEARCH_LIMIT")
-    SIMILARITY_THRESHOLD: float = Field(default=0.7, env="SIMILARITY_THRESHOLD")
+    EMBEDDING_DIMENSION: int = 3072  # text-embedding-3-large
+    SEARCH_LIMIT: int = 10
+    SIMILARITY_THRESHOLD: float = 0.7
     
-    @validator("ALLOWED_HOSTS", pre=True)
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    
+    @field_validator("ALLOWED_HOSTS")
+    @classmethod
     def parse_hosts(cls, v):
         if isinstance(v, str):
             return [host.strip() for host in v.split(",")]
         return v
     
-    @validator("ALLOWED_ORIGINS", pre=True)
+    @field_validator("ALLOWED_ORIGINS")
+    @classmethod
     def parse_origins(cls, v):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",")]
         return v
     
-    @validator("ALLOWED_FILE_TYPES", pre=True)
+    @field_validator("ALLOWED_FILE_TYPES")
+    @classmethod
     def parse_file_types(cls, v):
         if isinstance(v, str):
             return [ft.strip().lower() for ft in v.split(",")]
         return v
     
-    @validator("ENVIRONMENT")
+    @field_validator("ENVIRONMENT")
+    @classmethod
     def validate_environment(cls, v):
         if v not in ["development", "staging", "production"]:
             raise ValueError("ENVIRONMENT must be one of: development, staging, production")
         return v
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 # Create global settings instance

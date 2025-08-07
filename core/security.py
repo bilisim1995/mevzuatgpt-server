@@ -5,7 +5,7 @@ Role-based access control implementation
 
 from datetime import datetime, timedelta
 from typing import Optional, Union
-import jwt
+from jose import jwt
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 import logging

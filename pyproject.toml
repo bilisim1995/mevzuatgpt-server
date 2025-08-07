@@ -27,6 +27,10 @@ dependencies = [
     "langchain-text-splitters>=0.0.1",
     "numpy>=1.24.0",
     "python-dotenv>=1.0.0",
+    "python-json-logger>=3.3.0",
+    "psycopg2-binary>=2.9.10",
+    "pgvector>=0.4.1",
+    "email-validator>=2.2.0",
 ]
 
 [tool.setuptools.packages.find]

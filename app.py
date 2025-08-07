@@ -40,7 +40,7 @@ def main():
         uvicorn_config = {
             "app": "main:app",
             "host": "0.0.0.0",
-            "port": 8000,
+            "port": 5000,
             "workers": 4,
             "log_level": "info",
             "access_log": True,
@@ -56,7 +56,7 @@ def main():
         uvicorn_config = {
             "app": "main:app",
             "host": "0.0.0.0",
-            "port": 8000,
+            "port": 5000,
             "reload": settings.DEBUG,
             "log_level": settings.LOG_LEVEL.lower(),
             "access_log": True,
