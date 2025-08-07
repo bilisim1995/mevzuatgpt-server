@@ -10,8 +10,7 @@ from typing import Optional
 import logging
 
 from core.database import get_db
-from core.security import security
-from services.auth_service import AuthService
+from services.supabase_auth_service import auth_service
 from models.schemas import UserResponse
 from utils.exceptions import AppException
 
@@ -21,15 +20,13 @@ logger = logging.getLogger(__name__)
 security_scheme = HTTPBearer(auto_error=False)
 
 async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
-    db: AsyncSession = Depends(get_db)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme)
 ) -> UserResponse:
     """
-    Dependency to get current authenticated user from JWT token
+    Dependency to get current authenticated user from JWT token via Supabase
     
     Args:
         credentials: Bearer token from Authorization header
-        db: Database session
         
     Returns:
         Current user information
@@ -45,36 +42,20 @@ async def get_current_user(
         )
     
     try:
-        # Verify JWT token
-        payload = security.verify_token(credentials.credentials, "access")
-        user_id = payload.get("sub")
+        # Verify token with Supabase auth service
+        auth_data = await auth_service.verify_token(credentials.credentials)
         
-        if not user_id:
+        if not auth_data:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload",
+                detail="Invalid token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        # Get user from database
-        auth_service = AuthService(db)
-        user = await auth_service.get_user_by_id(user_id)
+        return auth_data["user"]
         
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
-        return user
-        
-    except AppException as e:
-        raise HTTPException(
-            status_code=e.status_code,
-            detail=e.message,
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Authentication error: {str(e)}")
         raise HTTPException(
@@ -107,15 +88,13 @@ async def get_admin_user(
     return current_user
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
-    db: AsyncSession = Depends(get_db)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme)
 ) -> Optional[UserResponse]:
     """
     Dependency to get current user if token is provided (optional authentication)
     
     Args:
         credentials: Bearer token from Authorization header (optional)
-        db: Database session
         
     Returns:
         Current user information if token is valid, None otherwise
@@ -124,7 +103,7 @@ async def get_optional_user(
         return None
     
     try:
-        return await get_current_user(credentials, db)
+        return await get_current_user(credentials)
     except HTTPException:
         return None
 

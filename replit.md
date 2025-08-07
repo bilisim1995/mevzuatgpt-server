@@ -8,37 +8,57 @@ MevzuatGPT is a production-ready RAG (Retrieval-Augmented Generation) system des
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Architecture Changes (August 7, 2025)
+
+### Major Updates - Supabase & Redis Cloud Integration
+- **Supabase Auth**: Replaced custom JWT authentication with Supabase Auth for centralized user management
+- **Supabase Database**: Migrated to Supabase PostgreSQL as primary database with pgvector for vector operations
+- **Redis Cloud**: Updated Celery configuration to use Redis Cloud instead of local Redis
+- **RLS Security**: Implemented Row Level Security policies for secure data access
+- **Vector Search**: Created optimized `search_embeddings()` function for similarity search
+- **API Modernization**: Updated all auth routes to use Supabase Auth service
+- **Dependency Updates**: Modified FastAPI dependencies to work with Supabase authentication
+
+### Required Configuration Updates
+- All external services (OpenAI, Bunny.net, Supabase, Redis Cloud) are now mandatory for full functionality
+- Added comprehensive .env.example and API_KEYS_REQUIREMENTS.md for setup guidance
+- Created models/supabase_models.py with complete SQL schema for Supabase setup
+
 ## System Architecture
 
 ### Backend Framework
 The application uses **FastAPI** as the web framework, chosen for its high performance, automatic OpenAPI documentation generation, and native Pydantic integration. The async nature of FastAPI aligns well with the database operations and external service integrations.
 
 ### Database Architecture
-The system employs **PostgreSQL** with **SQLAlchemy** for ORM operations, specifically using the async variant (`AsyncSession`) for non-blocking database operations. The database includes the `vector` extension for storing and querying embeddings. Connection pooling is configured to handle concurrent requests efficiently.
+The system uses **Supabase PostgreSQL** as the primary database with **pgvector** extension for vector similarity search. The database features Row Level Security (RLS) for secure data access and integrates with Supabase Auth for seamless user management.
 
 Key database tables:
-- `users` - Authentication and role management
-- `mevzuat_documents` - Document metadata and file references
-- `mevzuat_embeddings` - Vector embeddings with content chunks
+- `auth.users` - Supabase managed user authentication
+- `public.user_profiles` - Extended user information and roles
+- `public.mevzuat_documents` - Document metadata and file references
+- `public.mevzuat_embeddings` - Vector embeddings with content chunks
+- `public.search_logs` - Analytics and search history
+
+Database connections use SQLAlchemy async sessions with connection pooling configured for optimal performance.
 
 ### Authentication & Authorization
-**Role-based access control (RBAC)** is implemented using JWT tokens with two distinct roles:
+**Supabase Auth** provides centralized authentication and user management with **role-based access control (RBAC)**:
 - `admin` - Can upload documents and access administrative functions
 - `user` - Can search and access documents
 
-JWT tokens are managed through a custom `SecurityManager` class with configurable expiration times and refresh token support.
+User registration, login, and session management are handled through Supabase's Auth API. JWT tokens are managed by Supabase with automatic refresh capabilities and Row Level Security (RLS) policies for database access control.
 
 ### File Storage Strategy
 **Bunny.net CDN** is used for PDF file storage, chosen for its cost-effectiveness and global distribution capabilities. Files are uploaded through their REST API with proper error handling and retry mechanisms.
 
 ### Background Processing
-**Celery with Redis** handles asynchronous document processing tasks including:
+**Celery with Redis Cloud** handles asynchronous document processing tasks including:
 - PDF text extraction using PyPDF2
 - Text chunking with LangChain's RecursiveCharacterTextSplitter
 - OpenAI embedding generation
-- Vector database storage
+- Vector storage in Supabase PostgreSQL
 
-This architecture prevents blocking the main application during lengthy document processing operations.
+Redis Cloud provides a scalable message broker and result backend, ensuring reliable task distribution and preventing application blocking during lengthy document processing operations.
 
 ### Configuration Management
 **Pydantic Settings** provides type-validated configuration management, reading from environment variables with proper defaults and validation. This ensures all required configurations are present at startup and properly typed.
@@ -47,7 +67,7 @@ This architecture prevents blocking the main application during lengthy document
 A centralized exception handling system using custom `AppException` classes provides structured error responses with appropriate HTTP status codes. Logging is configured with rotation, multiple formatters, and different output targets (console, file) based on environment.
 
 ### Vector Search Implementation
-Semantic search uses **OpenAI's text-embedding-3-large** model for generating embeddings, stored in PostgreSQL with the vector extension. Similarity search employs L2 distance with configurable thresholds and filtering capabilities.
+Semantic search uses **OpenAI's text-embedding-3-large** model for generating 1536-dimensional embeddings. These are stored in **Supabase PostgreSQL** with the **pgvector** extension. Similarity search employs cosine distance with configurable thresholds through a custom `search_embeddings()` SQL function that efficiently queries across document chunks.
 
 ## External Dependencies
 
@@ -58,11 +78,11 @@ Semantic search uses **OpenAI's text-embedding-3-large** model for generating em
 - **Bunny.net Storage API** - PDF file storage and CDN delivery
 
 ### Database Services
-- **PostgreSQL** - Primary database with vector extension for embedding storage
-- **Redis** - Message broker for Celery background tasks and caching
+- **Supabase PostgreSQL** - Primary database with pgvector extension for embedding storage and Row Level Security
+- **Redis Cloud** - Message broker for Celery background tasks and caching
 
-### Authentication
-- **Supabase** - Integrated for additional authentication features and user management capabilities
+### Authentication & User Management
+- **Supabase Auth** - Complete user authentication, registration, and session management system
 
 ### Background Processing
 - **Celery** - Distributed task queue for document processing

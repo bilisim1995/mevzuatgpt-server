@@ -26,3 +26,4 @@ Requires-Dist: python-json-logger>=3.3.0
 Requires-Dist: psycopg2-binary>=2.9.10
 Requires-Dist: pgvector>=0.4.1
 Requires-Dist: email-validator>=2.2.0
+Requires-Dist: supabase>=2.18.0

@@ -23,18 +23,21 @@ Bu dosya, MevzuatGPT uygulamasının tam fonksiyonel çalışması için gerekli
 
 ## 🔧 OPSIYONEL GEREKSİNİMLER
 
-### 3. Supabase (Opsiyonel)
-**Neden yararlı:** Ek kullanıcı yönetimi ve real-time özellikler için
+### 3. Supabase (ZORUNLU - Ana Veritabanı ve Auth)
+**Neden gerekli:** Kullanıcı yönetimi, veritabanı ve vektör arama için
 - **Nereden alınır:** https://app.supabase.com/
 - **Gerekli bilgiler:**
   - Project URL: `https://xxxxxxxxxxxxxxxxx.supabase.co`
-  - Public API Key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
+  - Anon/Public Key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
   - Service Role Key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
+  - Database URL: `postgresql://postgres.xxxxxxxxx:password@aws-0-eu-central-1.pooler.supabase.com:5432/postgres`
+- **Kurulum:** Vector extension'ını etkinleştirin, SQL şemalarını çalıştırın
 
-### 4. Redis Cloud (Opsiyonel - Yerel Redis kullanılabilir)
-**Neden yararlı:** Background tasks ve caching için
-- **Nereden alınır:** https://redis.com/try-free/
-- **Format:** `redis://username:password@host:port`
+### 4. Redis Cloud (ZORUNLU - Background Tasks için)
+**Neden gerekli:** Celery background tasks ve caching için
+- **Nereden alınır:** https://app.redislabs.com/
+- **Format:** `redis://default:password@redis-12345.c123.us-east-1-4.ec2.cloud.redislabs.com:12345`
+- **Kullanım:** PDF işleme, embedding oluşturma, async tasks
 
 ## 📋 HIZLI KURULUM REHBERİ
 

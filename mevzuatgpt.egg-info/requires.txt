@@ -21,3 +21,4 @@ python-json-logger>=3.3.0
 psycopg2-binary>=2.9.10
 pgvector>=0.4.1
 email-validator>=2.2.0
+supabase>=2.18.0

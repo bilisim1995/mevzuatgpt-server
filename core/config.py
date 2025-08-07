@@ -20,15 +20,13 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: List[str] = ["*"]
     ALLOWED_ORIGINS: List[str] = ["*"]
     
-    # Database
-    DATABASE_URL: str = "postgresql://localhost/mevzuatgpt"
+    # Supabase Database & Auth (Primary)
+    SUPABASE_URL: str = "https://your-project.supabase.co"
+    SUPABASE_KEY: str = "your-supabase-anon-key"
+    SUPABASE_SERVICE_KEY: str = "your-supabase-service-key"
+    DATABASE_URL: str = "postgresql://postgres:password@db.supabase.co:5432/postgres"
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
-    
-    # Supabase
-    SUPABASE_URL: str = "https://your-project.supabase.co"
-    SUPABASE_KEY: str = "your-supabase-key"
-    SUPABASE_SERVICE_KEY: str = "your-service-key"
     
     # JWT Authentication
     JWT_SECRET_KEY: str = "your-jwt-secret-key"
@@ -48,10 +46,10 @@ class Settings(BaseSettings):
     BUNNY_STORAGE_REGION: str = "de"
     BUNNY_STORAGE_ENDPOINT: str = "your-bunny-endpoint"
     
-    # Redis & Celery
-    REDIS_URL: str = "redis://localhost:6379"
-    CELERY_BROKER_URL: str = "redis://localhost:6379"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379"
+    # Redis Cloud & Celery
+    REDIS_URL: str = "redis://default:password@redis-cloud-endpoint:port"
+    CELERY_BROKER_URL: str = "redis://default:password@redis-cloud-endpoint:port"
+    CELERY_RESULT_BACKEND: str = "redis://default:password@redis-cloud-endpoint:port"
     
     # File Upload Settings
     MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
