@@ -38,8 +38,24 @@ python tests/create_user.py
 - Özel karakterler içerir
 - Her çalıştırmada farklı kullanıcı oluşturulur
 
+### Bunny.net Storage Test
+```bash
+python tests/test_bunny_storage.py
+```
+- Bunny.net bağlantısını test eder
+- Test dosyası upload/delete işlemlerini doğrular
+- Environment variables kontrolü yapar
+
 ## Gereksinimler
 
+### Kullanıcı Oluşturma
 Environment variables:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_KEY`
+
+### Storage Test
+Environment variables:
+- `BUNNY_STORAGE_API_KEY`
+- `BUNNY_STORAGE_ZONE`
+- `BUNNY_STORAGE_REGION`
+- `BUNNY_STORAGE_ENDPOINT`
