@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
     SECRET_KEY: str = "development-secret-key-change-in-production"
-    ALLOWED_HOSTS: List[str] = ["*"]
-    ALLOWED_ORIGINS: List[str] = ["*"]
+    ALLOWED_HOSTS: str = "*"
+    ALLOWED_ORIGINS: str = "*"
     
     # Supabase Database & Auth (Primary)
     SUPABASE_URL: str = "https://your-project.supabase.co"
@@ -70,19 +70,7 @@ class Settings(BaseSettings):
     
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
     
-    @field_validator("ALLOWED_HOSTS")
-    @classmethod
-    def parse_hosts(cls, v):
-        if isinstance(v, str):
-            return [host.strip() for host in v.split(",")]
-        return v
-    
-    @field_validator("ALLOWED_ORIGINS")
-    @classmethod
-    def parse_origins(cls, v):
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
+
     
     @field_validator("ALLOWED_FILE_TYPES")
     @classmethod

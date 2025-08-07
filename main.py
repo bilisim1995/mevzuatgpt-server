@@ -98,10 +98,28 @@ async def health_check():
         }
     }
 
+# Root endpoint
+@app.get("/")
+async def root():
+    """Welcome message and API info"""
+    return {
+        "message": "MevzuatGPT API",
+        "description": "Hukuki belge işleme ve semantik arama sistemi",
+        "version": "1.0.0",
+        "environment": settings.ENVIRONMENT,
+        "endpoints": {
+            "health": "/health",
+            "docs": "/docs" if settings.DEBUG else "Debug mode kapalı",
+            "auth": "/api/auth/",
+            "admin": "/api/admin/",
+            "user": "/api/user/"
+        }
+    }
+
 # Include routers
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
-app.include_router(admin_router, prefix="/admin", tags=["Admin"])
-app.include_router(user_router, prefix="/api", tags=["User"])
+app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
+app.include_router(user_router, prefix="/api/user", tags=["User"])
 
 # Startup event
 @app.on_event("startup")
