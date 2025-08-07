@@ -4,9 +4,17 @@ Bu belge, MevzuatGPT uygulamasının tüm API endpoint'lerini, istek/cevap örne
 
 ## 🔧 Base URL
 
+**Replit Platformu için:**
+```
+https://[repl-name]--[username].replit.dev
+```
+
+**Yerel Development için:**
 ```
 http://localhost:5000
 ```
+
+> ℹ️ **Not:** Replit URL'ini workspace'te Console tool'dan veya browser URL'inden kopyalayabilirsin.
 
 ## 🔐 Kimlik Doğrulama
 
