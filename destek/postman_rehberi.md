@@ -6,7 +6,9 @@ Bu rehber, MevzuatGPT API'sini Postman ile nasıl test edeceğini adım adım a�
 
 1. **Replit workspace'inde Console tool'u aç**
 2. **URL bar'da `.replit.dev` uzantılı URL'i kopyala**
-3. **Örnek:** `https://mevzuatgpt--oguzhanboz.replit.dev`
+3. **Örnek:** `https://d918281c-1bd6-402c-9393-c4aff6ab45cd-00-24vj3sc6uk3ba.worf.replit.dev`
+
+> ✅ **Güncel URL:** Bu URL şu anda aktif ve çalışır durumda!
 
 ## 🚀 2. Postman Kurulumu
 

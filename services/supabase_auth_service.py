@@ -56,7 +56,6 @@ class SupabaseAuthService:
                 email=result["user"].email,
                 full_name=user_metadata.get("full_name"),
                 role=user_metadata.get("role", "user"),
-                is_active=True,
                 created_at=datetime.now()
             )
             
@@ -101,23 +100,22 @@ class SupabaseAuthService:
             
             # Get user metadata
             user = result["user"]
-            user_metadata = user.user_metadata or {}
+            user_metadata = getattr(user, 'user_metadata', {}) or {}
             
             # Create response
             user_response = UserResponse(
-                id=user.id,
-                email=user.email,
+                id=getattr(user, 'id', None),
+                email=getattr(user, 'email', None),
                 full_name=user_metadata.get("full_name"),
                 role=user_metadata.get("role", "user"),
-                is_active=True,
-                created_at=datetime.fromisoformat(user.created_at.replace("Z", "+00:00")) if user.created_at else datetime.now()
+                created_at=datetime.now()
             )
             
             # Generate JWT token
             access_token = self.security.create_access_token(
                 data={
-                    "sub": str(user.id),
-                    "email": user.email,
+                    "sub": str(getattr(user, 'id', '')),
+                    "email": getattr(user, 'email', ''),
                     "role": user_metadata.get("role", "user")
                 }
             )
@@ -159,15 +157,14 @@ class SupabaseAuthService:
             if not user_data:
                 return None
             
-            user_metadata = user_data.user_metadata or {}
+            user_metadata = user_data.get("user_metadata", {}) or {}
             
             return UserResponse(
-                id=user_data.id,
-                email=user_data.email,
+                id=user_data.get("id"),
+                email=user_data.get("email"),
                 full_name=user_metadata.get("full_name"),
                 role=user_metadata.get("role", "user"),
-                is_active=True,
-                created_at=datetime.fromisoformat(user_data.created_at.replace("Z", "+00:00")) if user_data.created_at else datetime.now()
+                created_at=datetime.now()
             )
             
         except Exception as e:

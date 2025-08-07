@@ -38,6 +38,7 @@ async def register_user(user_data: UserCreate):
             access_token=result["access_token"],
             refresh_token="",  # Supabase handles refresh tokens internally
             token_type=result["token_type"],
+            expires_in=3600,
             user=result["user"]
         )
         
@@ -70,6 +71,7 @@ async def login_user(login_data: UserLogin):
             access_token=result["access_token"],
             refresh_token="",  # Supabase handles refresh tokens internally
             token_type=result["token_type"],
+            expires_in=3600,
             user=result["user"]
         )
         

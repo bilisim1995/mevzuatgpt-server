@@ -88,7 +88,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: Optional[str] = None
     token_type: str = "bearer"
-    expires_in: int
+    expires_in: int = 3600  # Default 1 hour
     user: UserResponse
 
 # Document Models
