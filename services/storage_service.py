@@ -24,8 +24,8 @@ class StorageService:
         self.storage_endpoint = settings.BUNNY_STORAGE_ENDPOINT
         self.region = settings.BUNNY_STORAGE_REGION
         
-        # Construct base URL for storage API
-        self.base_url = f"https://{self.region}.storage.bunnycdn.com/{self.storage_zone}"
+        # Construct base URL for storage API - use direct endpoint
+        self.base_url = f"https://storage.bunnycdn.com/{self.storage_zone}"
         
         # Headers for API requests
         self.headers = {
