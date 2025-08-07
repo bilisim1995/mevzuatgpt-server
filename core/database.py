@@ -19,10 +19,16 @@ class Base(DeclarativeBase):
     pass
 
 # Create async engine with connection pooling
-# Convert PostgreSQL URL to asyncpg format
+# Convert PostgreSQL URL to asyncpg format and fix SSL parameters
 database_url = settings.DATABASE_URL
 if database_url.startswith("postgresql://"):
     database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+# Fix SSL parameter for asyncpg (it uses 'ssl' not 'sslmode')
+if "?sslmode=require" in database_url:
+    database_url = database_url.replace("?sslmode=require", "?ssl=require")
+elif "&sslmode=require" in database_url:
+    database_url = database_url.replace("&sslmode=require", "&ssl=require")
 
 engine = create_async_engine(
     database_url,

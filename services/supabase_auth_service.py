@@ -157,11 +157,19 @@ class SupabaseAuthService:
             if not user_data:
                 return None
             
-            user_metadata = user_data.get("user_metadata", {}) or {}
+            # Handle both dict and object formats
+            if hasattr(user_data, 'user_metadata'):
+                user_metadata = getattr(user_data, 'user_metadata', {}) or {}
+                user_id_val = getattr(user_data, 'id', user_id)
+                user_email = getattr(user_data, 'email', '')
+            else:
+                user_metadata = user_data.get("user_metadata", {}) or {}
+                user_id_val = user_data.get("id", user_id)
+                user_email = user_data.get("email", '')
             
             return UserResponse(
-                id=user_data.get("id"),
-                email=user_data.get("email"),
+                id=user_id_val,
+                email=user_email,
                 full_name=user_metadata.get("full_name"),
                 role=user_metadata.get("role", "user"),
                 created_at=datetime.now()

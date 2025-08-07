@@ -10,6 +10,16 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 
 ## Son Mimari Değişiklikler (7 Ağustos 2025)
 
+### PDF Upload Sistemi Tamamlandı ✅
+- **Database Connection**: AsyncPG SSL parametreleri düzeltildi (`ssl=require`)
+- **Storage Fallback**: Bunny.net bağlantı sorunları için local storage fallback eklendi
+- **Database Tables**: `mevzuat_documents` ve `mevzuat_embeddings` tabloları oluşturuldu
+- **Admin Authentication**: Test admin kullanıcısı ve tam kimlik doğrulama sistemi çalışıyor
+- **File Upload**: Multipart form-data ile PDF upload ve metadata işleme tamamlandı
+- **Background Tasks**: Celery task sistem entegrasyonu hazır
+
+## Son Mimari Değişiklikler (7 Ağustos 2025)
+
 ### Büyük Güncellemeler - Supabase ve Redis Cloud Entegrasyonu
 - **Supabase Auth**: Merkezi kullanıcı yönetimi için özel JWT kimlik doğrulaması Supabase Auth ile değiştirildi
 - **Supabase Veritabanı**: Vektör işlemleri için birincil veritabanı olarak Supabase PostgreSQL'e geçiş yapıldı
