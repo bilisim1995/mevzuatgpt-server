@@ -23,6 +23,7 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 ### Dökümantasyon Organizasyonu
 - Tüm kurulum ve yapılandırma dosyaları `destek/` klasörüne taşındı
 - Türkçe rehberler oluşturuldu: kurulum_sirasi.md, supabase_kurulum.md, api_anahtarlari_rehberi.md
+- API kullanım rehberleri: endpoints.md, postman_rehberi.md, pdf_upload_rehberi.md
 - Ana README.md dosyası projeye genel bakış için güncellendi
 
 ## Sistem Mimarisi
