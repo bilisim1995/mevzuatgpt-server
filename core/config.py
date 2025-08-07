@@ -4,7 +4,7 @@ Handles environment variables and application settings
 """
 
 from pydantic_settings import BaseSettings
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from typing import List, Optional
 import os
 
@@ -14,11 +14,11 @@ class Settings(BaseSettings):
     
     # Application
     APP_NAME: str = "MevzuatGPT"
-    ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
-    DEBUG: bool = Field(default=False, env="DEBUG")
-    SECRET_KEY: str = Field(..., env="SECRET_KEY")
-    ALLOWED_HOSTS: List[str] = Field(default=["*"], env="ALLOWED_HOSTS")
-    ALLOWED_ORIGINS: List[str] = Field(default=["*"], env="ALLOWED_ORIGINS")
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = False
+    SECRET_KEY: str = "development-secret-key-change-in-production"
+    ALLOWED_HOSTS: List[str] = ["*"]
+    ALLOWED_ORIGINS: List[str] = ["*"]
     
     # Database
     DATABASE_URL: str = Field(..., env="DATABASE_URL")

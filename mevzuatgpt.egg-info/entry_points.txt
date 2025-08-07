@@ -1,0 +1,3 @@
+[console_scripts]
+mevzuatgpt-server = app:main
+mevzuatgpt-worker = app:run_celery_worker
