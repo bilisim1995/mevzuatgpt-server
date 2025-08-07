@@ -1,3 +1,4 @@
+README.md
 pyproject.toml
 ./api/__init__.py
 ./api/dependencies.py
@@ -11,15 +12,18 @@ pyproject.toml
 ./core/database.py
 ./core/logging.py
 ./core/security.py
+./core/supabase_client.py
 ./models/__init__.py
 ./models/database.py
 ./models/schemas.py
+./models/supabase_models.py
 ./services/__init__.py
 ./services/auth_service.py
 ./services/document_service.py
 ./services/embedding_service.py
 ./services/search_service.py
 ./services/storage_service.py
+./services/supabase_auth_service.py
 ./tasks/__init__.py
 ./tasks/celery_app.py
 ./tasks/document_processor.py
@@ -56,6 +60,10 @@ services/storage_service.py
 tasks/__init__.py
 tasks/celery_app.py
 tasks/document_processor.py
+tests/test_bunny_storage.py
+tests/test_celery_health.py
+tests/test_pdf_parsing.py
+tests/test_redis_connection.py
 utils/__init__.py
 utils/exceptions.py
 utils/response.py

@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Optional
 from uuid import UUID
 from datetime import datetime
 import PyPDF2
+import pdfplumber
 import io
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
@@ -185,7 +186,8 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
 
 def _extract_text_from_pdf(pdf_content: bytes) -> str:
     """
-    Extract text from PDF content using PyPDF2
+    Extract text content from PDF file using multiple methods
+    Tries pdfplumber first (better for complex PDFs), then falls back to PyPDF2
     
     Args:
         pdf_content: PDF file content as bytes
@@ -197,37 +199,74 @@ def _extract_text_from_pdf(pdf_content: bytes) -> str:
         AppException: If text extraction fails
     """
     try:
-        # Create PDF reader from bytes
         pdf_file = io.BytesIO(pdf_content)
-        pdf_reader = PyPDF2.PdfReader(pdf_file)
         
-        # Extract text from all pages
-        extracted_text = []
+        # Method 1: Try pdfplumber (better for complex PDFs)
+        logger.info("Attempting text extraction with pdfplumber...")
+        try:
+            extracted_text = []
+            with pdfplumber.open(pdf_file) as pdf:
+                total_pages = len(pdf.pages)
+                logger.info(f"PDF opened with pdfplumber - {total_pages} pages found")
+                
+                for page_num, page in enumerate(pdf.pages):
+                    try:
+                        page_text = page.extract_text()
+                        if page_text and page_text.strip():
+                            extracted_text.append(page_text.strip())
+                            logger.debug(f"Extracted {len(page_text)} characters from page {page_num + 1}")
+                        else:
+                            logger.debug(f"No text found on page {page_num + 1}")
+                    except Exception as page_error:
+                        logger.warning(f"pdfplumber failed on page {page_num + 1}: {str(page_error)}")
+                        continue
+            
+            if extracted_text:
+                full_text = "\n\n".join(extracted_text)
+                full_text = _clean_extracted_text(full_text)
+                logger.info(f"pdfplumber successfully extracted {len(full_text)} characters")
+                return full_text
+            else:
+                logger.warning("pdfplumber found no text content")
         
-        for page_num, page in enumerate(pdf_reader.pages):
-            try:
-                page_text = page.extract_text()
-                if page_text.strip():  # Only add non-empty pages
-                    extracted_text.append(page_text)
-                    logger.debug(f"Extracted text from page {page_num + 1}: {len(page_text)} characters")
-            except Exception as page_error:
-                logger.warning(f"Failed to extract text from page {page_num + 1}: {str(page_error)}")
-                continue
+        except Exception as plumber_error:
+            logger.warning(f"pdfplumber extraction failed: {str(plumber_error)}")
         
-        if not extracted_text:
-            raise AppException(
-                message="No text content found in PDF",
-                error_code="PDF_NO_TEXT_CONTENT"
-            )
+        # Method 2: Fallback to PyPDF2
+        logger.info("Attempting text extraction with PyPDF2...")
+        pdf_file.seek(0)  # Reset file pointer
         
-        # Combine all pages
-        full_text = "\n\n".join(extracted_text)
+        try:
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            logger.info(f"PDF opened with PyPDF2 - {len(pdf_reader.pages)} pages found")
+            
+            extracted_text = []
+            for page_num, page in enumerate(pdf_reader.pages):
+                try:
+                    page_text = page.extract_text()
+                    if page_text and page_text.strip():
+                        extracted_text.append(page_text.strip())
+                        logger.debug(f"Extracted {len(page_text)} characters from page {page_num + 1}")
+                except Exception as page_error:
+                    logger.warning(f"PyPDF2 failed on page {page_num + 1}: {str(page_error)}")
+                    continue
+            
+            if extracted_text:
+                full_text = "\n\n".join(extracted_text)
+                full_text = _clean_extracted_text(full_text)
+                logger.info(f"PyPDF2 successfully extracted {len(full_text)} characters")
+                return full_text
+            else:
+                logger.warning("PyPDF2 found no text content")
         
-        # Clean up the text
-        full_text = _clean_extracted_text(full_text)
+        except Exception as pypdf_error:
+            logger.warning(f"PyPDF2 extraction failed: {str(pypdf_error)}")
         
-        logger.info(f"Successfully extracted {len(full_text)} characters from PDF")
-        return full_text
+        # If both methods fail
+        raise AppException(
+            message="No text content found in PDF - file may be image-based or corrupted",
+            error_code="PDF_NO_TEXT_CONTENT"
+        )
         
     except PyPDF2.errors.PdfReadError as e:
         logger.error(f"PDF read error: {str(e)}")
