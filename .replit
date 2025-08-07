@@ -22,9 +22,6 @@ args = "MevzuatGPT API Server"
 name = "MevzuatGPT API Server"
 author = "agent"
 
-[workflows.workflow.metadata]
-outputType = "webview"
-
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python app.py server"
