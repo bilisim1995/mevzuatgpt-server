@@ -86,8 +86,9 @@ class StorageService:
                             error_code="STORAGE_UPLOAD_FAILED"
                         )
             
-            # Construct public URL
-            public_url = f"{self.storage_endpoint}/{storage_path}"
+            # Return the actual public CDN URL where file is accessible
+            # Bunny.net storage zone "mevzuatgpt" is accessible via cdn.mevzuatgpt.org
+            public_url = f"https://cdn.mevzuatgpt.org/{storage_path}"
             
             logger.info(f"File uploaded successfully: {filename} -> {unique_filename}")
             
@@ -127,8 +128,14 @@ class StorageService:
             parsed_url = urlparse(file_url)
             storage_path = parsed_url.path.lstrip('/')
             
-            # Construct download URL
-            download_url = f"{self.base_url}/{storage_path}"
+            # For downloads, we need to use the storage API endpoint, not the CDN
+            # But first check if this is already a CDN URL that needs conversion
+            if "cdn.mevzuatgpt.org" in file_url:
+                # Convert CDN URL back to storage API URL for download
+                download_url = f"{self.base_url}/{storage_path}"
+            else:
+                # Use the URL as-is for storage API
+                download_url = f"{self.base_url}/{storage_path}"
             
             # Download headers (without Content-Type)
             download_headers = {
