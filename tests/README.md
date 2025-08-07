@@ -59,3 +59,17 @@ Environment variables:
 - `BUNNY_STORAGE_ZONE`
 - `BUNNY_STORAGE_REGION`
 - `BUNNY_STORAGE_ENDPOINT`
+
+### Redis Connection Test
+```bash
+python tests/test_redis_connection.py
+```
+- Redis Cloud bağlantısını test eder
+- Temel Redis operasyonlarını doğrular
+- Celery broker/backend bağlantılarını test eder
+- Redis sunucu bilgilerini gösterir
+
+Environment variables:
+- `REDIS_URL`
+- `CELERY_BROKER_URL`
+- `CELERY_RESULT_BACKEND`
