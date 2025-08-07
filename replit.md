@@ -10,13 +10,14 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 
 ## Son Mimari Değişiklikler (7 Ağustos 2025)
 
-### PDF Upload Sistemi Tamamlandı ✅
+### PDF Upload Sistemi Tamamlandı ve Temizlendi ✅
 - **Database Connection**: AsyncPG SSL parametreleri düzeltildi (`ssl=require`)
-- **Storage Fallback**: Bunny.net bağlantı sorunları için local storage fallback eklendi
+- **Bunny.net Integration**: Sadece production Bunny.net storage kullanılıyor, local storage kaldırıldı
 - **Database Tables**: `mevzuat_documents` ve `mevzuat_embeddings` tabloları oluşturuldu
-- **Admin Authentication**: Test admin kullanıcısı ve tam kimlik doğrulama sistemi çalışıyor
-- **File Upload**: Multipart form-data ile PDF upload ve metadata işleme tamamlandı
+- **Authentication**: Supabase Auth ile tam kimlik doğrulama sistemi
+- **File Upload**: Multipart form-data ile PDF upload ve metadata işleme
 - **Background Tasks**: Celery task sistem entegrasyonu hazır
+- **Code Cleanup**: Tüm test kullanıcıları, local storage fallback ve test kodları temizlendi
 
 ## Son Mimari Değişiklikler (7 Ağustos 2025)
 

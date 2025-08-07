@@ -68,67 +68,45 @@ class StorageService:
             upload_headers = self.headers.copy()
             upload_headers["Content-Type"] = content_type
             
-            # Try Bunny.net upload first, fallback to local storage if network fails
-            try:
-                timeout = aiohttp.ClientTimeout(total=30)
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.put(
-                        upload_url,
-                        data=file_content,
-                        headers=upload_headers
-                    ) as response:
-                        
-                        if response.status not in [200, 201]:
-                            error_text = await response.text()
-                            logger.error(f"Bunny.net upload failed: {response.status} - {error_text}")
-                            raise AppException(
-                                message="Failed to upload file to storage",
-                                detail=f"Storage API returned {response.status}: {error_text}",
-                                error_code="STORAGE_UPLOAD_FAILED"
-                            )
-                        
-                        # Construct public URL for successful upload
-                        public_url = f"{self.storage_endpoint}/{storage_path}"
-                        logger.info(f"File uploaded successfully to Bunny.net: {filename} -> {unique_filename}")
-                        return public_url
-                        
-            except aiohttp.ClientError as e:
-                logger.warning(f"Bunny.net upload failed, using local fallback: {str(e)}")
-                # Fallback to local storage for development/testing
-                return await self._upload_to_local_storage(file_content, unique_filename, folder)
+            # Upload to Bunny.net
+            timeout = aiohttp.ClientTimeout(total=60)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.put(
+                    upload_url,
+                    data=file_content,
+                    headers=upload_headers
+                ) as response:
+                    
+                    if response.status not in [200, 201]:
+                        error_text = await response.text()
+                        logger.error(f"Bunny.net upload failed: {response.status} - {error_text}")
+                        raise AppException(
+                            message="Failed to upload file to storage",
+                            detail=f"Storage API returned {response.status}: {error_text}",
+                            error_code="STORAGE_UPLOAD_FAILED"
+                        )
+            
+            # Construct public URL
+            public_url = f"{self.storage_endpoint}/{storage_path}"
+            
+            logger.info(f"File uploaded successfully: {filename} -> {unique_filename}")
+            
+            return public_url
 
             
+        except aiohttp.ClientError as e:
+            logger.error(f"HTTP client error during upload: {str(e)}")
+            raise AppException(
+                message="Network error during file upload",
+                detail=str(e),
+                error_code="STORAGE_NETWORK_ERROR"
+            )
         except Exception as e:
             logger.error(f"Unexpected error during upload: {str(e)}")
             raise AppException(
                 message="Failed to upload file",
                 detail=str(e),
                 error_code="STORAGE_UPLOAD_ERROR"
-            )
-    
-    async def _upload_to_local_storage(self, file_content: bytes, unique_filename: str, folder: str) -> str:
-        """Fallback local storage for development/testing"""
-        try:
-            # Create upload directory
-            upload_dir = f"uploads/{folder}"
-            os.makedirs(upload_dir, exist_ok=True)
-            
-            # Save file locally
-            file_path = f"{upload_dir}/{unique_filename}"
-            with open(file_path, 'wb') as f:
-                f.write(file_content)
-            
-            # Return local URL (for development)
-            local_url = f"https://d918281c-1bd6-402c-9393-c4aff6ab45cd-00-24vj3sc6uk3ba.worf.replit.dev/uploads/{folder}/{unique_filename}"
-            logger.info(f"File saved to local storage: {file_path}")
-            return local_url
-            
-        except Exception as e:
-            logger.error(f"Local storage fallback failed: {str(e)}")
-            raise AppException(
-                message="Failed to save file to local storage",
-                detail=str(e),
-                error_code="LOCAL_STORAGE_ERROR"
             )
     
     async def download_file(self, file_url: str) -> bytes:
