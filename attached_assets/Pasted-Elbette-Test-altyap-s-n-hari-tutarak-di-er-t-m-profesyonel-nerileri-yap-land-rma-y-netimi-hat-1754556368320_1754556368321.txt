@@ -1,0 +1,140 @@
+Elbette. Test altyapısını hariç tutarak, diğer tüm profesyonel önerileri (yapılandırma yönetimi, hata yönetimi, veri doğrulama ve modern veritabanı etkileşimi) içeren, endüstri standardında ve production'a hazır bir sistem talep eden, nihai ve en gelişmiş prompt'u hazırladım.
+
+Bu, Replit Agent'a verdiğinizde, sadece çalışan bir prototip değil, aynı zamanda sağlam, güvenli ve bakımı kolay bir uygulamanın temelini oluşturmasını sağlayacaktır.
+
+Replit Agent için Nihai ve Üretim Seviyesi Prompt
+
+Görev Başlığı: Python ile Üretim Seviyesi RAG Sistemi: Güvenlik, Hata Yönetimi ve Veri Doğrulama
+
+## 1. Senin Rolün (Persona)
+
+Sen, production ortamı için güvenli API'ler, sağlam veri işleme hatları ve modern veritabanı mimarileri tasarlama konusunda uzmanlaşmış, kıdemli bir Python backend geliştiricisisin. Görevin, aşağıda detayları verilen, rol bazlı erişim kontrolüne sahip RAG sistemi için sağlam, güvenli, hataya dayanıklı ve yönetilebilir bir mimari tasarlamak ve temel kod yapısını oluşturmaktır.
+
+## 2. Projenin Ana Hedefi
+
+"MevzuatGPT" adlı bir sistem için, sadece yetkilendirilmiş ('admin' rolüne sahip) kullanıcıların PDF yükleyebildiği, yüklenen her dokümanın hangi kullanıcı tarafından eklendiğinin takip edildiği ve bu dokümanların içeriğinin anlamsal olarak aranabilir hale getirilerek bir vektör veritabanına kaydedildiği, üretim kalitesinde bir Python backend uygulaması oluşturmak.
+
+## 3. Teknoloji Stack ve Profesyonel Yaklaşımlar
+
+Alan	Teknoloji / Kütüphane	Yaklaşım ve Gerekçesi
+Orkestratör	FastAPI	Yüksek performans, otomatik OpenAPI dökümantasyonu ve Pydantic ile doğal entegrasyon için tercih edilmelidir.
+Yapılandırma	Pydantic Settings	Tüm ortam değişkenlerini (.env'den okunan API anahtarları, DB URL'leri vb.) tek bir, tip kontrollü config.py sınıfında yönet. Bu, eksik veya hatalı yapılandırmaları uygulama başlarken yakalar.
+Veri Doğrulama	Pydantic Modelleri	Tüm API isteklerinin (body, query params) Pydantic modelleri ile otomatik olarak doğrulanmasını sağla. Bu, manuel if/else kontrollerini ortadan kaldırır ve API'yi daha güvenli hale getirir.
+Kimlik Doğrulama	Supabase Auth & PyJWT	JWT tabanlı, rol bazlı yetkilendirme (RBAC) mekanizmasını kur.
+Veritabanı	SQLAlchemy Core veya asyncpg	Ham psycopg2 yerine, asenkron, güvenli ve bağlantı havuzunu (connection pooling) destekleyen modern bir kütüphane kullan. Bu, SQL injection'a karşı koruma sağlar ve performansı artırır.
+Fiziksel Arşiv	Bunny.net Storage API	Orijinal PDF dosyalarının saklandığı yer.
+Metin İşlemcisi	langchain	PDF'ten metin çıkarma ve parçalama işlemleri.
+AI Motoru	OpenAI API	Metin embedding'lerini oluşturma.
+Arka Plan İşleri	Celery & Redis	Uzun süren PDF işleme görevlerini asenkron olarak ve yeniden deneme (retry) mekanizmalarıyla çalıştır.
+Hata Yönetimi	Python logging modülü	Tüm dış servis çağrılarını try...except blokları içine al. Hataları, uyarıları ve önemli olayları standart logging kütüphanesi ile yapılandırılmış bir formattaki loglara yazdır.
+
+## 4. Gerekli Veritabanı Şeması ve SQL Kodları
+(Bu bölüm bir önceki prompt ile aynıdır ve eksiksizdir.)
+
+### 4.1. mevzuat_documents Tablosu
+
+Generated sql
+CREATE TABLE mevzuat_documents ( id UUID PRIMARY KEY DEFAULT gen_random_uuid(), baslik TEXT NOT NULL, kategori TEXT, yayin_tarihi DATE, durum TEXT DEFAULT 'aktif', aciklama TEXT, keywords TEXT[], kaynak_kurum TEXT, file_name TEXT NOT NULL, file_url TEXT NOT NULL, file_size BIGINT, processing_status VARCHAR(20) DEFAULT 'pending', uploaded_by UUID REFERENCES auth.users(id), uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE INDEX idx_kategori ON mevzuat_documents(kategori);
+CREATE INDEX idx_uploaded_by ON mevzuat_documents(uploaded_by);
+
+
+### 4.2. mevzuat_embeddings Tablosu
+
+Generated sql
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE mevzuat_embeddings ( id UUID PRIMARY KEY DEFAULT gen_random_uuid(), document_id UUID REFERENCES mevzuat_documents(id) ON DELETE CASCADE, content TEXT, embedding VECTOR(1536), metadata JSONB, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE INDEX ON mevzuat_embeddings USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+SQL
+IGNORE_WHEN_COPYING_END
+
+### 4.3. Rol Yönetimi Fonksiyonu
+
+Generated sql
+CREATE TABLE public.users ( id UUID NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE, role TEXT );
+CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS TRIGGER AS $$ BEGIN INSERT INTO public.users (id, role) VALUES (new.id, new.raw_user_meta_data->>'role'); RETURN new; END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+SQL
+IGNORE_WHEN_COPYING_END
+
+## 5. Sistem Mimarisi ve Gelişmiş API Akışı
+
+5.1. Kimlik Doğrulama ve Oturum Yönetimi
+
+/register (POST): Yeni kullanıcı kaydı oluşturur. İstek body'si, bir Pydantic modeli ile doğrulanmalıdır.
+
+/login (POST): Kullanıcıyı doğrular ve ona bir JWT verir.
+
+Yetkilendirme Decorator'ı (Depends in FastAPI): PDF yükleme gibi korumalı endpoint'ler, FastAPI'nin Depends özelliğini kullanarak bir yetkilendirme fonksiyonu çağırmalıdır. Bu fonksiyon:
+
+Authorization: Bearer <token> başlığındaki JWT'yi doğrular.
+
+Token içindeki role'ün admin olup olmadığını kontrol eder.
+
+Başarısız olursa HTTPException fırlatır, başarılı olursa token'dan çözülen kullanıcı bilgisini endpoint'e döndürür.
+
+5.2. Korumalı PDF Yükleme Akışı (/upload-mevzuat)
+
+Veri Doğrulama: Bu endpoint'e gelen multipart/form-data verileri (meta veriler), bir Pydantic modeli kullanılarak doğrulanmalıdır.
+
+Yetki Kontrolü: Endpoint, Depends ile yetkilendirme fonksiyonunu çağırır. Sadece 'admin' rolüne sahip kullanıcılar devam edebilir.
+
+Hata Yönetimi ile Harici Çağrılar:
+
+Bunny.net'e Yükleme: try...except bloku içinde PDF'i Bunny.net'e yükle. Başarısız olursa, hatayı logla ve kullanıcıya 500 Internal Server Error döndür.
+
+Supabase'e Kayıt: try...except bloku içinde meta verileri Supabase'e kaydet. uploaded_by alanına token'dan gelen user_id'yi ekle. Başarısız olursa, hatayı logla ve az önce Bunny.net'e yüklenen dosyayı silmek için bir telafi işlemi (compensating transaction) düşün (opsiyonel).
+
+Görevi Tetikle: Veritabanı kaydı başarılı olursa, alınan document_id ile bir Celery arka plan görevini tetikle.
+
+Hızlı Yanıt Dön: Kullanıcıya işlemin başarıyla sıraya alındığına dair bir JSON yanıtı döndür.
+
+5.3. Arka Plan PDF İşleme Akışı (Hataya Dayanıklı Celery Task)
+
+Görevi Başlat: document_id ile görevi başlat.
+
+Hata Yönetimi: Tüm görev mantığını büyük bir try...except bloku içine al.
+
+Adımları Uygula:
+
+PDF'i Bunny.net'ten indir.
+
+LangChain ile metni işle.
+
+OpenAI ile vektörleri oluştur.
+
+Supabase'e vektörleri kaydet.
+
+Başarı Durumu: try bloku başarıyla tamamlarsa, mevzuat_documents tablosundaki kaydın processing_status'unu 'completed' olarak güncelle.
+
+Hata Durumu: except bloku bir hata yakalarsa:
+
+Detaylı hata mesajını logla.
+
+mevzuat_documents tablosundaki kaydın processing_status'unu 'failed' olarak güncelle.
+
+Celery'nin otomatik yeniden deneme (retry) özelliğini, geçici ağ hataları için 3 denemeye kadar yapılandır.
+
+## 6. Senin Görevin
+
+Bu gelişmiş ve sağlam mimariyi temel alarak, aşağıdaki maddeleri içeren bir başlangıç projesi oluştur:
+
+Proje Dosya Yapısı: main.py (FastAPI app), core/ (config, db), api/ (routers), services/, tasks/ (celery) gibi mantıklı bir klasör yapısı öner.
+
+Yapılandırma: Pydantic Settings kullanan bir core/config.py dosyası oluştur.
+
+API Kodları: Veri doğrulama ve yetkilendirme içeren /register, /login ve /upload-mevzuat endpoint'lerini oluştur.
+
+Hata Yönetimi ve Logging: Uygulama genelinde loglama ve hata yönetimi için temel bir yapı kur.
+
+Arka Plan Görev Kodu: Yeniden deneme ve hata durumu güncelleme mantığını içeren tasks/ içindeki Celery görevini yaz.
+
+Gerekli Kütüphaneler: Tüm bu işlevselliği destekleyen kütüphaneleri içeren bir requirements.txt dosyası oluştur.
