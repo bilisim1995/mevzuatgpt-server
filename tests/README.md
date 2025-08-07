@@ -69,6 +69,25 @@ python tests/test_redis_connection.py
 - Celery broker/backend bağlantılarını test eder
 - Redis sunucu bilgilerini gösterir
 
+### Celery Health Check
+```bash
+python tests/test_celery_health.py
+```
+- Kapsamlı Celery ve Redis sağlık kontrolü
+- Worker durumlarını detaylı analiz eder
+- Queue durumunu ve task istatistiklerini gösterir
+- Sistem sağlığı raporunu oluşturur
+- Problem durumunda öneriler sunar
+
+### Celery Status Check
+```bash
+python tests/check_celery_status.py
+```
+- Aktif worker'ları listeler
+- Çalışan ve bekleyen task'ları gösterir
+- Worker istatistiklerini detaylandırır
+- Broker bağlantı durumunu kontrol eder
+
 Environment variables:
 - `REDIS_URL`
 - `CELERY_BROKER_URL`
