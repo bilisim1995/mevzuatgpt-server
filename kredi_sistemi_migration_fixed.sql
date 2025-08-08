@@ -44,12 +44,12 @@ ALTER TABLE user_credits ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own credits" ON user_credits
     FOR SELECT USING (auth.uid() = user_id);
 
--- Admin kullanıcılar tüm kredileri görebilir (user_profiles.id kullanıyor)
+-- Admin kullanıcılar tüm kredileri görebilir (user_profiles.user_id kullanıyor)
 CREATE POLICY "Admins can view all credits" ON user_credits
     FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM user_profiles 
-            WHERE id = auth.uid() 
+            WHERE user_id = auth.uid() 
             AND role = 'admin'
         )
     );
@@ -58,16 +58,16 @@ CREATE POLICY "Admins can view all credits" ON user_credits
 CREATE POLICY "Service can manage credits" ON user_credits
     FOR ALL USING (true);
 
--- ADIM 6A: Mevcut kullanıcılara kredi ver (user_profiles.id kullanıyor)
+-- ADIM 6A: Mevcut kullanıcılara kredi ver (user_profiles.user_id kullanıyor)
 INSERT INTO user_credits (user_id, transaction_type, amount, balance_after, description)
 SELECT 
-    id,
+    user_id,
     'initial',
     30,
     30,
     'Sistem geçiş kredisi - Kredi sistemi aktivasyonu'
 FROM user_profiles
-WHERE id NOT IN (
+WHERE user_id NOT IN (
     SELECT DISTINCT user_id FROM user_credits WHERE transaction_type = 'initial'
 );
 
@@ -145,13 +145,14 @@ WHERE transaction_type = 'initial';
 
 -- 4. Kullanıcı bakiye özetleri (user_profiles.id ile join)
 SELECT 
-    up.email,
+    up.user_id,
+    up.full_name,
     up.role,
     COALESCE(ucb.current_balance, 0) as credits,
     ucb.transaction_count,
     ucb.last_transaction
 FROM user_profiles up
-LEFT JOIN user_credit_balance ucb ON up.id = ucb.user_id
+LEFT JOIN user_credit_balance ucb ON up.user_id = ucb.user_id
 ORDER BY ucb.current_balance DESC NULLS LAST;
 
 -- 5. RLS politikaları kontrol
