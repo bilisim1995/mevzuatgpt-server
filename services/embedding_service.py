@@ -228,11 +228,12 @@ class EmbeddingService:
             List of similar embeddings with similarity scores
         """
         try:
-            # Use Supabase search_embeddings function for vector similarity
+            # Use Supabase REST API directly for vector similarity (bypass SQLAlchemy)
+            from models.supabase_client import supabase_client
+            import json
+            
+            # Try Supabase stored function first
             try:
-                # Call Supabase stored function
-                from models.supabase_client import supabase_client
-                
                 response = supabase_client.supabase.rpc('search_embeddings', {
                     'query_embedding': query_embedding,
                     'match_threshold': similarity_threshold,
@@ -258,66 +259,64 @@ class EmbeddingService:
                     
                     logger.info(f"Found {len(results)} similar embeddings via Supabase RPC")
                     return results
-                
+                    
             except Exception as rpc_error:
-                logger.warning(f"Supabase RPC search failed, falling back to direct query: {rpc_error}")
+                logger.warning(f"Supabase RPC search failed, trying direct table query: {rpc_error}")
             
-            # Fallback to direct SQL (with text() wrapper) 
-            from sqlalchemy import text
-            import json
+            # Fallback: Use direct Supabase table query without SQLAlchemy
+            try:
+                # Query embeddings directly from Supabase
+                embedding_response = supabase_client.supabase.table('mevzuat_embeddings') \
+                    .select('id, document_id, content, metadata, mevzuat_documents(title, category, source_institution, publish_date)') \
+                    .execute()
+                
+                if embedding_response.data:
+                    # Calculate cosine similarity in Python (fallback)
+                    import numpy as np
+                    
+                    results = []
+                    for embedding_row in embedding_response.data:
+                        # Get embedding vector
+                        stored_embedding = embedding_row.get('embedding')
+                        if not stored_embedding:
+                            continue
+                            
+                        # Calculate cosine similarity
+                        stored_vec = np.array(stored_embedding)
+                        query_vec = np.array(query_embedding)
+                        
+                        # Cosine similarity
+                        similarity = np.dot(stored_vec, query_vec) / (np.linalg.norm(stored_vec) * np.linalg.norm(query_vec))
+                        
+                        if similarity >= similarity_threshold:
+                            doc_info = embedding_row.get('mevzuat_documents', {})
+                            
+                            results.append({
+                                "id": embedding_row["id"],
+                                "document_id": embedding_row["document_id"],
+                                "content": embedding_row["content"],
+                                "metadata": embedding_row.get("metadata", {}),
+                                "created_at": None,
+                                "document_title": doc_info.get("title", "Unknown Document"),
+                                "category": doc_info.get("category"),
+                                "source_institution": doc_info.get("source_institution"),
+                                "publish_date": doc_info.get("publish_date"),
+                                "similarity_score": float(similarity)
+                            })
+                    
+                    # Sort by similarity and limit
+                    results.sort(key=lambda x: x["similarity_score"], reverse=True)
+                    results = results[:limit]
+                    
+                    logger.info(f"Found {len(results)} similar embeddings via direct Supabase query")
+                    return results
+                    
+            except Exception as direct_error:
+                logger.error(f"Direct Supabase query also failed: {direct_error}")
             
-            # Convert embedding to proper format for PostgreSQL
-            embedding_str = json.dumps(query_embedding)
-            
-            query_text = text("""
-            SELECT 
-                e.id,
-                e.document_id,
-                e.content,
-                e.metadata,
-                e.created_at,
-                d.title as document_title,
-                d.category,
-                d.source_institution,  
-                d.publish_date,
-                1 - (e.embedding <=> :query_embedding::vector) as similarity_score
-            FROM mevzuat_embeddings e
-            JOIN mevzuat_documents d ON e.document_id = d.id
-            WHERE d.status IN ('completed', 'active')
-                AND (1 - (e.embedding <=> :query_embedding::vector)) >= :similarity_threshold
-            ORDER BY similarity_score DESC 
-            LIMIT :limit
-            """)
-            
-            params = {
-                'query_embedding': embedding_str,
-                'similarity_threshold': similarity_threshold,
-                'limit': limit
-            }
-            
-            # Execute with SQLAlchemy text query
-            result = await self.db.execute(query_text, params)
-            rows = result.fetchall()
-            
-            # Convert results to dictionaries
-            results = []
-            for row in rows:
-                results.append({
-                    "id": row[0],
-                    "document_id": row[1],
-                    "content": row[2],
-                    "metadata": row[3] or {},
-                    "created_at": row[4],
-                    "document_title": row[5],
-                    "category": row[6],
-                    "source_institution": row[7],
-                    "publish_date": row[8],
-                    "similarity_score": float(row[9])
-                })
-            
-            logger.info(f"Found {len(results)} similar embeddings")
-            
-            return results
+            # Final fallback: empty results
+            logger.warning("All search methods failed, returning empty results")
+            return []
             
         except Exception as e:
             logger.error(f"Failed to search similar embeddings: {str(e)}")
