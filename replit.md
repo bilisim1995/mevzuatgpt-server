@@ -18,14 +18,16 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 - **Queue Management**: Redis Cloud bağlantısı stabil, worker health monitoring aktif
 - **Error Handling**: Kapsamlı retry logic ve status tracking sistemi
 
-### ✅ Supabase Geçiş Tamamlandı (8 Ağustos 2025)
+### ✅ Supabase Geçiş ve PDF Pipeline Tamamlandı (8 Ağustos 2025)
 - **DATABASE_URL**: Supabase PostgreSQL'e başarıyla geçiş yapıldı
 - **API Keys**: SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_KEY aktif
 - **Schema Migration**: Tablolar Supabase'de oluşturuldu (user_profiles, mevzuat_documents, mevzuat_embeddings, search_logs)
 - **Network**: Replit→Supabase REST API entegrasyonu çalışıyor
 - **Status**: Sistem Supabase üzerinden tamamen operasyonel
 - **Code Update**: models/supabase_client.py ile REST API wrapper entegrasyonu tamamlandı
-- **PDF Pipeline**: Celery→Supabase entegrasyonu hazır, embedding storage aktif
+- **PDF Pipeline**: ✅ Tam operasyonel - embedding dimension sorunu çözüldü (3072→1536)
+- **Embedding Quality**: Rich metadata support eklendi (chunk context, document info, text preview)
+- **Vector Search**: 17 chunks başarıyla işlendi ve Supabase'de saklandı
 
 ## Son Mimari Değişiklikler (7 Ağustos 2025)
 

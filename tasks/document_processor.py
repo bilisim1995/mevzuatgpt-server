@@ -146,17 +146,30 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
         # Step 5: Generate embeddings for chunks using Supabase
         logger.info(f"Generating embeddings for {len(text_chunks)} chunks")
         
-        # Store embeddings one by one using Supabase client
+        # Store embeddings one by one using Supabase client with metadata
         for i, chunk_text in enumerate(text_chunks):
             # Generate embedding for this chunk
             embedding = await embedding_service.generate_embedding(chunk_text)
             
-            # Store in Supabase
+            # Prepare rich metadata for search quality
+            chunk_metadata = {
+                "chunk_index": i,
+                "total_chunks": len(text_chunks),
+                "chunk_length": len(chunk_text),
+                "document_title": document['title'],
+                "document_filename": document['filename'],
+                "document_metadata": document.get('metadata', {}),
+                "processing_timestamp": datetime.now().isoformat(),
+                "text_preview": chunk_text[:200] + "..." if len(chunk_text) > 200 else chunk_text
+            }
+            
+            # Store in Supabase with metadata
             await supabase_client.create_embedding(
                 doc_id=document_id,
                 content=chunk_text,
                 embedding=embedding,
-                chunk_index=i
+                chunk_index=i,
+                metadata=chunk_metadata
             )
         
         # Step 6: Update document status to completed

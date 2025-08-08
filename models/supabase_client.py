@@ -55,15 +55,15 @@ class SupabaseClient:
             print(f"Update document status error: {e}")
             raise
     
-    async def create_embedding(self, doc_id: str, content: str, embedding: List[float], chunk_index: int = 0):
-        """Create an embedding record"""
+    async def create_embedding(self, doc_id: str, content: str, embedding: List[float], chunk_index: int = 0, metadata: dict = None):
+        """Create an embedding record with rich metadata"""
         try:
             response = self.supabase.table('mevzuat_embeddings').insert({
                 'document_id': doc_id,
                 'content': content,
                 'embedding': embedding,
                 'chunk_index': chunk_index,
-                'metadata': {}
+                'metadata': metadata or {}
             }).execute()
             
             return response.data[0]['id']
@@ -83,14 +83,18 @@ class SupabaseClient:
             results = []
             for item in response.data:
                 if item['mevzuat_documents']['status'] == 'completed':
-                    # Simple content matching for now
+                    # Enhanced search results with metadata
+                    metadata = item.get('metadata', {})
                     results.append({
                         'id': item['id'],
                         'document_id': item['document_id'],
                         'content': item['content'],
-                        'similarity': 0.8,  # Mock similarity
+                        'similarity': 0.8,  # Mock similarity for now
                         'document_title': item['mevzuat_documents']['title'],
-                        'document_filename': item['mevzuat_documents']['filename']
+                        'document_filename': item['mevzuat_documents']['filename'],
+                        'chunk_index': item.get('chunk_index', 0),
+                        'metadata': metadata,
+                        'text_preview': metadata.get('text_preview', item['content'][:200])
                     })
             
             return results[:limit]
