@@ -18,10 +18,12 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 - **Queue Management**: Redis Cloud bağlantısı stabil, worker health monitoring aktif
 - **Error Handling**: Kapsamlı retry logic ve status tracking sistemi
 
-### Veritabanı Durumu
-- **Neon Database**: db.omublqdeerbszkuuvoim.supabase.co yerine ep-soft-credit-afgz97nh.c-2.us-west-2.aws.neon.tech kullanılıyor
-- **Tablolar**: mevzuat_documents (2 kayıt), mevzuat_embeddings (pgvector hazır)
-- **Admin Panel**: Neon Console üzerinden tabloları görüntüleyebilirsiniz
+### Supabase Geçiş Süreci (Devam Ediyor)
+- **DATABASE_URL**: Supabase PostgreSQL'e yönlendirildi
+- **API Keys**: SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_KEY eklendi
+- **Schema Migration**: supabase_setup.sql hazırlandı, manuel uygulama gerekiyor
+- **Network**: Replit'ten direct PostgreSQL connection kısıtlı, Supabase REST API kullanılacak
+- **Status**: Tablolar Supabase SQL Editor'da manuel oluşturulmalı
 
 ## Son Mimari Değişiklikler (7 Ağustos 2025)
 
