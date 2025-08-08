@@ -8,16 +8,15 @@ MevzuatGPT, hukuki belge işleme ve semantik arama için tasarlanmış üretim k
 
 Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 
-## Son Mimari Değişiklikler (7 Ağustos 2025)
+## Son Mimari Değişiklikler (8 Ağustos 2025)
 
-### PDF Upload Sistemi Tamamlandı ve Temizlendi ✅
-- **Database Connection**: AsyncPG SSL parametreleri düzeltildi (`ssl=require`)
-- **Bunny.net Integration**: Sadece production Bunny.net storage kullanılıyor, local storage kaldırıldı
-- **Database Tables**: `mevzuat_documents` ve `mevzuat_embeddings` tabloları oluşturuldu
-- **Authentication**: Supabase Auth ile tam kimlik doğrulama sistemi
-- **File Upload**: Multipart form-data ile PDF upload ve metadata işleme
-- **Background Tasks**: Celery task sistem entegrasyonu hazır
-- **Code Cleanup**: Tüm test kullanıcıları, local storage fallback ve test kodları temizlendi
+### PDF Processing Pipeline Tamamen Operasyonel ✅
+- **pgvector Extension**: Etkinleştirildi ve vektör boyutu 3072'ye ayarlandı (text-embedding-3-large)
+- **Embedding Storage**: String parsing sorunu çözüldü, vektörler doğru formatta kaydediliyor
+- **Async Loop Management**: Celery task'larda connection cleanup sistemi eklendi
+- **OpenAI API**: 100% operasyonel (embedding + chat), quota sorunu çözüldü
+- **Queue Management**: Redis Cloud bağlantısı stabil, worker health monitoring aktif
+- **Error Handling**: Kapsamlı retry logic ve status tracking sistemi
 
 ## Son Mimari Değişiklikler (7 Ağustos 2025)
 
