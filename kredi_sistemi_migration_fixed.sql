@@ -1,9 +1,15 @@
 -- ===================================================================
--- MEVZUATGPT KREDİ SİSTEMİ - DATABASE MIGRATION
--- Bu SQL kodlarını Supabase SQL Editor'da çalıştırın
+-- MEVZUATGPT KREDİ SİSTEMİ - DÜZELTILMIŞ DATABASE MIGRATION
+-- Bu SQL kodlarını Supabase SQL Editor'da adım adım çalıştırın
 -- ===================================================================
 
--- 1. Kredi transaction tablosu oluştur
+-- ADIM 1: Önce user_profiles tablosu yapısını kontrol edin
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'user_profiles' 
+AND column_name LIKE '%user%' OR column_name = 'id';
+
+-- ADIM 2: Kredi transaction tablosu oluştur
 CREATE TABLE IF NOT EXISTS user_credits (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
@@ -15,13 +21,13 @@ CREATE TABLE IF NOT EXISTS user_credits (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. Performans için indeksler oluştur
+-- ADIM 3: Performans için indeksler oluştur
 CREATE INDEX IF NOT EXISTS idx_user_credits_user_id ON user_credits(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_credits_created_at ON user_credits(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_credits_transaction_type ON user_credits(transaction_type);
 CREATE INDEX IF NOT EXISTS idx_user_credits_user_created ON user_credits(user_id, created_at DESC);
 
--- 3. Kullanıcı bakiye hesaplama view'i oluştur
+-- ADIM 4: Kullanıcı bakiye hesaplama view'i oluştur
 CREATE OR REPLACE VIEW user_credit_balance AS 
 SELECT 
     user_id, 
@@ -31,14 +37,14 @@ SELECT
 FROM user_credits 
 GROUP BY user_id;
 
--- 4. RLS (Row Level Security) politikaları
+-- ADIM 5: RLS (Row Level Security) politikaları
 ALTER TABLE user_credits ENABLE ROW LEVEL SECURITY;
 
 -- Kullanıcılar sadece kendi kredilerini görebilir
 CREATE POLICY "Users can view own credits" ON user_credits
     FOR SELECT USING (auth.uid() = user_id);
 
--- Admin kullanıcılar tüm kredileri görebilir  
+-- Admin kullanıcılar tüm kredileri görebilir (user_profiles.id kullanıyor)
 CREATE POLICY "Admins can view all credits" ON user_credits
     FOR SELECT USING (
         EXISTS (
@@ -48,16 +54,11 @@ CREATE POLICY "Admins can view all credits" ON user_credits
         )
     );
 
--- Sadece sistem servisi kredi işlemi yapabilir (INSERT için service key gerekli)
+-- Sadece sistem servisi kredi işlemi yapabilir
 CREATE POLICY "Service can manage credits" ON user_credits
     FOR ALL USING (true);
 
--- 5. Mevcut tüm kullanıcılara başlangıç kredisi ver (30 kredi)
--- NOT: user_profiles tablosundaki doğru kolon adını kullanın (id veya user_id)
--- Önce hangi kolon adının kullanıldığını kontrol edin:
--- SELECT column_name FROM information_schema.columns WHERE table_name = 'user_profiles' AND column_name LIKE '%user%';
-
--- Seçenek A: Eğer kolon adı 'id' ise
+-- ADIM 6A: Mevcut kullanıcılara kredi ver (user_profiles.id kullanıyor)
 INSERT INTO user_credits (user_id, transaction_type, amount, balance_after, description)
 SELECT 
     id,
@@ -70,24 +71,7 @@ WHERE id NOT IN (
     SELECT DISTINCT user_id FROM user_credits WHERE transaction_type = 'initial'
 );
 
--- Seçenek B: Eğer kolon adı 'user_id' ise, aşağıdaki kodu kullanın:
-/*
-INSERT INTO user_credits (user_id, transaction_type, amount, balance_after, description)
-SELECT 
-    user_id,
-    'initial',
-    30,
-    30,
-    'Sistem geçiş kredisi - Kredi sistemi aktivasyonu'  
-FROM user_profiles
-WHERE user_id NOT IN (
-    SELECT DISTINCT user_id FROM user_credits WHERE transaction_type = 'initial'
-);
-*/
-
--- 6. Helpful functions (opsiyonel)
-
--- Kullanıcı bakiye getirme fonksiyonu
+-- ADIM 7: Yardımcı fonksiyonlar oluştur
 CREATE OR REPLACE FUNCTION get_user_credit_balance(target_user_id UUID)
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -104,7 +88,7 @@ BEGIN
 END;
 $$;
 
--- Kredi transaction ekleme fonksiyonu
+-- ADIM 8: Kredi transaction ekleme fonksiyonu
 CREATE OR REPLACE FUNCTION add_credit_transaction(
     target_user_id UUID,
     txn_type TEXT,
@@ -137,29 +121,29 @@ END;
 $$;
 
 -- ===================================================================
--- DOĞRULAMA SORGULARI (Migration sonrası test için)
+-- DOĞRULAMA SORGULARI
 -- ===================================================================
 
--- Tablo oluşturuldu mu kontrol et
+-- 1. Tablo oluşturuldu mu?
 SELECT EXISTS (
     SELECT FROM information_schema.tables 
     WHERE table_schema = 'public' 
     AND table_name = 'user_credits'
 ) as table_exists;
 
--- View oluşturuldu mu kontrol et  
+-- 2. View oluşturuldu mu?
 SELECT EXISTS (
     SELECT FROM information_schema.views 
     WHERE table_schema = 'public' 
     AND table_name = 'user_credit_balance'
 ) as view_exists;
 
--- Kaç kullanıcıya başlangıç kredisi verildi
+-- 3. Kaç kullanıcıya başlangıç kredisi verildi?
 SELECT COUNT(*) as users_with_initial_credits
 FROM user_credits 
 WHERE transaction_type = 'initial';
 
--- Kullanıcı bakiye özetleri
+-- 4. Kullanıcı bakiye özetleri (user_profiles.id ile join)
 SELECT 
     up.email,
     up.role,
@@ -170,10 +154,15 @@ FROM user_profiles up
 LEFT JOIN user_credit_balance ucb ON up.id = ucb.user_id
 ORDER BY ucb.current_balance DESC NULLS LAST;
 
+-- 5. RLS politikaları kontrol
+SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual 
+FROM pg_policies 
+WHERE tablename = 'user_credits';
+
 -- ===================================================================
--- NOT: Bu migration'ı çalıştırdıktan sonra, aşağıdaki kontrolleri yapın:
--- 1. user_credits tablosu oluşturuldu mu?
--- 2. user_credit_balance view'i çalışıyor mu? 
--- 3. Mevcut kullanıcılar 30 kredi aldı mı?
--- 4. RLS politikaları aktif mi?
+-- NOT: Migration adımları:
+-- 1. Önce ADIM 1'i çalıştırıp user_profiles yapısını kontrol edin
+-- 2. Eğer kolon adı 'user_id' ise, tüm 'id' referanslarını 'user_id' yapın
+-- 3. Diğer adımları sırayla çalıştırın
+-- 4. Son doğrulama sorgularını çalıştırıp sonuçları kontrol edin
 -- ===================================================================
