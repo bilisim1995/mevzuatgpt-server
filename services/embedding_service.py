@@ -296,7 +296,8 @@ class EmbeddingService:
                             
                             logger.debug(f"Calculated similarity: {similarity:.3f} for content: {embedding_row['content'][:50]}...")
                             
-                            if similarity >= similarity_threshold:
+                            # Force 0.3 threshold for debugging
+                            if similarity >= 0.3:
                                 document_id = embedding_row["document_id"]
                                 
                                 results.append({
@@ -317,7 +318,7 @@ class EmbeddingService:
                             error_count += 1
                             continue
                     
-                    logger.info(f"Processed {processed_count} embeddings, {error_count} errors, {len(results)} matches above {similarity_threshold}")
+                    logger.info(f"Processed {processed_count} embeddings, {error_count} errors, {len(results)} matches above 0.3 (hardcoded)")
                     
                     # Sort by similarity and limit
                     results.sort(key=lambda x: x["similarity_score"], reverse=True)
