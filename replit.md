@@ -19,6 +19,8 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 - **User Experience**: Personalized suggestions, popular searches, search history
 - **New Services**: RedisService, OllamaService, QueryService added
 - **New Endpoints**: POST /api/user/ask, GET /api/user/suggestions
+- **Technical Implementation**: FastAPI routes updated, Pydantic models created, httpx client integrated
+- **Production Ready**: Complete RAG pipeline from PDF upload → embedding → search → AI response
 
 ### PDF Processing Pipeline Tamamen Operasyonel ✅
 - **Database**: Neon PostgreSQL kullanılıyor (pgvector aktif, 3072 dimension)
@@ -77,16 +79,17 @@ Sistem, vektör benzerlik araması için **pgvector** uzantısı ile birincil ve
 **Redis Cloud ile Celery** asenkron belge işleme görevlerini yönetir:
 - PDF metin çıkarma, metin parçalama, OpenAI embedding üretimi, vektör depolama
 
-### Vektör Arama Uygulaması
-Semantik arama, **OpenAI'nin text-embedding-3-large** modelini kullanarak 1536 boyutlu embeddings üretir. Bunlar **Supabase PostgreSQL**'de **pgvector** uzantısı ile depolanır.
+### Vektör Arama ve AI Cevap Sistemi
+Semantik arama, **OpenAI'nin text-embedding-3-large** modelini kullanarak 1536 boyutlu embeddings üretir. Bunlar **Supabase PostgreSQL**'de **pgvector** uzantısı ile depolanır. AI cevaplar **Ollama (Llama3)** kullanılarak yerel olarak üretilir ve **Redis** ile optimize edilir.
 
 ## Harici Bağımlılıklar
 
 ### Zorunlu Servisler
 - **OpenAI API** - Embedding üretimi ve ChatGPT
+- **Ollama** - Local LLM server (Llama3 model)
 - **Supabase** - Veritabanı, auth ve vektör işlemleri
 - **Bunny.net** - PDF dosya depolama ve CDN
-- **Redis Cloud** - Celery background tasks
+- **Redis Cloud** - Celery background tasks + caching
 
 ### Python Kütüphaneleri
 - **FastAPI** - Web framework
@@ -94,6 +97,7 @@ Semantik arama, **OpenAI'nin text-embedding-3-large** modelini kullanarak 1536 b
 - **Pydantic** - Veri doğrulama
 - **LangChain** - Metin işleme
 - **Celery** - Background tasks
+- **httpx** - Async HTTP client
 - **Supabase Python Client** - Supabase entegrasyonu
 
 ## Teknoloji Yığını
@@ -103,8 +107,10 @@ Semantik arama, **OpenAI'nin text-embedding-3-large** modelini kullanarak 1536 b
 ✓ **Bunny.net** - Fiziksel dosya depolama ve CDN
 ✓ **LangChain** - Metin işleme ve parçalama
 ✓ **OpenAI** - Yapay zeka (vektörleştirme ve sohbet)
+✓ **Ollama (Llama3)** - Local LLM for AI response generation
 ✓ **Celery** - Arka plan görev yöneticisi
-✓ **Redis Cloud** - Celery için mesaj kuyruğu
+✓ **Redis Cloud** - Celery için mesaj kuyruğu + caching layer
+✓ **httpx** - Async HTTP client for external API calls
 ✓ **Pydantic** - Veri doğrulama ve yapılandırma
 ✓ **SQLAlchemy** - Veritabanı etkileşimi
 ✓ **PyJWT** - Kimlik doğrulama (Supabase yönetimli)
