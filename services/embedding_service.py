@@ -262,8 +262,12 @@ class EmbeddingService:
             except Exception as rpc_error:
                 logger.warning(f"Supabase RPC search failed, falling back to direct query: {rpc_error}")
             
-            # Fallback to direct SQL (with text() wrapper)
+            # Fallback to direct SQL (with text() wrapper) 
             from sqlalchemy import text
+            import json
+            
+            # Convert embedding to proper format for PostgreSQL
+            embedding_str = json.dumps(query_embedding)
             
             query_text = text("""
             SELECT 
@@ -276,17 +280,17 @@ class EmbeddingService:
                 d.category,
                 d.source_institution,  
                 d.publish_date,
-                1 - (e.embedding <=> :query_embedding) as similarity_score
+                1 - (e.embedding <=> :query_embedding::vector) as similarity_score
             FROM mevzuat_embeddings e
             JOIN mevzuat_documents d ON e.document_id = d.id
             WHERE d.status IN ('completed', 'active')
-                AND (1 - (e.embedding <=> :query_embedding)) >= :similarity_threshold
+                AND (1 - (e.embedding <=> :query_embedding::vector)) >= :similarity_threshold
             ORDER BY similarity_score DESC 
             LIMIT :limit
             """)
             
             params = {
-                'query_embedding': str(query_embedding),
+                'query_embedding': embedding_str,
                 'similarity_threshold': similarity_threshold,
                 'limit': limit
             }
