@@ -35,8 +35,11 @@ class SourceEnhancementService:
         try:
             enhanced_results = []
             
+            # Batch fetch document URLs to avoid duplicate queries
+            document_urls = self._batch_fetch_document_urls(search_results)
+            
             for result in search_results:
-                enhanced_result = self._enhance_single_result(result)
+                enhanced_result = self._enhance_single_result(result, document_urls)
                 enhanced_results.append(enhanced_result)
             
             logger.info(f"Enhanced {len(enhanced_results)} search results with source information")
@@ -47,7 +50,7 @@ class SourceEnhancementService:
             # Return original results if enhancement fails
             return search_results
     
-    def _enhance_single_result(self, result: Dict[str, Any]) -> Dict[str, Any]:
+    def _enhance_single_result(self, result: Dict[str, Any], document_urls: Dict[str, str] = None) -> Dict[str, Any]:
         """Enhance a single search result with source information"""
         try:
             # Start with original result
@@ -59,8 +62,11 @@ class SourceEnhancementService:
             chunk_index = result.get("chunk_index", 0)
             content = result.get("content", "")
             
-            # Add PDF URL from database
-            pdf_url = self._get_pdf_url_from_db(document_id)
+            # Add PDF URL from pre-fetched cache or database
+            if document_urls and document_id in document_urls:
+                pdf_url = document_urls[document_id]
+            else:
+                pdf_url = self._get_pdf_url_from_db(document_id)
             enhanced["pdf_url"] = pdf_url
             
             # Extract page information from content or metadata
@@ -87,6 +93,39 @@ class SourceEnhancementService:
         except Exception as e:
             logger.error(f"Failed to enhance single result: {e}")
             return result
+    
+    def _batch_fetch_document_urls(self, search_results: List[Dict[str, Any]]) -> Dict[str, str]:
+        """Batch fetch document URLs to avoid duplicate database queries"""
+        try:
+            # Extract unique document IDs
+            document_ids = list(set(
+                result.get("document_id") for result in search_results 
+                if result.get("document_id")
+            ))
+            
+            if not document_ids:
+                return {}
+                
+            from models.supabase_client import supabase_client
+            
+            # Batch query for all document URLs
+            result = supabase_client.supabase.table('mevzuat_documents') \
+                .select('id, file_url') \
+                .in_('id', document_ids) \
+                .execute()
+            
+            # Create lookup dictionary
+            url_map = {}
+            if result.data:
+                for doc in result.data:
+                    url_map[doc['id']] = doc.get('file_url')
+            
+            logger.debug(f"Batch fetched URLs for {len(url_map)} documents")
+            return url_map
+            
+        except Exception as e:
+            logger.error(f"Failed to batch fetch document URLs: {e}")
+            return {}
     
     def _get_pdf_url_from_db(self, document_id: str) -> Optional[str]:
         """Get actual PDF URL from document table in database"""
@@ -137,11 +176,11 @@ class SourceEnhancementService:
                 if match:
                     return int(match.group(1))
             
-            # Fallback: estimate from chunk_index
+            # Fallback: estimate from chunk_index  
             chunk_index = result.get("chunk_index", 0)
             if chunk_index > 0:
-                # Rough estimate: assume ~3 chunks per page
-                estimated_page = (chunk_index // 3) + 1
+                # More conservative estimate: assume ~5 chunks per page
+                estimated_page = (chunk_index // 5) + 1
                 return estimated_page
             
             return None
@@ -160,9 +199,10 @@ class SourceEnhancementService:
             lines = content.split('\n')
             content_lines = len(lines)
             
-            # Estimate starting line based on chunk index
-            # Assume average 20 lines per chunk
-            estimated_start = (chunk_index * 20) + 1
+            # More realistic line calculation based on content
+            # Use actual content lines + small offset for chunk positioning
+            lines_per_chunk = max(10, content_lines)  # At least 10 lines per chunk
+            estimated_start = (chunk_index * lines_per_chunk) + 1
             estimated_end = estimated_start + content_lines - 1
             
             return {
