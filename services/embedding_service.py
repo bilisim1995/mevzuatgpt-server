@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class EmbeddingService:
     """Service class for embedding generation and management"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession = None):
         self.db = db
         self.client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
     

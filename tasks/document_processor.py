@@ -15,9 +15,8 @@ import io
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from tasks.celery_app import celery_app, CeleryTaskError, TaskStates
-from core.database import get_db_session
+from models.supabase_client import supabase_client
 from services.storage_service import StorageService
-from services.document_service import DocumentService
 from services.embedding_service import EmbeddingService
 from utils.exceptions import AppException
 
@@ -101,95 +100,79 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
         AppException: If processing fails
     """
     try:
-        async with get_db_session() as db:
-            # Initialize services
-            storage_service = StorageService()
-            document_service = DocumentService(db)
-            embedding_service = EmbeddingService(db)
-            
-            # Update status to processing
-            await _update_document_status(document_id, "processing")
-            
-            # Step 1: Get document from database
-            logger.info(f"Retrieving document metadata: {document_id}")
-            document = await document_service.get_document_by_id(document_id)
-            
-            if not document:
-                raise AppException(
-                    message="Document not found",
-                    error_code="DOCUMENT_NOT_FOUND"
-                )
-            
-            # Step 2: Download PDF from storage
-            logger.info(f"Downloading PDF from storage: {document.file_url}")
-            pdf_content = await storage_service.download_file(document.file_url)
-            
-            # Step 3: Extract text from PDF
-            logger.info(f"Extracting text from PDF: {document.file_name}")
-            extracted_text = _extract_text_from_pdf(pdf_content)
-            
-            if not extracted_text.strip():
-                raise AppException(
-                    message="No text could be extracted from PDF",
-                    error_code="PDF_TEXT_EXTRACTION_FAILED"
-                )
-            
-            # Step 4: Split text into chunks
-            logger.info(f"Splitting text into chunks for document: {document_id}")
-            text_chunks = text_splitter.split_text(extracted_text)
-            
-            if not text_chunks:
-                raise AppException(
-                    message="Failed to split text into chunks",
-                    error_code="TEXT_CHUNKING_FAILED"
-                )
-            
-            logger.info(f"Generated {len(text_chunks)} text chunks")
-            
-            # Step 5: Generate embeddings for chunks
-            logger.info(f"Generating embeddings for {len(text_chunks)} chunks")
-            embeddings = await embedding_service.generate_embeddings_batch(text_chunks)
-            
-            # Step 6: Prepare chunk data with metadata
-            chunk_data = []
-            for i, (chunk_text, embedding) in enumerate(zip(text_chunks, embeddings)):
-                metadata = {
-                    "chunk_index": i,
-                    "chunk_length": len(chunk_text),
-                    "document_title": document.title,
-                    "document_category": document.category,
-                    "source_institution": document.source_institution,
-                    "processing_timestamp": datetime.utcnow().isoformat()
-                }
-                
-                chunk_data.append({
-                    "content": chunk_text,
-                    "embedding": embedding,
-                    "metadata": metadata
-                })
-            
-            # Step 7: Store embeddings in database
-            logger.info(f"Storing {len(chunk_data)} embeddings in database")
-            stored_embeddings = await embedding_service.store_embeddings(
-                document_id=UUID(document_id),
-                chunks=chunk_data
+        # Initialize services
+        storage_service = StorageService()
+        embedding_service = EmbeddingService()
+        
+        # Update status to processing
+        await supabase_client.update_document_status(document_id, "processing")
+        
+        # Step 1: Get document from database
+        logger.info(f"Retrieving document metadata: {document_id}")
+        document = await supabase_client.get_document(document_id)
+        
+        if not document:
+            raise AppException(
+                message="Document not found",
+                error_code="DOCUMENT_NOT_FOUND"
             )
+        
+        # Step 2: Download PDF from storage
+        logger.info(f"Downloading PDF from storage: {document['file_url']}")
+        pdf_content = await storage_service.download_file(document['file_url'])
+        
+        # Step 3: Extract text from PDF
+        logger.info(f"Extracting text from PDF: {document['filename']}")
+        extracted_text = _extract_text_from_pdf(pdf_content)
+        
+        if not extracted_text.strip():
+            raise AppException(
+                message="No text could be extracted from PDF",
+                error_code="PDF_TEXT_EXTRACTION_FAILED"
+            )
+        
+        # Step 4: Split text into chunks
+        logger.info(f"Splitting text into chunks for document: {document_id}")
+        text_chunks = text_splitter.split_text(extracted_text)
+        
+        if not text_chunks:
+            raise AppException(
+                message="Failed to split text into chunks",
+                error_code="TEXT_CHUNKING_FAILED"
+            )
+        
+        logger.info(f"Generated {len(text_chunks)} text chunks")
+        
+        # Step 5: Generate embeddings for chunks using Supabase
+        logger.info(f"Generating embeddings for {len(text_chunks)} chunks")
+        
+        # Store embeddings one by one using Supabase client
+        for i, chunk_text in enumerate(text_chunks):
+            # Generate embedding for this chunk
+            embedding = await embedding_service.generate_embedding(chunk_text)
             
-            # Step 8: Update document status to completed
-            await _update_document_status(document_id, "completed")
-            
-            result = {
-                "document_id": document_id,
-                "status": "completed",
-                "text_length": len(extracted_text),
-                "chunks_created": len(text_chunks),
-                "embeddings_stored": len(stored_embeddings),
-                "processing_time": datetime.utcnow().isoformat()
-            }
-            
-            logger.info(f"Document processing completed successfully: {document_id}")
-            return result
-            
+            # Store in Supabase
+            await supabase_client.create_embedding(
+                doc_id=document_id,
+                content=chunk_text,
+                embedding=embedding,
+                chunk_index=i
+            )
+        
+        # Step 6: Update document status to completed
+        await supabase_client.update_document_status(document_id, "completed")
+        
+        result = {
+            "document_id": document_id,
+            "status": "completed",
+            "text_length": len(extracted_text),
+            "chunks_created": len(text_chunks),
+            "processing_time": datetime.now().isoformat()
+        }
+        
+        logger.info(f"Document processing completed successfully: {document_id}")
+        return result
+        
     except Exception as e:
         logger.error(f"Document processing failed: {str(e)}")
         raise
