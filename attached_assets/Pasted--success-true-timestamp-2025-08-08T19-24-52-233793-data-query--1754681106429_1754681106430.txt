@@ -1,0 +1,86 @@
+{
+    "success": true,
+    "timestamp": "2025-08-08T19:24:52.233793",
+    "data": {
+        "query": "Sigortalılık şartları nelerdir?",
+        "answer": "Üzgünüm, verilen belge içeriğinde sigortalılık şartları ile ilgili bilgi bulunamadı. Bu nedenle, bu konuda bilgi yok demekteyim.\n\nAncak, genel olarak sigortalılık şartları ile ilgili bilgi vermek mümkün. Sigortalılık şartları, Sosyal Güvenlik Kurumu (SGK) tarafından belirlenen koşullardır. Bu koşullar, sigortalının çalıştığı işyerinde çalışmaya devam etmesi, sigortalılık süresi dolmasına rağmen çalışmaya devam etmesi, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen emekli olunan işten ayrılmaması, sigortalılık süresi dolmasına rağmen em",
+        "confidence_score": 0.34,
+        "sources": [],
+        "institution_filter": null,
+        "search_stats": {
+            "total_chunks_found": 0,
+            "embedding_time_ms": 713,
+            "search_time_ms": 979,
+            "generation_time_ms": 1641,
+            "reliability_time_ms": 2,
+            "total_pipeline_time_ms": 5024,
+            "cache_used": false,
+            "rate_limit_remaining": 29
+        },
+        "llm_stats": {
+            "model_used": "llama3-8b-8192",
+            "prompt_tokens": 0,
+            "response_tokens": 0
+        },
+        "confidence_breakdown": {
+            "overall_score": 34,
+            "explanation": "Bu skor, cevabın güvenilirliğini farklı kriterlere göre değerlendirerek oluşturulmuştur.",
+            "criteria": {
+                "source_reliability": {
+                    "score": 0,
+                    "weight": 30,
+                    "description": "Resmi kaynaklar, mevzuat metinleri ve güvenilir referansların kullanımı",
+                    "details": [
+                        "Hiç kaynak bulunamadı",
+                        "Bilgi doğrulanamadı"
+                    ]
+                },
+                "content_consistency": {
+                    "score": 50,
+                    "weight": 25,
+                    "description": "Yanıtın iç tutarlılığı ve mantıksal bütünlüğü",
+                    "details": [
+                        "İçerik tutarlılığı değerlendirilemedi"
+                    ]
+                },
+                "technical_accuracy": {
+                    "score": 44,
+                    "weight": 25,
+                    "description": "Hukuki terminoloji ve teknik detayların doğruluğu",
+                    "details": [
+                        "Sınırlı terminoloji",
+                        "Sınırlı referans bilgisi",
+                        "Formal ifade tarzı"
+                    ]
+                },
+                "currency": {
+                    "score": 53,
+                    "weight": 20,
+                    "description": "Bilgilerin güncel mevzuata uygunluğu",
+                    "details": [
+                        "Görece güncel mevzuat",
+                        "Genel olarak güncel içerik",
+                        "Sınırlı güncel referans"
+                    ]
+                }
+            },
+            "score_ranges": {
+                "high": {
+                    "min": 80,
+                    "max": 100,
+                    "desc": "Tüm kaynaklar doğrulanmış, içerik tam ve güvenilir"
+                },
+                "medium": {
+                    "min": 60,
+                    "max": 79,
+                    "desc": "Çoğu kaynak doğrulanmış, içerik güvenilir"
+                },
+                "low": {
+                    "min": 0,
+                    "max": 59,
+                    "desc": "Az sayıda kaynak doğrulanmış, içerik kontrol edilmeli"
+                }
+            }
+        }
+    }
+}

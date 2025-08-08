@@ -265,9 +265,9 @@ class EmbeddingService:
             
             # Fallback: Use direct Supabase table query without SQLAlchemy
             try:
-                # Query embeddings directly from Supabase
+                # Query embeddings directly from Supabase (only existing columns)
                 embedding_response = supabase_client.supabase.table('mevzuat_embeddings') \
-                    .select('id, document_id, content, metadata, mevzuat_documents(title, category, source_institution, publish_date)') \
+                    .select('id, document_id, content, metadata, embedding, mevzuat_documents(title)') \
                     .execute()
                 
                 if embedding_response.data:
@@ -279,6 +279,17 @@ class EmbeddingService:
                         # Get embedding vector
                         stored_embedding = embedding_row.get('embedding')
                         if not stored_embedding:
+                            continue
+                        
+                        # Parse embedding if it's stored as string
+                        if isinstance(stored_embedding, str):
+                            try:
+                                stored_embedding = json.loads(stored_embedding)
+                            except:
+                                continue  # Skip invalid embeddings
+                        
+                        # Ensure both vectors have same length
+                        if len(stored_embedding) != len(query_embedding):
                             continue
                             
                         # Calculate cosine similarity
@@ -298,9 +309,9 @@ class EmbeddingService:
                                 "metadata": embedding_row.get("metadata", {}),
                                 "created_at": None,
                                 "document_title": doc_info.get("title", "Unknown Document"),
-                                "category": doc_info.get("category"),
-                                "source_institution": doc_info.get("source_institution"),
-                                "publish_date": doc_info.get("publish_date"),
+                                "category": None,  # Not available yet
+                                "source_institution": None,  # Not available yet
+                                "publish_date": None,  # Not available yet
                                 "similarity_score": float(similarity)
                             })
                     
