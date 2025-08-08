@@ -178,9 +178,9 @@ class SourceEnhancementService:
             
             # Fallback: estimate from chunk_index  
             chunk_index = result.get("chunk_index", 0)
-            if chunk_index > 0:
-                # More conservative estimate: assume ~5 chunks per page
-                estimated_page = (chunk_index // 5) + 1
+            if chunk_index >= 0:  # Allow chunk_index 0
+                # Conservative estimate: assume ~8 chunks per page (more realistic for legal documents)
+                estimated_page = (chunk_index // 8) + 1
                 return estimated_page
             
             return None
@@ -199,11 +199,11 @@ class SourceEnhancementService:
             lines = content.split('\n')
             content_lines = len(lines)
             
-            # More realistic line calculation based on content
-            # Use actual content lines + small offset for chunk positioning
-            lines_per_chunk = max(10, content_lines)  # At least 10 lines per chunk
+            # Realistic line calculation for sequential chunks (0,1,2,3...)
+            # Conservative estimate: each chunk represents ~5-8 lines of original document
+            lines_per_chunk = 6  # Conservative estimate
             estimated_start = (chunk_index * lines_per_chunk) + 1
-            estimated_end = estimated_start + content_lines - 1
+            estimated_end = estimated_start + max(3, min(content_lines, 8)) - 1  # Cap at reasonable range
             
             return {
                 "start": max(1, estimated_start),
