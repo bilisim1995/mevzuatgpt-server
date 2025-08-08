@@ -169,11 +169,14 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
                 "line_end": chunk_data.get("line_end")
             })
             
-            await supabase_client.create_embedding(
+            await supabase_client.create_embedding_with_sources(
                 doc_id=document_id,
                 content=chunk_text,
                 embedding=embedding,
                 chunk_index=chunk_data["chunk_index"],
+                page_number=chunk_data.get("page_number"),
+                line_start=chunk_data.get("line_start"),
+                line_end=chunk_data.get("line_end"),
                 metadata=chunk_metadata
             )
         

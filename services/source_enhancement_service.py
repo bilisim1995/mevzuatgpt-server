@@ -69,16 +69,25 @@ class SourceEnhancementService:
                 pdf_url = self._get_pdf_url_from_db(document_id)
             enhanced["pdf_url"] = pdf_url
             
-            # Extract page information from content or metadata
-            page_number = self._extract_page_number(result)
+            # Use direct column values first, fallback to extraction methods
+            page_number = result.get("page_number") or self._extract_page_number(result)
+            line_start = result.get("line_start")
+            line_end = result.get("line_end")
+            
+            # If direct columns don't have data, calculate estimates
+            if not line_start or not line_end:
+                line_range = self._calculate_line_range(content, chunk_index)
+                if line_range:
+                    line_start = line_range["start"]
+                    line_end = line_range["end"]
+            
+            # Set final values
             if page_number:
                 enhanced["page_number"] = page_number
-            
-            # Calculate line range
-            line_range = self._calculate_line_range(content, chunk_index)
-            if line_range:
-                enhanced["line_start"] = line_range["start"]
-                enhanced["line_end"] = line_range["end"]
+            if line_start:
+                enhanced["line_start"] = line_start
+            if line_end:
+                enhanced["line_end"] = line_end
             
             # Add source citation
             citation = self._generate_citation(document_title, page_number, line_range)

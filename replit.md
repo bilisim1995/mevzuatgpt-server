@@ -23,11 +23,12 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 - **PDF Source Enhancement**: ✅ TAM ÇALIŞIR - Page numbers, line ranges, PDF links in search results
 - **Modular Architecture**: services/source_enhancement_service.py + services/pdf_source_parser.py
 - **Database Schema**: Enhanced embedding table with page_number, line_start, line_end fields  
+- **Direct Column Storage**: Source info saved to table columns (not just metadata) - 8 Ağustos 20:00
 - **Bunny.net Integration**: Automatic PDF URL generation for direct document access
 - **Enhanced Metadata**: Rich source information including citations and content previews
 - **Backward Compatibility**: Existing embeddings continue to work without source info
-- **Performance**: <1ms overhead for source enhancement processing
-- **Migration Ready**: SQL migration script provided for database schema updates
+- **Performance**: <1ms overhead for source enhancement processing + batch URL fetching
+- **Hybrid Data Access**: Reads from columns first, falls back to metadata for old records
 
 ### ✅ COMPLETE SYSTEM - VPS READY & ASK ENDPOINT WORKING (8 Ağustos 2025)  
 - **Ask Endpoint**: ✅ TAM ÇALIŞIR - Authentication + RAG pipeline + Enhanced AI response + Source tracking
