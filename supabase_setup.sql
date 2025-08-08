@@ -33,12 +33,12 @@ CREATE TABLE IF NOT EXISTS public.mevzuat_documents (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 4. Embeddings tablosu (3072 dimension for text-embedding-3-large)
+-- 4. Embeddings tablosu (1536 dimension for text-embedding-3-large)
 CREATE TABLE IF NOT EXISTS public.mevzuat_embeddings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID NOT NULL REFERENCES public.mevzuat_documents(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
-    embedding vector(3072) NOT NULL,
+    embedding vector(1536) NOT NULL,
     chunk_metadata JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -73,7 +73,7 @@ CREATE INDEX IF NOT EXISTS idx_documents_category ON public.mevzuat_documents(ca
 CREATE INDEX IF NOT EXISTS idx_documents_status ON public.mevzuat_documents(processing_status);
 CREATE INDEX IF NOT EXISTS idx_documents_uploaded_by ON public.mevzuat_documents(uploaded_by);
 CREATE INDEX IF NOT EXISTS idx_embeddings_document_id ON public.mevzuat_embeddings(document_id);
-CREATE INDEX IF NOT EXISTS idx_embeddings_vector ON public.mevzuat_embeddings USING ivfflat (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_embeddings_vector ON public.mevzuat_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 CREATE INDEX IF NOT EXISTS idx_search_logs_user_id ON public.search_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_processing_jobs_document_id ON public.processing_jobs(document_id);
 
