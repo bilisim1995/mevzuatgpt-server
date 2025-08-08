@@ -147,27 +147,17 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
             # Generate embedding for this chunk
             embedding = await embedding_service.generate_embedding(chunk_text)
             
-            # Prepare enhanced metadata for search quality with source information
+            # Prepare metadata WITHOUT source information (only in columns now)
             chunk_metadata = {
                 "chunk_index": chunk_data["chunk_index"],
                 "total_chunks": len(chunks_with_sources),
                 "chunk_length": len(chunk_text),
                 "document_title": document['title'],
                 "document_filename": document['filename'],
-                "page_number": chunk_data.get("page_number"),
-                "line_range": f"{chunk_data.get('line_start', 0)}-{chunk_data.get('line_end', 0)}",
                 "source_metadata": chunk_data.get("source_metadata", {}),
                 "processing_timestamp": datetime.now().isoformat(),
                 "text_preview": chunk_text[:200] + "..." if len(chunk_text) > 200 else chunk_text
             }
-            
-            # Store in Supabase with enhanced source metadata
-            # Use backward compatible method until DB migration is applied
-            chunk_metadata.update({
-                "page_number": chunk_data.get("page_number"),
-                "line_start": chunk_data.get("line_start"),
-                "line_end": chunk_data.get("line_end")
-            })
             
             await supabase_client.create_embedding_with_sources(
                 doc_id=document_id,

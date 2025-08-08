@@ -113,25 +113,38 @@ class PDFSourceParser:
             return []
     
     def _clean_text(self, text: str) -> str:
-        """Clean and normalize extracted text"""
+        """Clean and normalize extracted text while preserving line structure"""
         if not text:
             return ""
         
-        # Remove excessive whitespace
-        text = re.sub(r'\s+', ' ', text)
+        # Split into lines first to preserve structure
+        lines = text.split('\n')
+        cleaned_lines = []
         
-        # Remove page headers/footers patterns
-        text = re.sub(r'^[-\s]*\d+[-\s]*$', '', text, flags=re.MULTILINE)
-        text = re.sub(r'^[-\s]*Sayfa\s+\d+[-\s]*$', '', text, flags=re.MULTILINE)
+        for line in lines:
+            if not line.strip():
+                continue
+            
+            # Remove excessive whitespace within line
+            cleaned_line = re.sub(r'\s+', ' ', line.strip())
+            
+            # Skip page headers/footers
+            if re.match(r'^[-\s]*\d+[-\s]*$', cleaned_line):
+                continue
+            if re.match(r'^[-\s]*Sayfa\s+\d+[-\s]*$', cleaned_line):
+                continue
+            
+            # Fix common OCR issues
+            cleaned_line = cleaned_line.replace('‚', ',').replace('"', '"').replace('"', '"')
+            cleaned_line = cleaned_line.replace(''', "'").replace(''', "'")
+            
+            # Normalize Turkish characters  
+            cleaned_line = cleaned_line.replace('ı', 'ı').replace('İ', 'İ')
+            
+            if cleaned_line:  # Only add non-empty lines
+                cleaned_lines.append(cleaned_line)
         
-        # Fix common OCR issues
-        text = text.replace('‚', ',').replace('"', '"').replace('"', '"')
-        text = text.replace(''', "'").replace(''', "'")
-        
-        # Normalize Turkish characters
-        text = text.replace('ı', 'ı').replace('İ', 'İ')
-        
-        return text.strip()
+        return '\n'.join(cleaned_lines)
     
     def _create_chunks_with_sources(self, pages_data: List[Dict[str, Any]], 
                                    filename: str) -> List[Dict[str, Any]]:
@@ -178,11 +191,14 @@ class PDFSourceParser:
         if not page_text or not page_lines:
             return chunks
         
-        # Calculate character positions for each line
+        # Calculate character positions for each line in the cleaned page text
         line_positions = []
         current_pos = 0
         
-        for i, line in enumerate(page_lines):
+        # Use the actual page_text (cleaned) to calculate positions
+        actual_lines = page_text.split('\n')
+        
+        for i, line in enumerate(actual_lines):
             line_start = current_pos
             line_end = current_pos + len(line)
             line_positions.append({
