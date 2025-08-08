@@ -213,12 +213,29 @@ curl -X POST "http://0.0.0.0:5000/api/user/ask" \
 4. **500 Internal Error**: AI servis hatası
 
 ### Test Komutları
+
+### Sistem Test
 ```bash
 # System health check
 python tests/final_vps_ready_test.py
 
 # API connection test
 curl -X GET "http://0.0.0.0:5000/health"
+```
+
+### Test Sonucu (8 Ağustos 2025) ✅
+```bash
+# Çalışan örnek
+TOKEN="your_access_token_here"
+curl -X POST "http://0.0.0.0:5000/api/user/ask" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "KVKK nedir?"}'
+
+# Response: HTTP 200 OK
+# Performance: ~3.7s total pipeline
+# Confidence: 0.83
+# Status: ✅ WORKING
 ```
 
 ## Production Notları

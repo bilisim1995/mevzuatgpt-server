@@ -98,10 +98,14 @@ Lütfen yukarıdaki belge içeriğine dayanarak soruyu yanıtla. Cevabın belged
             logger.info(f"Groq response generated in {processing_time}s (model: {model_name})")
             
             return {
+                "answer": ai_response,  # Match expected field name
                 "response": ai_response,
                 "model_used": model_name,
                 "processing_time": processing_time,
+                "generation_time_ms": int(processing_time * 1000),  # Add missing field
                 "confidence_score": confidence_score,
+                "prompt_tokens": response.usage.prompt_tokens,
+                "response_tokens": response.usage.completion_tokens,
                 "token_usage": {
                     "completion_tokens": response.usage.completion_tokens,
                     "prompt_tokens": response.usage.prompt_tokens,

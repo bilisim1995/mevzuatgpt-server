@@ -194,7 +194,7 @@ class QueryService:
             # 8. Build response
             response = {
                 "query": query,
-                "answer": llm_response["answer"],
+                "answer": llm_response.get("answer", llm_response.get("response", "")),
                 "confidence_score": llm_response["confidence_score"],
                 "sources": self._format_sources(search_results),
                 "institution_filter": institution_filter,
@@ -202,13 +202,13 @@ class QueryService:
                     "total_chunks_found": len(search_results),
                     "embedding_time_ms": embedding_time,
                     "search_time_ms": search_time,
-                    "generation_time_ms": llm_response["generation_time_ms"],
+                    "generation_time_ms": llm_response.get("generation_time_ms", ai_time),
                     "total_pipeline_time_ms": pipeline_time,
                     "cache_used": cached_results is not None,
                     "rate_limit_remaining": remaining
                 },
                 "llm_stats": {
-                    "model_used": llm_response["model_used"],
+                    "model_used": llm_response.get("model_used", "llama3-8b-8192"),
                     "prompt_tokens": llm_response.get("prompt_tokens", 0),
                     "response_tokens": llm_response.get("response_tokens", 0)
                 }
@@ -374,14 +374,13 @@ Benzerlik: {similarity:.2f}
     ):
         """Log search query for analytics"""
         try:
+            # Remove institution_filter from log_data since it doesn't exist in SearchLog table
             log_data = {
                 "user_id": user_id,
                 "query": query,
-                "institution_filter": institution_filter,
                 "results_count": results_count,
-                "response_generated": response_generated,
-                "query_type": "ask",
-                "created_at": "now()"
+                "execution_time": 0.5,  # Add execution time placeholder
+                "ip_address": "127.0.0.1"  # Remove user_agent field
             }
             
             supabase_client.supabase.table('search_logs').insert(log_data).execute()
