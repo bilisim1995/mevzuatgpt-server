@@ -94,8 +94,12 @@ class SourceEnhancementService:
             if not document_title or not self.bunny_cdn_base:
                 return None
             
-            # Clean filename for URL
+            # Clean filename for URL and ensure .pdf extension
             filename = document_title.replace(" ", "_").replace("(", "").replace(")", "")
+            
+            # Add .pdf extension if not present
+            if not filename.lower().endswith('.pdf'):
+                filename += '.pdf'
             
             # Construct Bunny.net URL
             if self.bunny_zone:
