@@ -59,8 +59,8 @@ class SourceEnhancementService:
             chunk_index = result.get("chunk_index", 0)
             content = result.get("content", "")
             
-            # Add PDF URL
-            pdf_url = self._generate_pdf_url(document_title)
+            # Add PDF URL from database
+            pdf_url = self._get_pdf_url_from_db(document_id)
             enhanced["pdf_url"] = pdf_url
             
             # Extract page information from content or metadata
@@ -88,29 +88,29 @@ class SourceEnhancementService:
             logger.error(f"Failed to enhance single result: {e}")
             return result
     
-    def _generate_pdf_url(self, document_title: str) -> Optional[str]:
-        """Generate Bunny.net CDN URL for PDF document"""
+    def _get_pdf_url_from_db(self, document_id: str) -> Optional[str]:
+        """Get actual PDF URL from document table in database"""
         try:
-            if not document_title or not self.bunny_cdn_base:
+            if not document_id:
                 return None
+                
+            from models.supabase_client import supabase_client
             
-            # Clean filename for URL and ensure .pdf extension
-            filename = document_title.replace(" ", "_").replace("(", "").replace(")", "")
+            # Query document table for file_url
+            result = supabase_client.supabase.table('mevzuat_documents') \
+                .select('file_url') \
+                .eq('id', document_id) \
+                .single() \
+                .execute()
             
-            # Add .pdf extension if not present
-            if not filename.lower().endswith('.pdf'):
-                filename += '.pdf'
+            if result.data and result.data.get('file_url'):
+                return result.data['file_url']
             
-            # Construct Bunny.net URL
-            if self.bunny_zone:
-                pdf_url = f"https://{self.bunny_zone}.b-cdn.net/{filename}"
-            else:
-                pdf_url = f"{self.bunny_cdn_base.rstrip('/')}/{filename}"
-            
-            return pdf_url
+            logger.warning(f"No file_url found for document {document_id}")
+            return None
             
         except Exception as e:
-            logger.error(f"Failed to generate PDF URL for {document_title}: {e}")
+            logger.error(f"Failed to get PDF URL for document {document_id}: {e}")
             return None
     
     def _extract_page_number(self, result: Dict[str, Any]) -> Optional[int]:
