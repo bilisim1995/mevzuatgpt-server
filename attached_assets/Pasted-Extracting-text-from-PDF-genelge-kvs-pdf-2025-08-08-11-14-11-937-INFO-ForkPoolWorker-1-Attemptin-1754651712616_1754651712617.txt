@@ -1,0 +1,14 @@
+Extracting text from PDF: genelge-kvs.pdf
+[2025-08-08 11:14:11,937: INFO/ForkPoolWorker-1] Attempting text extraction with pdfplumber...
+[2025-08-08 11:14:11,944: INFO/ForkPoolWorker-1] PDF opened with pdfplumber - 4 pages found
+[2025-08-08 11:14:12,563: INFO/ForkPoolWorker-1] pdfplumber successfully extracted 13131 characters
+[2025-08-08 11:14:12,563: INFO/ForkPoolWorker-1] Splitting text into chunks for document: 72af2b1e-883c-4a7d-8f89-623a746c5772
+[2025-08-08 11:14:12,563: INFO/ForkPoolWorker-1] Generated 17 text chunks
+[2025-08-08 11:14:12,563: INFO/ForkPoolWorker-1] Generating embeddings for 17 chunks
+[2025-08-08 11:14:13,307: INFO/ForkPoolWorker-1] HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+[2025-08-08 11:14:14,044: INFO/ForkPoolWorker-1] Generated 17 embeddings in batch
+[2025-08-08 11:14:14,045: INFO/ForkPoolWorker-1] Storing 17 embeddings in database
+[2025-08-08 11:14:14,190: INFO/ForkPoolWorker-1] Deleted 0 embeddings for document 72af2b1e-883c-4a7d-8f89-623a746c5772
+[2025-08-08 11:14:14,595: ERROR/ForkPoolWorker-1] Failed to store embeddings for document 72af2b1e-883c-4a7d-8f89-623a746c5772: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.DataError'>: invalid input for query argument $4: '[0.01224453467875719,-0.032362014055252... (a sized iterable container expected (got type 'str'))
+[SQL: INSERT INTO mevzuat_embeddings (id, document_id, content, embedding) VALUES ($1::UUID, $2::UUID, $3::VARCHAR, $4), ($5::UUID, $6::UUID, $7::VARCHAR, $8), ($9::UUID, $10::UUID, $11::VARCHAR, $12), ($13::UUID, $14::UUID, $15::VARCHAR, $16), ($17::UUID, ... 509 characters truncated ... ::UUID, $66::UUID, $67::VARCHAR, $68) RETURNING mevzuat_embeddings.created_at, mevzuat_embeddings.id]
+[parameters: (UUID('486c4975-1d40-458f-b449-8486cc3ef82f'), UUID('72af2b1e-883c-4a7d-8f89-623a746c5772'), 'T.C. SOSYAL GÜVENLİK KURUMU BAŞKANLIĞI Emeklilik Hizmetleri Genel Müdürlüğü Sayı : 96597630-010.06.01-E.13876919 Konu : 2016/21 Sayılı Genelgede Deği ... (361 characters truncated) ...  1- "2.1.1.2.İş Kazası Tespit Komisyonunca Tespit Yapılması” başlıklı bölümünün üçüncü paragrafının ikinci cümlesi aşağıdaki şekilde değiştirilmiştir', '[0.01224453467875719,-0.032362014055252075,0.011075151152908802,0.003977264277637005,0.01740477979183197,0.043647926300764084,-0.02482900582253933,0. ... (65447 characters truncated) ... 0.0018526571802794933,0.01584106869995594,0.028010817244648933,-0.012060968205332756,-0.014617295935750008,-0.004629943519830704,0.02006988599896431]', UUID('efac1622-17dc-416b-a5e9-0e54891c4a35'), UUID('72af2b1e-883c-4a7d-8f89-623a746c5772'), '. Söz konusu Genelgenin; 1- "2.1.1.2.İş Kazası Tespit Komisyonunca Tespit Yapılması” başlıklı bölümünün üçüncü paragrafının ikinci cümlesi aşağıdaki  ... (473 characters truncated) ... lığının ilgili Grup Başkanlığına iletilecektir.” 2- “2.1.1.3.Denetim Vasıtasıyla Tespit Yapılması” başlıklı bölümü aşağıdaki

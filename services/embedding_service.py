@@ -135,10 +135,21 @@ class EmbeddingService:
             # Create embedding records
             embedding_records = []
             for chunk in chunks:
+                # Ensure embedding is a list of floats, not a string
+                embedding_vector = chunk["embedding"]
+                if isinstance(embedding_vector, str):
+                    # If it's a string, try to parse it as a list
+                    import json
+                    try:
+                        embedding_vector = json.loads(embedding_vector)
+                    except:
+                        logger.error(f"Failed to parse embedding string: {embedding_vector[:100]}...")
+                        raise AppException("Invalid embedding format")
+                
                 embedding_record = Embedding(
                     document_id=document_id,
                     content=chunk["content"],
-                    embedding=chunk["embedding"],
+                    embedding=embedding_vector,
                     metadata=chunk.get("metadata", {})
                 )
                 embedding_records.append(embedding_record)

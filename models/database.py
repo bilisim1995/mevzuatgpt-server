@@ -81,7 +81,7 @@ class Embedding(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(UUID(as_uuid=True), ForeignKey("mevzuat_documents.id", ondelete="CASCADE"), nullable=False)
     content = Column(Text, nullable=False)
-    embedding = Column(Vector(3072), nullable=False)  # text-embedding-3-large dimension
+    embedding = Column(Vector(1536), nullable=False)  # text-embedding-3-large dimension
     chunk_metadata = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
