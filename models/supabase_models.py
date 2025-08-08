@@ -68,11 +68,14 @@ CREATE POLICY "Admins can manage all documents" ON public.mevzuat_documents
         )
     );
 
--- Embeddings table for vector search
+-- Embeddings table for vector search with enhanced source information
 CREATE TABLE IF NOT EXISTS public.mevzuat_embeddings (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     document_id UUID REFERENCES public.mevzuat_documents(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
+    page_number INTEGER,
+    line_start INTEGER,
+    line_end INTEGER,
     embedding vector(1536), -- OpenAI text-embedding-3-large dimension
     chunk_index INTEGER,
     metadata JSONB DEFAULT '{}',
@@ -138,6 +141,9 @@ RETURNS TABLE (
     id uuid,
     document_id uuid,
     content text,
+    page_number integer,
+    line_start integer,
+    line_end integer,
     similarity float,
     document_title text,
     document_filename text
@@ -148,6 +154,9 @@ AS $$
         e.id,
         e.document_id,
         e.content,
+        e.page_number,
+        e.line_start,
+        e.line_end,
         1 - (e.embedding <=> query_embedding) AS similarity,
         d.title AS document_title,
         d.filename AS document_filename

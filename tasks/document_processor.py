@@ -18,6 +18,7 @@ from tasks.celery_app import celery_app, CeleryTaskError, TaskStates
 from models.supabase_client import supabase_client
 from services.storage_service import StorageService
 from services.embedding_service import EmbeddingService
+from services.pdf_source_parser import PDFSourceParser
 from utils.exceptions import AppException
 
 logger = logging.getLogger(__name__)
@@ -121,54 +122,54 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
         logger.info(f"Downloading PDF from storage: {document['file_url']}")
         pdf_content = await storage_service.download_file(document['file_url'])
         
-        # Step 3: Extract text from PDF
-        logger.info(f"Extracting text from PDF: {document['filename']}")
-        extracted_text = _extract_text_from_pdf(pdf_content)
+        # Step 3: Extract text from PDF with source tracking
+        logger.info(f"Enhanced PDF parsing with source tracking: {document['filename']}")
+        pdf_parser = PDFSourceParser()
+        parsed_data = pdf_parser.parse_pdf_with_sources(pdf_content, document['filename'])
         
-        if not extracted_text.strip():
+        if not parsed_data.get("parsing_success") or not parsed_data.get("chunks"):
+            error_msg = parsed_data.get("error", "No text could be extracted from PDF")
             raise AppException(
-                message="No text could be extracted from PDF",
+                message=error_msg,
                 error_code="PDF_TEXT_EXTRACTION_FAILED"
             )
         
-        # Step 4: Split text into chunks
-        logger.info(f"Splitting text into chunks for document: {document_id}")
-        text_chunks = text_splitter.split_text(extracted_text)
+        chunks_with_sources = parsed_data["chunks"]
+        logger.info(f"Generated {len(chunks_with_sources)} chunks with source information from {parsed_data['total_pages']} pages")
         
-        if not text_chunks:
-            raise AppException(
-                message="Failed to split text into chunks",
-                error_code="TEXT_CHUNKING_FAILED"
-            )
+        # Step 4: Generate embeddings for chunks with enhanced source metadata
+        logger.info(f"Generating embeddings for {len(chunks_with_sources)} chunks")
         
-        logger.info(f"Generated {len(text_chunks)} text chunks")
-        
-        # Step 5: Generate embeddings for chunks using Supabase
-        logger.info(f"Generating embeddings for {len(text_chunks)} chunks")
-        
-        # Store embeddings one by one using Supabase client with metadata
-        for i, chunk_text in enumerate(text_chunks):
+        # Store embeddings one by one using Supabase client with enhanced metadata
+        for i, chunk_data in enumerate(chunks_with_sources):
+            chunk_text = chunk_data["content"]
+            
             # Generate embedding for this chunk
             embedding = await embedding_service.generate_embedding(chunk_text)
             
-            # Prepare rich metadata for search quality
+            # Prepare enhanced metadata for search quality with source information
             chunk_metadata = {
-                "chunk_index": i,
-                "total_chunks": len(text_chunks),
+                "chunk_index": chunk_data["chunk_index"],
+                "total_chunks": len(chunks_with_sources),
                 "chunk_length": len(chunk_text),
                 "document_title": document['title'],
                 "document_filename": document['filename'],
-                "document_metadata": document.get('metadata', {}),
+                "page_number": chunk_data.get("page_number"),
+                "line_range": f"{chunk_data.get('line_start', 0)}-{chunk_data.get('line_end', 0)}",
+                "source_metadata": chunk_data.get("source_metadata", {}),
                 "processing_timestamp": datetime.now().isoformat(),
                 "text_preview": chunk_text[:200] + "..." if len(chunk_text) > 200 else chunk_text
             }
             
-            # Store in Supabase with metadata
-            await supabase_client.create_embedding(
+            # Store in Supabase with enhanced source metadata
+            await supabase_client.create_embedding_with_sources(
                 doc_id=document_id,
                 content=chunk_text,
                 embedding=embedding,
-                chunk_index=i,
+                chunk_index=chunk_data["chunk_index"],
+                page_number=chunk_data.get("page_number"),
+                line_start=chunk_data.get("line_start"),
+                line_end=chunk_data.get("line_end"),
                 metadata=chunk_metadata
             )
         
@@ -178,8 +179,10 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
         result = {
             "document_id": document_id,
             "status": "completed",
-            "text_length": len(extracted_text),
-            "chunks_created": len(text_chunks),
+            "total_pages": parsed_data.get("total_pages", 0),
+            "text_length": parsed_data.get("total_text_length", 0),
+            "chunks_created": len(chunks_with_sources),
+            "parsing_success": parsed_data.get("parsing_success", False),
             "processing_time": datetime.now().isoformat()
         }
         

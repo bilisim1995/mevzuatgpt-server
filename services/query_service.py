@@ -14,6 +14,7 @@ from services.llm_service import ollama_service
 from services.groq_service import GroqService
 from services.redis_service import redis_service
 from services.reliability_service import ReliabilityService
+from services.source_enhancement_service import SourceEnhancementService
 from models.supabase_client import supabase_client
 from utils.exceptions import AppException
 
@@ -27,6 +28,7 @@ class QueryService:
         self.embedding_service = EmbeddingService(db)
         self.search_service = SearchService(db)
         self.reliability_service = ReliabilityService()
+        self.source_enhancement_service = SourceEnhancementService()
         
         # Initialize AI provider based on configuration
         from core.config import settings
@@ -86,7 +88,7 @@ class QueryService:
             if use_cache:
                 cached_results = await redis_service.get_cached_search_results(
                     query=query,
-                    filters=search_filters
+                    filters=search_filters or {}
                 )
             
             # 3. Generate embedding (with cache)
@@ -135,11 +137,15 @@ class QueryService:
                     await redis_service.cache_search_results(
                         query=query,
                         results=search_results,
-                        filters=search_filters,
+                        filters=search_filters or {},
                         ttl=1800  # 30 minutes
                     )
             
             search_time = int((time.time() - search_start) * 1000)
+            
+            # 4.5. Enhance search results with source information
+            if search_results:
+                search_results = self.source_enhancement_service.enhance_search_results(search_results)
             
             # 5. Generate AI response using configured provider
             ai_start = time.time()
@@ -149,10 +155,8 @@ class QueryService:
                 context_text = self._prepare_context_for_groq(search_results)
                 
                 ai_result = await self.ai_service.generate_response(
-                    prompt=query,
-                    context=context_text,
-                    max_tokens=1024,
-                    temperature=0.1
+                    query=query,
+                    context=context_text
                 )
                 
                 llm_response = {
@@ -200,7 +204,7 @@ class QueryService:
                 await redis_service.add_user_search(
                     user_id=user_id,
                     query=query,
-                    institution=institution_filter
+                    institution=institution_filter or ""
                 )
                 await redis_service.increment_search_popularity(query)
             
@@ -220,7 +224,7 @@ class QueryService:
                 "query": query,
                 "answer": llm_response.get("answer", llm_response.get("response", "")),
                 "confidence_score": enhanced_confidence,
-                "sources": self._format_sources(search_results),
+                "sources": self.source_enhancement_service.format_sources_for_response(search_results),
                 "institution_filter": institution_filter,
                 "search_stats": {
                     "total_chunks_found": len(search_results),

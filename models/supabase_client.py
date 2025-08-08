@@ -9,10 +9,13 @@ import asyncio
 
 class SupabaseClient:
     def __init__(self):
-        self.supabase: Client = create_client(
-            os.getenv('SUPABASE_URL'),
-            os.getenv('SUPABASE_SERVICE_KEY')
-        )
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_key = os.getenv('SUPABASE_SERVICE_KEY')
+        
+        if not supabase_url or not supabase_key:
+            raise ValueError("Missing SUPABASE_URL or SUPABASE_SERVICE_KEY environment variables")
+        
+        self.supabase: Client = create_client(supabase_url, supabase_key)
     
     async def create_document(self, doc_data: dict) -> str:
         """Create a new document record"""
@@ -42,7 +45,7 @@ class SupabaseClient:
             print(f"Get document error: {e}")
             return None
     
-    async def update_document_status(self, doc_id: str, status: str, error: str = None):
+    async def update_document_status(self, doc_id: str, status: str, error: Optional[str] = None):
         """Update document processing status"""
         try:
             update_data = {'status': status}
@@ -55,8 +58,36 @@ class SupabaseClient:
             print(f"Update document status error: {e}")
             raise
     
-    async def create_embedding(self, doc_id: str, content: str, embedding: List[float], chunk_index: int = 0, metadata: dict = None):
-        """Create an embedding record with rich metadata"""
+    async def create_embedding_with_sources(self, doc_id: str, content: str, embedding: List[float], 
+                                          chunk_index: int = 0, page_number: Optional[int] = None, 
+                                          line_start: Optional[int] = None, line_end: Optional[int] = None, 
+                                          metadata: Optional[Dict[str, Any]] = None):
+        """Create an embedding record with enhanced source information"""
+        try:
+            embedding_data = {
+                'document_id': doc_id,
+                'content': content,
+                'embedding': embedding,
+                'chunk_index': chunk_index,
+                'metadata': metadata or {}
+            }
+            
+            # Add source information if provided
+            if page_number is not None:
+                embedding_data['page_number'] = page_number
+            if line_start is not None:
+                embedding_data['line_start'] = line_start
+            if line_end is not None:
+                embedding_data['line_end'] = line_end
+            
+            response = self.supabase.table('mevzuat_embeddings').insert(embedding_data).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Create embedding with sources error: {e}")
+            raise
+    
+    async def create_embedding(self, doc_id: str, content: str, embedding: List[float], chunk_index: int = 0, metadata: Optional[Dict[str, Any]] = None):
+        """Create an embedding record with basic metadata (backward compatibility)"""
         try:
             response = self.supabase.table('mevzuat_embeddings').insert({
                 'document_id': doc_id,
@@ -89,6 +120,9 @@ class SupabaseClient:
                         'id': item['id'],
                         'document_id': item['document_id'],
                         'content': item['content'],
+                        'page_number': item.get('page_number'),
+                        'line_start': item.get('line_start'),
+                        'line_end': item.get('line_end'),
                         'similarity': 0.8,  # Mock similarity for now
                         'document_title': item['mevzuat_documents']['title'],
                         'document_filename': item['mevzuat_documents']['filename'],
@@ -102,7 +136,7 @@ class SupabaseClient:
             print(f"Embedding search error: {e}")
             return []
     
-    async def get_all_documents(self, status: str = None) -> List[Dict[str, Any]]:
+    async def get_all_documents(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get all documents, optionally filtered by status"""
         try:
             query = self.supabase.table('mevzuat_documents').select('*')
