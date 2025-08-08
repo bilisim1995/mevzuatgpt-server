@@ -39,6 +39,7 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 - **VPS Deployment**: Hazır - Replit Secrets'a bağımlılık yok
 - **Environment Loading**: Force .env override ile config.py güncellendi
 - **Production Status**: ✅ FULLY READY - Enhanced ask endpoint + Source tracking + VPS deployment compatible
+- **Migration Status**: ⚠️ PENDING - Manual Supabase migration needed for full source enhancement
 
 ### ✅ ASK ENDPOINT - FULLY OPERATIONAL & PRODUCTION READY (8 Ağustos 2025)
 - **Status**: ✅ 100% ÇALIŞIR DURUMDA - Tüm testler geçti (3/3)

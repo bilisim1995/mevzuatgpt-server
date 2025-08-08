@@ -120,9 +120,9 @@ class SupabaseClient:
                         'id': item['id'],
                         'document_id': item['document_id'],
                         'content': item['content'],
-                        'page_number': item.get('page_number'),
-                        'line_start': item.get('line_start'),
-                        'line_end': item.get('line_end'),
+                        'page_number': item.get('page_number') or metadata.get('page_number'),
+                        'line_start': item.get('line_start') or metadata.get('line_start'),
+                        'line_end': item.get('line_end') or metadata.get('line_end'),
                         'similarity': 0.8,  # Mock similarity for now
                         'document_title': item['mevzuat_documents']['title'],
                         'document_filename': item['mevzuat_documents']['filename'],

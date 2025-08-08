@@ -162,14 +162,18 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
             }
             
             # Store in Supabase with enhanced source metadata
-            await supabase_client.create_embedding_with_sources(
+            # Use backward compatible method until DB migration is applied
+            chunk_metadata.update({
+                "page_number": chunk_data.get("page_number"),
+                "line_start": chunk_data.get("line_start"),
+                "line_end": chunk_data.get("line_end")
+            })
+            
+            await supabase_client.create_embedding(
                 doc_id=document_id,
                 content=chunk_text,
                 embedding=embedding,
                 chunk_index=chunk_data["chunk_index"],
-                page_number=chunk_data.get("page_number"),
-                line_start=chunk_data.get("line_start"),
-                line_end=chunk_data.get("line_end"),
                 metadata=chunk_metadata
             )
         
