@@ -56,22 +56,35 @@ class GroqService:
             # Use specified model or default
             model_name = model or self.default_model
             
-            # Construct system message for legal document Q&A
-            system_message = """Sen hukuki belge analiz uzmanısın. Görevin:
-1. Verilen belge içeriğine dayalı doğru ve kesin cevaplar vermek
-2. Kaynak belgeleri referans göstermek
-3. Emin olmadığın konularda "bilgi yok" demek
-4. Türkçe ve anlaşılır dilde cevap vermek
-5. Hukuki terimler kullanırken açıklama yapmak"""
+            # System message for STRICT document-only responses
+            system_message = """Sen sadece verilen belge içeriklerine dayalı cevap veren bir yapay zeka asistanısın.
+
+KATÎ KURALLAR:
+1. SADECE verilen belge içeriğinde bulunan bilgileri kullan
+2. Belge içeriği boş veya yetersizse: "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır."
+3. Kendi genel bilgini ASLA kullanma
+4. Belge dışından örnek, yorum veya ek bilgi verme
+5. Sadece belgedeki bilgileri Türkçe olarak özetle
+
+Cevap formatı:
+- Belge içeriği varsa: Belgeden direkt alıntılarla cevap ver
+- Belge içeriği yoksa: "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır."
+- Asla kendi bilginle tamamlama"""
             
             # Construct user message with context
-            user_message = f"""BELGE İÇERİĞİ:
+            if not context or context.strip() == "":
+                user_message = f"""BELGE İÇERİĞİ: [BOŞ]
+
+SORU: {query}
+
+Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır."""
+            else:
+                user_message = f"""BELGE İÇERİĞİ:
 {context}
 
-SORU:
-{query}
+SORU: {query}
 
-Lütfen yukarıdaki belge içeriğine dayanarak soruyu yanıtla. Cevabın belgede geçen bilgilerle desteklenmiş olsun."""
+Sadece yukarıdaki belge içeriğini kullanarak cevapla. Belge dışından bilgi ekleme."""
             
             # Call Groq API
             response = self.client.chat.completions.create(

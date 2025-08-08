@@ -265,10 +265,22 @@ class EmbeddingService:
             
             # Fallback: Use direct Supabase table query without SQLAlchemy
             try:
-                # Query embeddings directly from Supabase (only existing columns)
+                # Query embeddings directly from Supabase (only existing columns) - fixed join
                 embedding_response = supabase_client.supabase.table('mevzuat_embeddings') \
-                    .select('id, document_id, content, metadata, embedding, mevzuat_documents(title)') \
+                    .select('id, document_id, content, metadata, embedding') \
                     .execute()
+                    
+                # Get document info separately to avoid join issues
+                document_titles = {}
+                if embedding_response.data:
+                    doc_ids = list(set([row['document_id'] for row in embedding_response.data]))
+                    doc_response = supabase_client.supabase.table('mevzuat_documents') \
+                        .select('id, title') \
+                        .in_('id', doc_ids) \
+                        .execute()
+                    
+                    if doc_response.data:
+                        document_titles = {doc['id']: doc['title'] for doc in doc_response.data}
                 
                 if embedding_response.data:
                     # Calculate cosine similarity in Python (fallback)
@@ -300,15 +312,15 @@ class EmbeddingService:
                         similarity = np.dot(stored_vec, query_vec) / (np.linalg.norm(stored_vec) * np.linalg.norm(query_vec))
                         
                         if similarity >= similarity_threshold:
-                            doc_info = embedding_row.get('mevzuat_documents', {})
+                            document_id = embedding_row["document_id"]
                             
                             results.append({
                                 "id": embedding_row["id"],
-                                "document_id": embedding_row["document_id"],
+                                "document_id": document_id,
                                 "content": embedding_row["content"],
                                 "metadata": embedding_row.get("metadata", {}),
                                 "created_at": None,
-                                "document_title": doc_info.get("title", "Unknown Document"),
+                                "document_title": document_titles.get(document_id, "Unknown Document"),
                                 "category": None,  # Not available yet
                                 "source_institution": None,  # Not available yet
                                 "publish_date": None,  # Not available yet
