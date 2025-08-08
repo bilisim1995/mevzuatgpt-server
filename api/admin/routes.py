@@ -260,6 +260,8 @@ async def delete_document(
                 logger.info("Physical file deleted from Bunny.net")
             except Exception as e:
                 logger.warning(f"Failed to delete physical file: {e}")
+        else:
+            logger.warning("No file_url found, skipping physical file deletion")
         
         # Step 4: Delete document record from database
         logger.info(f"Deleting document record: {document_id}")
