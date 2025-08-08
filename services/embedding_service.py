@@ -44,7 +44,7 @@ class EmbeddingService:
             response = await loop.run_in_executor(
                 None,
                 lambda: self.client.embeddings.create(
-                    model=settings.OPENAI_EMBEDDING_MODEL,  # text-embedding-3-large
+                    model="text-embedding-3-small",  # Force 1536 dimensions
                     input=text.strip(),
                     encoding_format="float"
                 )
