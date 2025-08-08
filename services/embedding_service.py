@@ -212,7 +212,7 @@ class EmbeddingService:
         self, 
         query_embedding: List[float], 
         limit: int = 10,
-        similarity_threshold: float = 0.7,
+        similarity_threshold: float = 0.3,
         category_filter: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
