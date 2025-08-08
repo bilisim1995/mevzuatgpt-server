@@ -1,0 +1,86 @@
+{
+    "success": true,
+    "timestamp": "2025-08-08T19:14:35.274498",
+    "data": {
+        "query": "Geçici iş göremezlik ödeneği ödenme şartı nedir ?",
+        "answer": "Belge içeriğinde geçici iş göremezlik ödeneği ödenme şartı ile ilgili bilgi bulunamadı. Bu nedenle, bu konuda bilgi yok demekteyim.\n\nAncak, geçici iş göremezlik ödeneği ödenme şartlarını belirleyen 4447 sayılı İşsizlik Sigortası Kanunu'nun 47. maddesine göre, geçici iş göremezlik ödeneği, işsizlik sigortası kanununa göre sigortalı olan kişilere, işsizlik sigortası kuruluşunca ödenir. Ödenme şartları, işsizlik sigortası kuruluşunca belirlenir.\n\nKaynak: 4447 sayılı İşsizlik Sigortası Kanunu, 47. madde.",
+        "confidence_score": 0.45,
+        "sources": [],
+        "institution_filter": null,
+        "search_stats": {
+            "total_chunks_found": 0,
+            "embedding_time_ms": 197,
+            "search_time_ms": 558,
+            "generation_time_ms": 531,
+            "reliability_time_ms": 2,
+            "total_pipeline_time_ms": 3024,
+            "cache_used": false,
+            "rate_limit_remaining": 29
+        },
+        "llm_stats": {
+            "model_used": "llama3-8b-8192",
+            "prompt_tokens": 0,
+            "response_tokens": 0
+        },
+        "confidence_breakdown": {
+            "overall_score": 45,
+            "explanation": "Bu skor, cevabın güvenilirliğini farklı kriterlere göre değerlendirerek oluşturulmuştur.",
+            "criteria": {
+                "source_reliability": {
+                    "score": 0,
+                    "weight": 30,
+                    "description": "Resmi kaynaklar, mevzuat metinleri ve güvenilir referansların kullanımı",
+                    "details": [
+                        "Hiç kaynak bulunamadı",
+                        "Bilgi doğrulanamadı"
+                    ]
+                },
+                "content_consistency": {
+                    "score": 50,
+                    "weight": 25,
+                    "description": "Yanıtın iç tutarlılığı ve mantıksal bütünlüğü",
+                    "details": [
+                        "İçerik tutarlılığı değerlendirilemedi"
+                    ]
+                },
+                "technical_accuracy": {
+                    "score": 82,
+                    "weight": 25,
+                    "description": "Hukuki terminoloji ve teknik detayların doğruluğu",
+                    "details": [
+                        "Zengin hukuki terminoloji",
+                        "Detaylı madde referansları",
+                        "Günlük dil kullanımı"
+                    ]
+                },
+                "currency": {
+                    "score": 63,
+                    "weight": 20,
+                    "description": "Bilgilerin güncel mevzuata uygunluğu",
+                    "details": [
+                        "Görece güncel mevzuat",
+                        "Genel olarak güncel içerik",
+                        "Yürürlükteki düzenlemeler referans alınmış"
+                    ]
+                }
+            },
+            "score_ranges": {
+                "high": {
+                    "min": 80,
+                    "max": 100,
+                    "desc": "Tüm kaynaklar doğrulanmış, içerik tam ve güvenilir"
+                },
+                "medium": {
+                    "min": 60,
+                    "max": 79,
+                    "desc": "Çoğu kaynak doğrulanmış, içerik güvenilir"
+                },
+                "low": {
+                    "min": 0,
+                    "max": 59,
+                    "desc": "Az sayıda kaynak doğrulanmış, içerik kontrol edilmeli"
+                }
+            }
+        }
+    }
+}

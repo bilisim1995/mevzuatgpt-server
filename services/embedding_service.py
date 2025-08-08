@@ -228,9 +228,44 @@ class EmbeddingService:
             List of similar embeddings with similarity scores
         """
         try:
-            # Build SQL query for vector similarity search
-            # Using cosine similarity via pgvector extension
-            query = """
+            # Use Supabase search_embeddings function for vector similarity
+            try:
+                # Call Supabase stored function
+                from models.supabase_client import supabase_client
+                
+                response = supabase_client.supabase.rpc('search_embeddings', {
+                    'query_embedding': query_embedding,
+                    'match_threshold': similarity_threshold,
+                    'match_count': limit
+                }).execute()
+                
+                if response.data:
+                    # Convert to expected format
+                    results = []
+                    for row in response.data:
+                        results.append({
+                            "id": row["id"],
+                            "document_id": row["document_id"], 
+                            "content": row["content"],
+                            "metadata": row.get("metadata", {}),
+                            "created_at": None,  # Not needed for search
+                            "document_title": row["document_title"],
+                            "category": None,  # Not in function yet
+                            "source_institution": None,  # Not in function yet  
+                            "publish_date": None,  # Not in function yet
+                            "similarity_score": float(row["similarity"])
+                        })
+                    
+                    logger.info(f"Found {len(results)} similar embeddings via Supabase RPC")
+                    return results
+                
+            except Exception as rpc_error:
+                logger.warning(f"Supabase RPC search failed, falling back to direct query: {rpc_error}")
+            
+            # Fallback to direct SQL (with text() wrapper)
+            from sqlalchemy import text
+            
+            query_text = text("""
             SELECT 
                 e.id,
                 e.document_id,
@@ -239,28 +274,25 @@ class EmbeddingService:
                 e.created_at,
                 d.title as document_title,
                 d.category,
-                d.source_institution,
+                d.source_institution,  
                 d.publish_date,
-                1 - (e.embedding <=> %s) as similarity_score
+                1 - (e.embedding <=> :query_embedding) as similarity_score
             FROM mevzuat_embeddings e
             JOIN mevzuat_documents d ON e.document_id = d.id
-            WHERE d.status = 'active' 
-                AND d.processing_status = 'completed'
-                AND (1 - (e.embedding <=> %s)) >= %s
-            """
+            WHERE d.status IN ('completed', 'active')
+                AND (1 - (e.embedding <=> :query_embedding)) >= :similarity_threshold
+            ORDER BY similarity_score DESC 
+            LIMIT :limit
+            """)
             
-            params = [query_embedding, query_embedding, similarity_threshold]
+            params = {
+                'query_embedding': str(query_embedding),
+                'similarity_threshold': similarity_threshold,
+                'limit': limit
+            }
             
-            # Add category filter if specified
-            if category_filter:
-                query += " AND d.category = %s"
-                params.append(category_filter)
-            
-            query += " ORDER BY similarity_score DESC LIMIT %s"
-            params.append(limit)
-            
-            # Execute raw SQL query for vector search
-            result = await self.db.execute(query, params)
+            # Execute with SQLAlchemy text query
+            result = await self.db.execute(query_text, params)
             rows = result.fetchall()
             
             # Convert results to dictionaries
