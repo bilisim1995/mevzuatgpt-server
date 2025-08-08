@@ -1,0 +1,80 @@
+Güvenilirlik Skorlama Sistemi Mantığı
+Skor, birden fazla kriterin ağırlıklı ortalaması alınarak hesaplanmalıdır. Bu, tek bir metriğe (örneğin sadece benzerlik skoru) bağımlı kalmaktan çok daha güvenilir bir sonuç verir.
+
+Ana Kriterler:
+
+Kaynak Benzerliği (Similarity Score - Ağırlık: %40):
+
+Ne Ölçer? Supabase'den gelen metin parçacıklarının ("context"), kullanıcının orijinal sorusuna anlamsal olarak ne kadar yakın olduğunu.
+
+Nereden Alınır? pg_vector'ün benzerlik arama sorgusundan (1 - (embedding <=> query_embedding)) doğrudan gelen 0 ile 1 arasındaki değer.
+
+Hesaplama: Kullanılan tüm kaynakların (örneğin 3 tane bulunduysa) benzerlik skorlarının ortalaması alınır.
+
+Kaynak Tutarlılığı (Source Consistency - Ağırlık: %30):
+
+Ne Ölçer? Cevabı oluşturmak için kullanılan metin parçacıklarının birbirinden ne kadar farklı kaynaklardan geldiğini ve ne kadar çeşitli olduğunu.
+
+Hesaplama:
+
+Tek Kaynak Penaltısı: Eğer bulunan 3 metin parçası da aynı PDF'in aynı sayfasından geliyorsa, bu skor düşük olur (örneğin, 30/100). Cevap muhtemelen doğru ama dar bir bakış açısına sahip.
+
+Çoklu Kaynak Bonusu: Eğer metin parçaları farklı PDF'lerden (örneğin, biri "İmar Yönetmeliği", diğeri "Belediye Kanunu") geliyorsa, bu skor yüksek olur (örneğin, 90/100). Bu, cevabın birden fazla kaynakla doğrulandığını gösterir.
+
+Aynı Doküman, Farklı Sayfa Bonusu: Eğer parçalar aynı PDF'in farklı sayfalarından geliyorsa, bu orta düzeyde bir skor alır (örneğin, 60/100).
+
+Cevap Kapsayıcılığı (Answer Coverage - Ağırlık: %30):
+
+Ne Ölçer? Ollama tarafından üretilen nihai cevabın, kendisine sağlanan "context" metinlerine ne kadar sadık kaldığını ve ne kadarını kullandığını.
+
+Hesaplama (Basit Yöntem):
+
+Ollama'nın ürettiği cevabı alın.
+
+Bu cevabın içindeki anahtar kelimelerin veya cümlelerin, Supabase'den gelen "context" metinlerinin içinde ne oranda geçtiğini hesaplayın (örneğin, n-gram veya Jaccard benzerliği gibi basit metin karşılaştırma teknikleri ile).
+
+Eğer cevap, context'teki metinlerle yüksek oranda örtüşüyorsa, skor yüksek olur. Eğer cevap, context'in dışına çıkarak "halüsinasyon" görmeye veya kendi kendine bilgi uydurmaya başladıysa, bu skor düşer.
+
+Final Skor Hesaplama Formülü:
+
+Toplam Güvenilirlik Skoru = (Kaynak Benzerliği * 0.40) + (Kaynak Tutarlılığı * 0.30) + (Cevap Kapsayıcılığı * 0.30)
+
+Replit Agent Prompt'una Eklenecek Bölüm
+## 7. Güvenilirlik Skorlama Sistemi
+
+Üretilen her cevabın kalitesini ve güvenilirliğini ölçmek için, /ask endpoint'inin yanıtına bir "güvenilirlik skoru" eklenmelidir. Bu skor, kullanıcıya şeffaflık sunacak ve cevabın ne kadar güvenilir olduğunu anlamasına yardımcı olacaktır.
+
+7.1. Skorlama Kriterleri ve Ağırlıkları
+Final skor, aşağıdaki üç ana kriterin ağırlıklı ortalaması alınarak hesaplanacaktır:
+
+Kaynak Benzerliği (Ağırlık: %40):
+
+Amaç: Supabase'den alınan kaynak metinlerin ("context"), kullanıcının sorusuna anlamsal olarak ne kadar yakın olduğunu ölçer.
+
+Uygulama: Supabase match_documents fonksiyonundan dönen similarity skorlarının ortalamasını al. Bu değeri 100 ile çarparak yüzdeye çevir.
+
+Kaynak Tutarlılığı (Ağırlık: %30):
+
+Amaç: Cevabı destekleyen kaynakların çeşitliliğini ölçer. Çoklu, bağımsız kaynaklar daha yüksek bir skor üretir.
+
+Uygulama: Bir fonksiyon yazarak aşağıdaki mantığı uygula:
+
+Kullanılan kaynak metinlerin document_id'lerini analiz et.
+
+Eğer tüm kaynaklar farklı document_id'lere sahipse, bu kritere 95/100 puan ver.
+
+Eğer tüm kaynaklar aynı document_id'ye sahip ama farklı sayfa numaralarına (metadata'dan alınacak) sahipse, 60/100 puan ver.
+
+Eğer tüm kaynaklar aynı document_id ve aynı sayfadan geliyorsa, 30/100 puan ver.
+
+Cevap Kapsayıcılığı (Ağırlık: %30):
+
+Amaç: LLM (Ollama) tarafından üretilen cevabın, kendisine sağlanan kaynak metinlere ne kadar sadık kaldığını ve "halüsinasyon" (bilgi uydurma) oranını ölçer.
+
+Uygulama: Basit bir metin karşılaştırma fonksiyonu yaz:
+
+Ollama'nın ürettiği cevap metnini al.
+
+Supabase'den gelen birleştirilmiş "context" metnini al.
+
+Cevap metnindeki cümlelerin veya önemli anahtar kelimelerin, context metninde ne kadarının bulunduğunu yüzde olarak hesapla. (Örneğin, set operasyonları veya basit bir döngü ile kelime kontrolü yapılabilir). Bu yüzdeyi skor olarak kullan.
