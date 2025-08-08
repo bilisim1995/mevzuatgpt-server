@@ -10,6 +10,15 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 
 ## Son Mimari Değişiklikler (8 Ağustos 2025)
 
+### ✅ .ENV TABANLISI SİSTEM - VPS HAZIR (8 Ağustos 2025)
+- **Replit Secrets Bağımlılığı**: Tamamen kaldırıldı
+- **Configuration**: Sistem tamamen .env dosyasından çalışıyor
+- **OpenAI Integration**: .env'den başarıyla çalışıyor (2956ms response)
+- **VPS Deployment**: Hazır - Replit Secrets'a bağımlılık yok
+- **Environment Loading**: Force .env override ile config.py güncellendi
+- **Production Ready**: .env ile VPS'e taşınabilir durumda
+- **Groq Key**: Manuel düzeltme gerekiyor (.env dosyasında)
+
 ### ✅ ASK ENDPOINT - COMPLETE RAG PIPELINE OPERATIONAL (8 Ağustos 2025)
 - **Groq Integration**: Ultra-fast AI inference with Llama3-8b-8192 (~0.3s responses)
 - **Cost Optimization**: Groq ~$0.27/1M tokens vs OpenAI ~$15/1M tokens (98% cost reduction)

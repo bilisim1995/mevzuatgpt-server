@@ -7,6 +7,10 @@ from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
 from typing import List, Optional
 import os
+from dotenv import load_dotenv
+
+# Force load .env file and override system environment
+load_dotenv('.env', override=True)
 
 
 class Settings(BaseSettings):
@@ -78,7 +82,12 @@ class Settings(BaseSettings):
     SEARCH_LIMIT: int = 10
     SIMILARITY_THRESHOLD: float = 0.7
     
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {
+        "env_file": ".env", 
+        "env_file_encoding": "utf-8",
+        "case_sensitive": True,
+        "env_ignore_empty": False
+    }
     
 
     
