@@ -179,6 +179,64 @@ class StorageService:
                 detail=str(e),
                 error_code="STORAGE_DOWNLOAD_ERROR"
             )
+
+    async def delete_file(self, storage_path: str) -> bool:
+        """
+        Delete file from Bunny.net storage
+        
+        Args:
+            storage_path: CDN URL or filename to delete
+            
+        Returns:
+            True if deletion was successful
+            
+        Raises:
+            AppException: If deletion fails
+        """
+        try:
+            logger.info(f"Deleting file from storage: {storage_path}")
+            
+            # Extract filename from CDN URL if needed
+            if storage_path.startswith('http'):
+                filename = storage_path.split('/')[-1]
+            else:
+                filename = storage_path
+            
+            # Delete from Bunny.net
+            delete_url = f"{self.base_url}/{filename}"
+            
+            headers = {
+                "AccessKey": self.api_key
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.delete(delete_url, headers=headers) as response:
+                    if response.status in [200, 204, 404]:  # 404 means already deleted
+                        logger.info(f"File deleted successfully: {filename}")
+                        return True
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"Delete failed: {response.status} - {error_text}")
+                        raise AppException(
+                            message="File deletion failed",
+                            detail=f"Storage service error: {response.status}",
+                            error_code="STORAGE_DELETE_FAILED"
+                        )
+                        
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error during delete: {str(e)}")
+            raise AppException(
+                message="Network error during file deletion",
+                detail=str(e),
+                error_code="NETWORK_ERROR"
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error during delete: {str(e)}")
+            raise AppException(
+                message="Unexpected error during file deletion",
+                detail=str(e),
+                error_code="DELETE_ERROR"
+            )
     
     async def delete_file(self, file_url: str) -> bool:
         """

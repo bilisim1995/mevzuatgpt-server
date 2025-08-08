@@ -225,6 +225,65 @@ async def get_document(
             error_code="GET_FAILED"
         )
 
+
+@router.delete("/documents/{document_id}")
+async def delete_document(
+    document_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Delete document completely: physical file (Bunny.net) + database record + embeddings"""
+    try:
+        logger.info(f"Starting deletion process for document: {document_id}")
+        
+        # Step 1: Get document info first
+        document_response = supabase_client.supabase.table('mevzuat_documents').select('*').eq('id', document_id).execute()
+        if not document_response.data:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        document = document_response.data[0]
+        storage_path = document.get('file_url')  # Use file_url instead of storage_path
+        
+        # Step 2: Delete embeddings first (foreign key constraint)
+        logger.info(f"Deleting embeddings for document: {document_id}")
+        embeddings_response = supabase_client.supabase.table('mevzuat_embeddings').delete().eq('document_id', document_id).execute()
+        embeddings_count = len(embeddings_response.data) if embeddings_response.data else 0
+        logger.info(f"Deleted {embeddings_count} embeddings")
+        
+        # Step 3: Delete physical file from Bunny.net
+        physical_deleted = False
+        if storage_path:
+            try:
+                logger.info(f"Deleting physical file: {storage_path}")
+                storage_service = StorageService()
+                await storage_service.delete_file(storage_path)
+                physical_deleted = True
+                logger.info("Physical file deleted from Bunny.net")
+            except Exception as e:
+                logger.warning(f"Failed to delete physical file: {e}")
+        
+        # Step 4: Delete document record from database
+        logger.info(f"Deleting document record: {document_id}")
+        supabase_client.supabase.table('mevzuat_documents').delete().eq('id', document_id).execute()
+        logger.info("Document record deleted from database")
+        
+        return {
+            "success": True,
+            "message": "Document deleted successfully",
+            "data": {
+                "document_id": document_id,
+                "document_title": document.get('title'),
+                "embeddings_deleted": embeddings_count,
+                "physical_file_deleted": physical_deleted,
+                "file_url": storage_path
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete document {document_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
+
 @router.put("/documents/{document_id}", response_model=DocumentResponse)
 async def update_document(
     document_id: str,
@@ -269,39 +328,7 @@ async def update_document(
             error_code="UPDATE_FAILED"
         )
 
-@router.delete("/documents/{document_id}")
-async def delete_document(
-    document_id: str,
-    current_user: UserResponse = Depends(get_admin_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Delete document and its embeddings (Admin only)
-    
-    Args:
-        document_id: Document UUID
-        current_user: Current admin user
-        db: Database session
-    
-    Returns:
-        Success message
-    """
-    try:
-        document_service = DocumentService(db)
-        storage_service = StorageService()
-        
-        # Get document to retrieve file URL
-        document = await document_service.get_document_by_id(document_id)
-        
-        if not document:
-            raise AppException(
-                message="Document not found",
-                status_code=status.HTTP_404_NOT_FOUND,
-                error_code="DOCUMENT_NOT_FOUND"
-            )
-        
-        # Delete from storage
-        await storage_service.delete_file(document.file_url)
+
         
         # Delete from database (will cascade to embeddings)
         await document_service.delete_document(document_id)
