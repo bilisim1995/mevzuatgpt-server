@@ -137,3 +137,33 @@ class RoleChecker:
 # Pre-defined role checkers
 require_admin = RoleChecker(["admin"])
 require_user_or_admin = RoleChecker(["user", "admin"])
+
+async def get_current_user_admin(
+    current_user: UserResponse = Depends(get_current_user)
+) -> dict:
+    """
+    Dependency to ensure current user has admin privileges
+    Returns user data as dict for admin operations
+    
+    Args:
+        current_user: Current authenticated user
+        
+    Returns:
+        User data as dict
+        
+    Raises:
+        HTTPException: If user is not admin
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin yetkisi gerekli"
+        )
+    
+    # UserResponse'ı dict'e çevir
+    return {
+        "id": str(current_user.id),
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "role": current_user.role
+    }

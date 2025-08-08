@@ -18,6 +18,7 @@ from models.schemas import (
 from services.search_service import SearchService
 from services.document_service import DocumentService
 from services.query_service import QueryService
+from services.credit_service import credit_service
 from utils.response import success_response
 from utils.exceptions import AppException
 
@@ -224,17 +225,20 @@ async def ask_question(
     Ask a question and get AI-powered answer with sources
     
     This endpoint performs the complete RAG pipeline:
-    1. Generate embeddings for the query (with caching)
-    2. Search for relevant document chunks
-    3. Generate AI response using Ollama
-    4. Return answer with sources and confidence score
+    1. Check user credit balance and calculate required credits
+    2. Generate embeddings for the query (with caching)
+    3. Search for relevant document chunks
+    4. Generate AI response using Groq
+    5. Return answer with sources and confidence score
     
     Features:
+    - Credit system integration with automatic deduction
     - Redis caching for performance
     - Rate limiting protection (30 requests/minute)
     - Institution filtering
     - Confidence scoring
     - User search history tracking
+    - Admin users have unlimited credits
     
     Args:
         ask_request: Question and search parameters
@@ -245,22 +249,97 @@ async def ask_question(
         AI-generated answer with sources and metadata
     """
     try:
+        user_id = str(current_user.id)
+        query = ask_request.query
+        
+        # 1. Admin kullanıcılar için kredi kontrolü bypass
+        is_admin = await credit_service.is_admin_user(user_id)
+        required_credits = 0  # Default değer
+        
+        if not is_admin:
+            # 2. Sorgu için gerekli kredi miktarını hesapla
+            required_credits = credit_service.calculate_credit_cost(query)
+            
+            # 3. Kullanıcının yeterli kredisi var mı kontrol et
+            current_balance = await credit_service.get_user_balance(user_id)
+            
+            if current_balance < required_credits:
+                # Yetersiz kredi durumu
+                logger.warning(f"Insufficient credits for user {user_id}: required={required_credits}, balance={current_balance}")
+                raise HTTPException(
+                    status_code=402,  # Payment Required
+                    detail={
+                        "error": "insufficient_credits",
+                        "message": "Krediniz bu sorgu için yeterli değil",
+                        "required_credits": required_credits,
+                        "current_balance": current_balance,
+                        "query": query[:100] + "..." if len(query) > 100 else query
+                    }
+                )
+            
+            # 4. Krediyi düş (işlem başlamadan önce)
+            deduction_success = await credit_service.deduct_credits(
+                user_id=user_id,
+                amount=required_credits,
+                description=f"Sorgu: '{query[:50]}{'...' if len(query) > 50 else ''}'",
+                query_id=None  # Query ID henüz yok, sonra güncellenecek
+            )
+            
+            if not deduction_success:
+                logger.error(f"Credit deduction failed for user {user_id}")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Kredi düşüm işlemi başarısız oldu"
+                )
+            
+            logger.info(f"Credits deducted for user {user_id}: {required_credits} credits, balance: {current_balance - required_credits}")
+        
+        # 5. Normal ask query processing
         query_service = QueryService(db)
         
         result = await query_service.process_ask_query(
             query=ask_request.query,
-            user_id=str(current_user.id),
+            user_id=user_id,
             institution_filter=ask_request.institution_filter,
             limit=ask_request.limit,
             similarity_threshold=ask_request.similarity_threshold,
             use_cache=ask_request.use_cache
         )
         
-        logger.info(f"Ask query processed for user {current_user.id}: '{ask_request.query[:50]}' - confidence: {result['confidence_score']}")
+        # 6. Başarılı işlem sonrası kredi bilgilerini response'a ekle (admin değilse)
+        if not is_admin:
+            result["credit_info"] = {
+                "credits_used": required_credits,
+                "remaining_balance": current_balance - required_credits
+            }
+        else:
+            result["credit_info"] = {
+                "credits_used": 0,
+                "remaining_balance": "unlimited",
+                "admin_user": True
+            }
+        
+        logger.info(f"Ask query processed for user {user_id}: '{ask_request.query[:50]}' - confidence: {result['confidence_score']}")
         
         return success_response(data=result)
         
+    except HTTPException:
+        # HTTPException'ları aynen geçir (kredi yetersizliği gibi)
+        raise
     except AppException as e:
+        # İşlem hata aldıysa krediyi iade et (admin değilse ve kredi düşüldüyse)
+        if not is_admin and required_credits > 0:
+            try:
+                await credit_service.refund_credits(
+                    user_id=user_id,
+                    amount=required_credits,
+                    query_id="failed",
+                    reason=f"İşlem hatası: {str(e)}"
+                )
+                logger.info(f"Credits refunded due to error for user {user_id}: {required_credits} credits")
+            except Exception as refund_error:
+                logger.error(f"Credit refund failed for user {user_id}: {refund_error}")
+        
         if e.status_code == 429:  # Rate limit exceeded
             raise HTTPException(
                 status_code=429,
@@ -272,7 +351,20 @@ async def ask_question(
             )
         raise e
     except Exception as e:
-        logger.error(f"Ask error for user {current_user.id}: {str(e)}")
+        # Diğer hatalar için de kredi iadesi (admin değilse ve kredi düşüldüyse)
+        if not is_admin and required_credits > 0:
+            try:
+                await credit_service.refund_credits(
+                    user_id=user_id,
+                    amount=required_credits,
+                    query_id="failed",
+                    reason=f"Sistem hatası: {str(e)}"
+                )
+                logger.info(f"Credits refunded due to system error for user {user_id}: {required_credits} credits")
+            except Exception as refund_error:
+                logger.error(f"Credit refund failed for user {user_id}: {refund_error}")
+        
+        logger.error(f"Ask error for user {user_id}: {str(e)}")
         raise AppException(
             message="Failed to process question",
             detail=str(e),

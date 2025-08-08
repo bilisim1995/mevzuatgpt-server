@@ -15,6 +15,8 @@ from core.logging import setup_logging
 from api.auth.routes import router as auth_router
 from api.admin.routes import router as admin_router
 from api.user.routes import router as user_router
+from api.user.credit_routes import router as user_credit_router
+from api.admin.credit_routes import router as admin_credit_router
 from utils.exceptions import AppException
 
 # Setup logging
@@ -245,7 +247,9 @@ async def api_info():
 # Include routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
+app.include_router(admin_credit_router, tags=["Admin-Credits"])  # Admin kredi yönetimi
 app.include_router(user_router, prefix="/api/user", tags=["User"])
+app.include_router(user_credit_router, tags=["User-Credits"])    # Kullanıcı kredi bilgisi
 
 # Startup event
 @app.on_event("startup")
