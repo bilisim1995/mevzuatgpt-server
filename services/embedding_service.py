@@ -232,36 +232,8 @@ class EmbeddingService:
             from models.supabase_client import supabase_client
             import json
             
-            # Try Supabase stored function first
-            try:
-                response = supabase_client.supabase.rpc('search_embeddings', {
-                    'query_embedding': query_embedding,
-                    'match_threshold': similarity_threshold,
-                    'match_count': limit
-                }).execute()
-                
-                if response.data:
-                    # Convert to expected format
-                    results = []
-                    for row in response.data:
-                        results.append({
-                            "id": row["id"],
-                            "document_id": row["document_id"], 
-                            "content": row["content"],
-                            "metadata": row.get("metadata", {}),
-                            "created_at": None,  # Not needed for search
-                            "document_title": row["document_title"],
-                            "category": None,  # Not in function yet
-                            "source_institution": None,  # Not in function yet  
-                            "publish_date": None,  # Not in function yet
-                            "similarity_score": float(row["similarity"])
-                        })
-                    
-                    logger.info(f"Found {len(results)} similar embeddings via Supabase RPC")
-                    return results
-                    
-            except Exception as rpc_error:
-                logger.warning(f"Supabase RPC search failed, trying direct table query: {rpc_error}")
+            # Skip RPC function - use direct query for reliability
+            # RPC function may not handle threshold correctly or may not exist in production
             
             # Fallback: Use direct Supabase table query without SQLAlchemy
             try:
