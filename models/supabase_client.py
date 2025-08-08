@@ -1,0 +1,120 @@
+"""
+Supabase client for MevzuatGPT
+Handles database operations via Supabase REST API
+"""
+import os
+import uuid
+from typing import List, Dict, Any, Optional
+from supabase import create_client, Client
+from datetime import datetime
+import json
+
+class SupabaseClient:
+    def __init__(self):
+        self.supabase: Client = create_client(
+            os.getenv('SUPABASE_URL'),
+            os.getenv('SUPABASE_SERVICE_KEY')
+        )
+    
+    async def create_document(self, doc_data: dict) -> str:
+        """Create a new document record"""
+        try:
+            response = self.supabase.table('mevzuat_documents').insert({
+                'title': doc_data.get('title'),
+                'filename': doc_data.get('filename'),
+                'file_url': doc_data.get('file_url'),
+                'file_size': doc_data.get('file_size'),
+                'content_preview': doc_data.get('content_preview', ''),
+                'uploaded_by': doc_data.get('uploaded_by'),
+                'status': 'processing',
+                'metadata': doc_data.get('metadata', {})
+            }).execute()
+            
+            return response.data[0]['id']
+        except Exception as e:
+            print(f"Document creation error: {e}")
+            raise
+    
+    async def get_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
+        """Get document by ID"""
+        try:
+            response = self.supabase.table('mevzuat_documents').select('*').eq('id', doc_id).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Get document error: {e}")
+            return None
+    
+    async def update_document_status(self, doc_id: str, status: str, error: str = None):
+        """Update document processing status"""
+        try:
+            update_data = {'status': status}
+            if error:
+                update_data['processing_error'] = error
+                
+            response = self.supabase.table('mevzuat_documents').update(update_data).eq('id', doc_id).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Update document status error: {e}")
+            raise
+    
+    async def create_embedding(self, doc_id: str, content: str, embedding: List[float], chunk_index: int = 0):
+        """Create an embedding record"""
+        try:
+            response = self.supabase.table('mevzuat_embeddings').insert({
+                'document_id': doc_id,
+                'content': content,
+                'embedding': embedding,
+                'chunk_index': chunk_index,
+                'metadata': {}
+            }).execute()
+            
+            return response.data[0]['id']
+        except Exception as e:
+            print(f"Embedding creation error: {e}")
+            raise
+    
+    async def search_embeddings(self, query_embedding: List[float], limit: int = 10, threshold: float = 0.7):
+        """Search embeddings using vector similarity"""
+        try:
+            # Use RPC function for vector search
+            response = self.supabase.rpc('search_embeddings', {
+                'query_embedding': query_embedding,
+                'match_threshold': threshold,
+                'match_count': limit
+            }).execute()
+            
+            return response.data
+        except Exception as e:
+            print(f"Embedding search error: {e}")
+            return []
+    
+    async def get_all_documents(self, status: str = None) -> List[Dict[str, Any]]:
+        """Get all documents, optionally filtered by status"""
+        try:
+            query = self.supabase.table('mevzuat_documents').select('*')
+            if status:
+                query = query.eq('status', status)
+            
+            response = query.execute()
+            return response.data
+        except Exception as e:
+            print(f"Get all documents error: {e}")
+            return []
+    
+    async def log_search(self, user_id: str, query: str, results_count: int, execution_time: float):
+        """Log search query"""
+        try:
+            response = self.supabase.table('search_logs').insert({
+                'user_id': user_id,
+                'query': query,
+                'results_count': results_count,
+                'execution_time': execution_time
+            }).execute()
+            
+            return response.data[0]['id']
+        except Exception as e:
+            print(f"Search log error: {e}")
+            return None
+
+# Global instance
+supabase_client = SupabaseClient()

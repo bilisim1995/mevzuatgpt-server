@@ -21,9 +21,10 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 ### Supabase Geçiş Süreci (Devam Ediyor)
 - **DATABASE_URL**: Supabase PostgreSQL'e yönlendirildi
 - **API Keys**: SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_KEY eklendi
-- **Schema Migration**: supabase_setup.sql hazırlandı, manuel uygulama gerekiyor
+- **Schema Migration**: supabase_final_setup.sql hazırlandı, manuel uygulama gerekiyor
 - **Network**: Replit'ten direct PostgreSQL connection kısıtlı, Supabase REST API kullanılacak
 - **Status**: Tablolar Supabase SQL Editor'da manuel oluşturulmalı
+- **Code Update**: models/supabase_client.py oluşturuldu (REST API wrapper)
 
 ## Son Mimari Değişiklikler (7 Ağustos 2025)
 
