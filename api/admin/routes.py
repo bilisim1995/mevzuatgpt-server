@@ -15,7 +15,7 @@ from models.schemas import (
     UserResponse, DocumentResponse, DocumentCreate, 
     DocumentUpdate, DocumentListResponse, UploadResponse
 )
-from services.document_service import DocumentService
+from models.supabase_client import supabase_client
 from services.storage_service import StorageService
 from tasks.document_processor import process_document_task
 from utils.response import success_response, error_response
@@ -33,8 +33,7 @@ async def upload_document(
     keywords: Optional[str] = Form(None),
     source_institution: Optional[str] = Form(None),
     publish_date: Optional[str] = Form(None),
-    current_user: UserResponse = Depends(get_admin_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: UserResponse = Depends(get_admin_user)
 ):
     """
     Upload a PDF document (Admin only)
@@ -72,7 +71,6 @@ async def upload_document(
         
         # Initialize services
         storage_service = StorageService()
-        document_service = DocumentService(db)
         
         # Upload file to Bunny.net
         logger.info(f"Uploading file {file.filename} to storage")
@@ -82,33 +80,38 @@ async def upload_document(
             content_type="application/pdf"
         )
         
-        # Prepare document data
+        # Prepare document data for Supabase
         keywords_list = [k.strip() for k in keywords.split(",")] if keywords else []
         
-        document_data = DocumentCreate(
-            title=title,
-            category=category,
-            description=description,
-            keywords=keywords_list,
-            source_institution=source_institution,
-            publish_date=publish_date,
-            file_name=file.filename,
-            file_url=file_url,
-            file_size=len(file_content),
-            uploaded_by=current_user.id
-        )
+        document_data = {
+            'title': title,
+            'filename': file.filename,
+            'file_url': file_url,
+            'file_size': len(file_content),
+            'content_preview': f"{title} - {description or ''}"[:500],
+            'uploaded_by': str(current_user.id),
+            'status': 'processing',
+            'metadata': {
+                'category': category,
+                'description': description,
+                'keywords': keywords_list,
+                'source_institution': source_institution,
+                'publish_date': publish_date,
+                'original_filename': file.filename
+            }
+        }
         
-        # Save document metadata to database
+        # Save document metadata to Supabase
         logger.info(f"Saving document metadata for {file.filename}")
-        document = await document_service.create_document(document_data)
+        document_id = await supabase_client.create_document(document_data)
         
         # Trigger background processing
-        logger.info(f"Triggering background processing for document {document.id}")
-        process_document_task.delay(str(document.id))
+        logger.info(f"Triggering background processing for document {document_id}")
+        process_document_task.delay(str(document_id))
         
         return success_response(
             data={
-                "document_id": str(document.id),
+                "document_id": str(document_id),
                 "message": "Document uploaded successfully and queued for processing",
                 "file_url": file_url,
                 "processing_status": "pending"
