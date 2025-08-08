@@ -259,51 +259,71 @@ class EmbeddingService:
                     import numpy as np
                     
                     results = []
+                    processed_count = 0
+                    error_count = 0
+                    
                     for embedding_row in embedding_response.data:
-                        # Get embedding vector
-                        stored_embedding = embedding_row.get('embedding')
-                        if not stored_embedding:
-                            continue
+                        processed_count += 1
                         
-                        # Parse embedding if it's stored as string
-                        if isinstance(stored_embedding, str):
-                            try:
-                                stored_embedding = json.loads(stored_embedding)
-                            except:
-                                continue  # Skip invalid embeddings
-                        
-                        # Ensure both vectors have same length
-                        if len(stored_embedding) != len(query_embedding):
-                            continue
+                        try:
+                            # Get embedding vector
+                            stored_embedding = embedding_row.get('embedding')
+                            if not stored_embedding:
+                                error_count += 1
+                                continue
                             
-                        # Calculate cosine similarity
-                        stored_vec = np.array(stored_embedding)
-                        query_vec = np.array(query_embedding)
-                        
-                        # Cosine similarity
-                        similarity = np.dot(stored_vec, query_vec) / (np.linalg.norm(stored_vec) * np.linalg.norm(query_vec))
-                        
-                        if similarity >= similarity_threshold:
-                            document_id = embedding_row["document_id"]
+                            # Parse embedding if it's stored as string
+                            if isinstance(stored_embedding, str):
+                                try:
+                                    stored_embedding = json.loads(stored_embedding)
+                                except Exception as parse_error:
+                                    logger.warning(f"Failed to parse embedding JSON: {str(parse_error)[:100]}")
+                                    error_count += 1
+                                    continue
                             
-                            results.append({
-                                "id": embedding_row["id"],
-                                "document_id": document_id,
-                                "content": embedding_row["content"],
-                                "metadata": embedding_row.get("metadata", {}),
-                                "created_at": None,
-                                "document_title": document_titles.get(document_id, "Unknown Document"),
-                                "category": None,  # Not available yet
-                                "source_institution": None,  # Not available yet
-                                "publish_date": None,  # Not available yet
-                                "similarity_score": float(similarity)
-                            })
+                            # Ensure both vectors have same length
+                            if len(stored_embedding) != len(query_embedding):
+                                logger.warning(f"Embedding dimension mismatch: {len(stored_embedding)} vs {len(query_embedding)}")
+                                error_count += 1
+                                continue
+                                
+                            # Calculate cosine similarity
+                            stored_vec = np.array(stored_embedding)
+                            query_vec = np.array(query_embedding)
+                            
+                            # Cosine similarity
+                            similarity = np.dot(stored_vec, query_vec) / (np.linalg.norm(stored_vec) * np.linalg.norm(query_vec))
+                            
+                            logger.debug(f"Calculated similarity: {similarity:.3f} for content: {embedding_row['content'][:50]}...")
+                            
+                            if similarity >= similarity_threshold:
+                                document_id = embedding_row["document_id"]
+                                
+                                results.append({
+                                    "id": embedding_row["id"],
+                                    "document_id": document_id,
+                                    "content": embedding_row["content"],
+                                    "metadata": embedding_row.get("metadata", {}),
+                                    "created_at": None,
+                                    "document_title": document_titles.get(document_id, "Unknown Document"),
+                                    "category": None,  # Not available yet
+                                    "source_institution": None,  # Not available yet
+                                    "publish_date": None,  # Not available yet
+                                    "similarity_score": float(similarity)
+                                })
+                                
+                        except Exception as row_error:
+                            logger.error(f"Error processing embedding row: {str(row_error)}")
+                            error_count += 1
+                            continue
+                    
+                    logger.info(f"Processed {processed_count} embeddings, {error_count} errors, {len(results)} matches above {similarity_threshold}")
                     
                     # Sort by similarity and limit
                     results.sort(key=lambda x: x["similarity_score"], reverse=True)
                     results = results[:limit]
                     
-                    logger.info(f"Found {len(results)} similar embeddings via direct Supabase query")
+                    logger.info(f"Found {len(results)} similar embeddings via direct Supabase query (threshold: {similarity_threshold})")
                     return results
                     
             except Exception as direct_error:
