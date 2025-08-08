@@ -47,7 +47,7 @@ CREATE POLICY "Service can manage all credits" ON user_credits
 -- 6. Mevcut kullanıcılara kredi ver (basit versiyon)
 INSERT INTO user_credits (user_id, transaction_type, amount, balance_after, description)
 SELECT 
-    user_id,
+    id,
     'initial',
     30,
     30,
@@ -80,13 +80,13 @@ WHERE transaction_type = 'initial';
 
 -- Kullanıcı bakiye listesi (basit)
 SELECT 
-    up.user_id,
+    up.id,
     up.email,
     up.full_name,
     up.role,
     COALESCE(ucb.current_balance, 0) as credits
 FROM user_profiles up
-LEFT JOIN user_credit_balance ucb ON up.user_id = ucb.user_id
+LEFT JOIN user_credit_balance ucb ON up.id = ucb.user_id
 ORDER BY credits DESC;
 
 -- Toplam verilen kredi

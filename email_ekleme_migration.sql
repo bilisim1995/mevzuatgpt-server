@@ -11,14 +11,14 @@ ADD COLUMN IF NOT EXISTS email TEXT;
 UPDATE user_profiles 
 SET email = au.email
 FROM auth.users au
-WHERE user_profiles.user_id = au.id 
+WHERE user_profiles.id = au.id 
 AND user_profiles.email IS NULL;
 
 -- 3. handle_new_user fonksiyonunu güncelle (yeni kayıtlarda email de kaydetsin)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-    INSERT INTO public.user_profiles (user_id, email, full_name, role)
+    INSERT INTO public.user_profiles (id, email, full_name, role)
     VALUES (
         new.id,
         new.email,
@@ -69,7 +69,7 @@ CREATE POLICY "Service can manage all credits" ON user_credits
 -- 9. Mevcut kullanıcılara 30 kredi ver
 INSERT INTO user_credits (user_id, transaction_type, amount, balance_after, description)
 SELECT 
-    user_id,
+    id,
     'initial',
     30,
     30,
@@ -103,13 +103,13 @@ AND column_name = 'email';
 
 -- Kullanıcı listesi (email ile birlikte)
 SELECT 
-    up.user_id,
+    up.id,
     up.email,
     up.full_name,
     up.role,
     COALESCE(ucb.current_balance, 0) as credits
 FROM user_profiles up
-LEFT JOIN user_credit_balance ucb ON up.user_id = ucb.user_id
+LEFT JOIN user_credit_balance ucb ON up.id = ucb.user_id
 ORDER BY credits DESC;
 
 -- Kaç kullanıcıya kredi verildi?
