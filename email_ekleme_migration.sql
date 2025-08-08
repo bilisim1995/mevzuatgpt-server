@@ -1,13 +1,35 @@
 -- ===================================================================
--- MEVZUATGPT KREDİ SİSTEMİ - BASİT MIGRATION (Hatasız Versiyon)
--- Bu SQL'i Supabase'de tek seferde çalıştırabilirsiniz
+-- USER_PROFILES TABLOSUNA EMAIL KOLONU EKLEME + KREDİ SİSTEMİ
+-- Bu migration hem email kolonunu ekler hem kredi sistemi kurar
 -- ===================================================================
 
--- 0. user_profiles tablosuna email kolonu ekle (yeni kayıtlar için)
+-- 1. user_profiles tablosuna email kolonu ekle
 ALTER TABLE user_profiles 
 ADD COLUMN IF NOT EXISTS email TEXT;
 
--- 1. Kredi transaction tablosu
+-- 2. Mevcut kullanıcıların email bilgilerini auth.users tablosundan çek
+UPDATE user_profiles 
+SET email = au.email
+FROM auth.users au
+WHERE user_profiles.user_id = au.id 
+AND user_profiles.email IS NULL;
+
+-- 3. handle_new_user fonksiyonunu güncelle (yeni kayıtlarda email de kaydetsin)
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO public.user_profiles (user_id, email, full_name, role)
+    VALUES (
+        new.id,
+        new.email,
+        COALESCE(new.raw_user_meta_data->>'full_name', new.email),
+        COALESCE(new.raw_user_meta_data->>'role', 'user')
+    );
+    RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 4. Kredi tablosu oluştur
 CREATE TABLE IF NOT EXISTS user_credits (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
@@ -19,12 +41,12 @@ CREATE TABLE IF NOT EXISTS user_credits (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. İndeksler
+-- 5. Kredi tablosu indeksleri
 CREATE INDEX IF NOT EXISTS idx_user_credits_user_id ON user_credits(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_credits_created_at ON user_credits(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_credits_transaction_type ON user_credits(transaction_type);
 
--- 3. Bakiye view'i
+-- 6. Bakiye view'i
 CREATE OR REPLACE VIEW user_credit_balance AS 
 SELECT 
     user_id, 
@@ -34,28 +56,28 @@ SELECT
 FROM user_credits 
 GROUP BY user_id;
 
--- 4. RLS aktifleştir
+-- 7. RLS aktifleştir
 ALTER TABLE user_credits ENABLE ROW LEVEL SECURITY;
 
--- 5. Basit politikalar (RLS)
+-- 8. Basit RLS politikaları
 CREATE POLICY "Users can view own credits" ON user_credits
     FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Service can manage all credits" ON user_credits
     FOR ALL USING (true);
 
--- 6. Mevcut kullanıcılara kredi ver (basit versiyon)
+-- 9. Mevcut kullanıcılara 30 kredi ver
 INSERT INTO user_credits (user_id, transaction_type, amount, balance_after, description)
 SELECT 
     user_id,
     'initial',
     30,
     30,
-    'Sistem geçiş kredisi - Kredi sistemi aktivasyonu'
+    'Sistem geçiş kredisi - Email kolonu + Kredi sistemi aktivasyonu'
 FROM user_profiles
 ON CONFLICT DO NOTHING;
 
--- 7. Bakiye kontrolü fonksiyonu
+-- 10. Yardımcı fonksiyon
 CREATE OR REPLACE FUNCTION get_user_credit_balance(target_user_id UUID)
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -73,12 +95,13 @@ $$;
 -- DOĞRULAMA SORGULARI
 -- ===================================================================
 
--- Kaç kullanıcıya kredi verildi?
-SELECT COUNT(*) as "Kredili Kullanıcı Sayısı"
-FROM user_credits 
-WHERE transaction_type = 'initial';
+-- Email kolonunun eklendi mi?
+SELECT column_name 
+FROM information_schema.columns 
+WHERE table_name = 'user_profiles' 
+AND column_name = 'email';
 
--- Kullanıcı bakiye listesi (basit)
+-- Kullanıcı listesi (email ile birlikte)
 SELECT 
     up.user_id,
     up.email,
@@ -89,11 +112,15 @@ FROM user_profiles up
 LEFT JOIN user_credit_balance ucb ON up.user_id = ucb.user_id
 ORDER BY credits DESC;
 
--- Toplam verilen kredi
-SELECT SUM(amount) as "Toplam Verilen Kredi"
+-- Kaç kullanıcıya kredi verildi?
+SELECT COUNT(*) as "Kredili Kullanıcı Sayısı"
 FROM user_credits 
 WHERE transaction_type = 'initial';
 
 -- ===================================================================
--- Bu basit migration çalıştıktan sonra kredi sistemi aktif olacak!
+-- Bu migration sonrası:
+-- ✅ user_profiles tablosunda email kolonu olacak  
+-- ✅ Yeni kayıtlarda email otomatik kaydedilecek
+-- ✅ Mevcut kullanıcıların email bilgisi auth.users'tan çekilecek
+-- ✅ Kredi sistemi aktif olacak
 -- ===================================================================
