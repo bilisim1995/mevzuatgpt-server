@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.embedding_service import EmbeddingService
 from services.search_service import SearchService
 from services.llm_service import ollama_service
+from services.groq_service import GroqService
 from services.redis_service import redis_service
 from models.supabase_client import supabase_client
 from utils.exceptions import AppException
@@ -24,6 +25,15 @@ class QueryService:
         self.db = db
         self.embedding_service = EmbeddingService(db)
         self.search_service = SearchService(db)
+        
+        # Initialize AI provider based on configuration
+        from core.config import settings
+        if settings.AI_PROVIDER == "groq" and settings.GROQ_API_KEY:
+            self.ai_service = GroqService()
+            self.ai_provider = "groq"
+        else:
+            self.ai_service = ollama_service
+            self.ai_provider = "ollama"
     
     async def process_ask_query(
         self, 
@@ -129,12 +139,37 @@ class QueryService:
             
             search_time = int((time.time() - search_start) * 1000)
             
-            # 5. Generate AI response
-            llm_response = await ollama_service.generate_response(
-                query=query,
-                context=search_results,
-                institution_filter=institution_filter
-            )
+            # 5. Generate AI response using configured provider
+            ai_start = time.time()
+            
+            if self.ai_provider == "groq":
+                # Use Groq service for fast inference
+                context_text = self._prepare_context_for_groq(search_results)
+                
+                ai_result = await self.ai_service.generate_response(
+                    prompt=query,
+                    context=context_text,
+                    max_tokens=1024,
+                    temperature=0.1
+                )
+                
+                llm_response = {
+                    "answer": ai_result["response"],
+                    "confidence_score": ai_result["confidence_score"],
+                    "sources": search_results,
+                    "ai_model": ai_result["model_used"],
+                    "processing_time": ai_result["processing_time"],
+                    "token_usage": ai_result.get("token_usage", {})
+                }
+            else:
+                # Use Ollama service (fallback)
+                llm_response = await ollama_service.generate_response(
+                    query=query,
+                    context=search_results,
+                    institution_filter=institution_filter
+                )
+            
+            ai_time = int((time.time() - ai_start) * 1000)
             
             # 6. Update user history and analytics
             if use_cache:
@@ -243,6 +278,39 @@ class QueryService:
             })
         
         return formatted_sources
+    
+    def _prepare_context_for_groq(self, search_results: List[Dict[str, Any]]) -> str:
+        """
+        Prepare context text for Groq API from search results
+        
+        Args:
+            search_results: List of search result dictionaries
+            
+        Returns:
+            Formatted context string
+        """
+        if not search_results:
+            return "Sorgu ile alakalı belge bulunamadı."
+        
+        context_parts = []
+        
+        for i, result in enumerate(search_results[:10], 1):  # Limit to top 10 results
+            title = result.get("document_title", "Bilinmeyen Belge")
+            content = result.get("content", "")
+            similarity = result.get("similarity_score", 0.0)
+            institution = result.get("source_institution", "")
+            
+            # Format each source with metadata
+            source_text = f"""[KAYNAK {i}]
+Belge: {title}
+Kurum: {institution}
+Benzerlik: {similarity:.2f}
+İçerik: {content}
+
+"""
+            context_parts.append(source_text)
+        
+        return "\n".join(context_parts)
     
     def _generate_query_suggestions(
         self, 

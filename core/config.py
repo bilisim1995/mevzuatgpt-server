@@ -51,11 +51,15 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://default:password@redis-cloud-endpoint:port"
     CELERY_RESULT_BACKEND: str = "redis://default:password@redis-cloud-endpoint:port"
     
-    # Ollama LLM
+    # AI Model Configuration
+    GROQ_API_KEY: Optional[str] = Field(default=None, description="Groq API key for fast inference")
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3"
     OLLAMA_TIMEOUT: int = 30
     OLLAMA_MAX_TOKENS: int = 2048
+    
+    # AI Provider Selection
+    AI_PROVIDER: str = Field(default="groq", description="AI provider: groq, ollama, or openai")
     
     # File Upload Settings
     MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB

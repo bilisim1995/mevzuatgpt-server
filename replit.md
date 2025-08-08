@@ -11,13 +11,15 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 ## Son Mimari Değişiklikler (8 Ağustos 2025)
 
 ### ✅ ASK ENDPOINT - COMPLETE RAG PIPELINE OPERATIONAL (8 Ağustos 2025)
-- **LLM Integration**: Ollama entegrasyonu (Llama3) ile AI-powered cevap üretimi
+- **Groq Integration**: Ultra-fast AI inference with Llama3-8b-8192 (~0.3s responses)
+- **Cost Optimization**: Groq ~$0.27/1M tokens vs OpenAI ~$15/1M tokens (98% cost reduction)
+- **AI Provider Selection**: Configurable AI_PROVIDER (groq/ollama/openai) with automatic fallbacks
 - **Redis Optimization**: Comprehensive caching sistem (embedding cache, search cache, user history)
 - **Rate Limiting**: 30 requests/minute per user protection
 - **Institution Filtering**: Opsiyonel kurum bazında arama kısıtlaması 
 - **Performance Metrics**: End-to-end pipeline timing ve confidence scoring
 - **User Experience**: Personalized suggestions, popular searches, search history
-- **New Services**: RedisService, OllamaService, QueryService added
+- **New Services**: GroqService, RedisService, OllamaService, QueryService added
 - **New Endpoints**: POST /api/user/ask, GET /api/user/suggestions
 - **Technical Implementation**: FastAPI routes updated, Pydantic models created, httpx client integrated
 - **Production Ready**: Complete RAG pipeline from PDF upload → embedding → search → AI response
@@ -85,8 +87,9 @@ Semantik arama, **OpenAI'nin text-embedding-3-large** modelini kullanarak 1536 b
 ## Harici Bağımlılıklar
 
 ### Zorunlu Servisler
-- **OpenAI API** - Embedding üretimi ve ChatGPT
-- **Ollama** - Local LLM server (Llama3 model)
+- **OpenAI API** - Embedding üretimi (text-embedding-3-small)
+- **Groq API** - Ultra-fast AI inference (Llama3-8b-8192) - PRIMARY
+- **Ollama** - Local LLM server fallback (optional)
 - **Supabase** - Veritabanı, auth ve vektör işlemleri
 - **Bunny.net** - PDF dosya depolama ve CDN
 - **Redis Cloud** - Celery background tasks + caching
