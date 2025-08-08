@@ -324,24 +324,48 @@ Authorization: Bearer <admin-token>
 }
 ```
 
-### 3. Belge Sil
+### 3. Belge Sil (Cascade)
 
 **DELETE** `/api/admin/documents/{document_id}`
 
-Belirtilen belgeyi siler.
+Belgeyi ve tüm ilişkili verilerini tamamen siler (fiziksel dosya + embeddings + database).
 
 **Headers:**
 ```
 Authorization: Bearer <admin-token>
+Content-Type: application/json
+```
+
+**URL Parameters:**
+```
+document_id: Silinecek belgenin UUID'si
 ```
 
 **Cevap Örneği:**
 ```json
 {
-    "message": "Belge başarıyla silindi",
-    "document_id": "550e8400-e29b-41d4-a716-446655440000"
+    "success": true,
+    "message": "Document deleted successfully",
+    "data": {
+        "document_id": "3ce3678c-f15b-4970-b717-8500832986d2",
+        "document_title": "Kısa Vadeli Sigorta Mevzuat",
+        "embeddings_deleted": 17,
+        "physical_file_deleted": true,
+        "file_url": "https://cdn.mevzuatgpt.org/documents/file.pdf"
+    }
 }
 ```
+
+**Silme Süreci:**
+1. 🔍 Document bilgilerini al
+2. 🗂️ Tüm embeddings'leri sil (foreign key)
+3. 💾 Fiziksel PDF dosyasını Bunny.net'ten sil
+4. 📄 Document kaydını veritabanından sil
+
+**Hata Cevapları:**
+- **404**: Document bulunamadı
+- **401**: Yetkisiz erişim  
+- **500**: Silme işlemi başarısız
 
 ### 4. Belge İşleme Durumu
 
