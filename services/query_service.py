@@ -13,6 +13,7 @@ from services.search_service import SearchService
 from services.llm_service import ollama_service
 from services.groq_service import GroqService
 from services.redis_service import redis_service
+from services.reliability_service import ReliabilityService
 from models.supabase_client import supabase_client
 from utils.exceptions import AppException
 
@@ -25,6 +26,7 @@ class QueryService:
         self.db = db
         self.embedding_service = EmbeddingService(db)
         self.search_service = SearchService(db)
+        self.reliability_service = ReliabilityService()
         
         # Initialize AI provider based on configuration
         from core.config import settings
@@ -171,7 +173,29 @@ class QueryService:
             
             ai_time = int((time.time() - ai_start) * 1000)
             
-            # 6. Update user history and analytics
+            # 6. Calculate enhanced reliability score
+            reliability_start = time.time()
+            try:
+                reliability_result = await self.reliability_service.calculate_comprehensive_confidence(
+                    search_results=search_results,
+                    ai_answer=llm_response.get("answer", llm_response.get("response", "")),
+                    use_parallel=True  # Use parallel scoring for better performance
+                )
+                
+                # Use enhanced confidence score
+                enhanced_confidence = reliability_result["confidence_score"]
+                confidence_breakdown = reliability_result.get("confidence_breakdown")
+                
+                reliability_time = int((time.time() - reliability_start) * 1000)
+                logger.info(f"Enhanced reliability calculated in {reliability_time}ms: {enhanced_confidence:.2f}")
+                
+            except Exception as e:
+                logger.warning(f"Reliability calculation failed, using basic confidence: {e}")
+                enhanced_confidence = llm_response["confidence_score"]
+                confidence_breakdown = None
+                reliability_time = 0
+            
+            # 8. Update user history and analytics
             if use_cache:
                 await redis_service.add_user_search(
                     user_id=user_id,
@@ -180,7 +204,7 @@ class QueryService:
                 )
                 await redis_service.increment_search_popularity(query)
             
-            # 7. Log search for analytics
+            # 9. Log search for analytics
             await self._log_search_query(
                 user_id=user_id,
                 query=query,
@@ -191,11 +215,11 @@ class QueryService:
             
             pipeline_time = int((time.time() - pipeline_start) * 1000)
             
-            # 8. Build response
+            # 10. Build response with enhanced confidence
             response = {
                 "query": query,
                 "answer": llm_response.get("answer", llm_response.get("response", "")),
-                "confidence_score": llm_response["confidence_score"],
+                "confidence_score": enhanced_confidence,
                 "sources": self._format_sources(search_results),
                 "institution_filter": institution_filter,
                 "search_stats": {
@@ -203,6 +227,7 @@ class QueryService:
                     "embedding_time_ms": embedding_time,
                     "search_time_ms": search_time,
                     "generation_time_ms": llm_response.get("generation_time_ms", ai_time),
+                    "reliability_time_ms": reliability_time,
                     "total_pipeline_time_ms": pipeline_time,
                     "cache_used": cached_results is not None,
                     "rate_limit_remaining": remaining
@@ -213,6 +238,10 @@ class QueryService:
                     "response_tokens": llm_response.get("response_tokens", 0)
                 }
             }
+            
+            # Add confidence breakdown if available
+            if confidence_breakdown:
+                response["confidence_breakdown"] = confidence_breakdown
             
             logger.info(f"Ask query processed: '{query[:50]}' - {len(search_results)} sources, {pipeline_time}ms")
             
