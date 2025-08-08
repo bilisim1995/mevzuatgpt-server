@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = "https://your-project.supabase.co"
     SUPABASE_KEY: str = "your-supabase-anon-key"
     SUPABASE_SERVICE_KEY: str = "your-supabase-service-key"
-    DATABASE_URL: str = "postgresql://postgres:password@db.supabase.co:5432/postgres"
+    DATABASE_URL: str = "postgresql://postgres:b06dRrGS3TOsGmY7@db.omublqdeerbszkuuvoim.supabase.co:5432/postgres"
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
     

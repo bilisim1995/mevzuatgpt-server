@@ -11,12 +11,17 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 ## Son Mimari Değişiklikler (8 Ağustos 2025)
 
 ### PDF Processing Pipeline Tamamen Operasyonel ✅
-- **pgvector Extension**: Etkinleştirildi ve vektör boyutu 3072'ye ayarlandı (text-embedding-3-large)
+- **Database**: Neon PostgreSQL kullanılıyor (pgvector aktif, 3072 dimension)
 - **Embedding Storage**: String parsing sorunu çözüldü, vektörler doğru formatta kaydediliyor
 - **Async Loop Management**: Celery task'larda connection cleanup sistemi eklendi
 - **OpenAI API**: 100% operasyonel (embedding + chat), quota sorunu çözüldü
 - **Queue Management**: Redis Cloud bağlantısı stabil, worker health monitoring aktif
 - **Error Handling**: Kapsamlı retry logic ve status tracking sistemi
+
+### Veritabanı Durumu
+- **Neon Database**: db.omublqdeerbszkuuvoim.supabase.co yerine ep-soft-credit-afgz97nh.c-2.us-west-2.aws.neon.tech kullanılıyor
+- **Tablolar**: mevzuat_documents (2 kayıt), mevzuat_embeddings (pgvector hazır)
+- **Admin Panel**: Neon Console üzerinden tabloları görüntüleyebilirsiniz
 
 ## Son Mimari Değişiklikler (7 Ağustos 2025)
 
