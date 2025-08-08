@@ -53,7 +53,13 @@ def process_document_task(self, document_id: str):
             result = loop.run_until_complete(_process_document_async(document_id))
             return result
         finally:
-            loop.close()
+            # Ensure all async connections are properly closed
+            try:
+                loop.run_until_complete(_cleanup_connections())
+            except Exception as cleanup_error:
+                logger.warning(f"Cleanup warning: {cleanup_error}")
+            finally:
+                loop.close()
             
     except Exception as e:
         logger.error(f"Document processing failed for {document_id}: {str(e)}")
@@ -61,12 +67,16 @@ def process_document_task(self, document_id: str):
         
         # Update document status to failed
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            error_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(error_loop)
             try:
-                loop.run_until_complete(_update_document_status(document_id, "failed", str(e)))
+                error_loop.run_until_complete(_update_document_status(document_id, "failed", str(e)))
             finally:
-                loop.close()
+                try:
+                    error_loop.run_until_complete(_cleanup_connections())
+                except:
+                    pass
+                error_loop.close()
         except Exception as status_error:
             logger.error(f"Failed to update document status: {str(status_error)}")
         
@@ -342,6 +352,27 @@ async def _update_document_status(
     except Exception as e:
         logger.error(f"Failed to update document status: {str(e)}")
         return False
+
+async def _cleanup_connections():
+    """
+    Clean up any remaining async connections and tasks
+    """
+    try:
+        # Get the current event loop
+        loop = asyncio.get_event_loop()
+        
+        # Cancel any remaining tasks
+        pending_tasks = [task for task in asyncio.all_tasks(loop) if not task.done()]
+        if pending_tasks:
+            for task in pending_tasks:
+                task.cancel()
+            
+            # Wait for tasks to complete cancellation
+            await asyncio.gather(*pending_tasks, return_exceptions=True)
+            
+    except Exception as e:
+        logger.warning(f"Connection cleanup warning: {e}")
+        pass
 
 @celery_app.task(bind=True, name="cleanup_failed_documents")
 def cleanup_failed_documents(self):
