@@ -10,18 +10,21 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 
 ## Son Mimari Değişiklikler (8 Ağustos 2025)
 
-### ✅ CREDIT SYSTEM - FULLY OPERATIONAL (8 Ağustos 2025 20:35)
+### ✅ CREDIT SYSTEM + EMAIL TRACKING - FULLY OPERATIONAL (8 Ağustos 2025 20:50)
 - **Modüler Credit System**: ✅ TAM ÇALIŞIR - Mevcut sistemi bozmadan entegre edildi
 - **Database Schema**: user_credits tablosu ve user_credit_balance view'i aktif
+- **Email Integration**: ✅ user_profiles tablosuna email kolonu eklendi
+- **User Registration**: Yeni kayıtlarda email otomatik user_profiles'a kaydediliyor
 - **Credit Calculation**: 1 temel + (karakter/100) formülü ile dinamik hesaplama
 - **Ask Endpoint Integration**: Kredi kontrolü + otomatik düşüm + hata durumunda iade
 - **Admin Features**: Unlimited kredi + kullanıcı kredi yönetimi + transaction monitoring
 - **API Endpoints**: User credit balance/history + Admin credit management endpoints
-- **Default Credits**: Yeni kullanıcılara 30 kredi otomatik verilir
+- **Default Credits**: Yeni kullanıcılara 30 kredi otomatik verilir (mevcut kullanıcılar da aldı)
 - **Rate Limiting Compatibility**: 30 req/min limit ile birlikte çalışır
 - **Error Handling**: AI hatası durumunda otomatik kredi iadesi
 - **Backward Compatible**: Mevcut ask pipeline'ı hiç bozulmadı
-- **Status**: ✅ PRODUCTION READY - Credit system tamamen operasyonel
+- **Email Retrieval**: Mevcut kullanıcıların email bilgisi auth.users'tan çekildi
+- **Status**: ✅ PRODUCTION READY - Credit system + Email tracking tamamen operasyonel
 
 ## Son Mimari Değişiklikler (8 Ağustos 2025)
 
