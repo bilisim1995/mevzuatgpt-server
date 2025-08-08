@@ -31,7 +31,7 @@ class GroqService:
     
     async def generate_response(
         self,
-        prompt: str,
+        query: str,
         context: str,
         model: Optional[str] = None,
         max_tokens: int = 1024,
@@ -41,7 +41,7 @@ class GroqService:
         Generate AI response using Groq
         
         Args:
-            prompt: User's question/prompt
+            query: User's question/query
             context: Relevant document context
             model: Model to use (default: llama3-8b-8192)
             max_tokens: Maximum tokens in response
@@ -69,7 +69,7 @@ class GroqService:
 {context}
 
 SORU:
-{prompt}
+{query}
 
 Lütfen yukarıdaki belge içeriğine dayanarak soruyu yanıtla. Cevabın belgede geçen bilgilerle desteklenmiş olsun."""
             

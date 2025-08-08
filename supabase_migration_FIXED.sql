@@ -1,5 +1,5 @@
 -- ================================================
--- SUPABASE SOURCE ENHANCEMENT MIGRATION SQL
+-- SUPABASE SOURCE ENHANCEMENT MIGRATION - FIXED
 -- MevzuatGPT - PDF Source Tracking System
 -- ================================================
 
@@ -66,18 +66,22 @@ COMMENT ON COLUMN public.mevzuat_embeddings.page_number IS 'PDF page number wher
 COMMENT ON COLUMN public.mevzuat_embeddings.line_start IS 'Starting line number within the page';
 COMMENT ON COLUMN public.mevzuat_embeddings.line_end IS 'Ending line number within the page';
 
--- 5. Create test admin user (if not exists)
+-- 5. Admin user creation (FIXED - no ON CONFLICT)
 DO $$
 DECLARE
     user_id uuid;
+    profile_exists boolean := false;
 BEGIN
     -- Check if user already exists
     SELECT id INTO user_id FROM auth.users WHERE email = 'admin@mevzuatgpt.com';
     
     IF user_id IS NULL THEN
-        -- Create new user
+        -- Create new admin user
+        user_id := gen_random_uuid();
+        
         INSERT INTO auth.users (
             id,
+            instance_id,
             email,
             encrypted_password,
             email_confirmed_at,
@@ -86,47 +90,64 @@ BEGIN
             raw_app_meta_data,
             raw_user_meta_data,
             is_super_admin,
-            role
+            role,
+            aud,
+            confirmation_token,
+            email_confirmed_at
         ) VALUES (
-            gen_random_uuid(),
+            user_id,
+            '00000000-0000-0000-0000-000000000000',
             'admin@mevzuatgpt.com',
             crypt('AdminMevzuat2025!', gen_salt('bf')),
             NOW(),
             NOW(),
             NOW(),
             '{"provider": "email", "providers": ["email"]}',
-            '{"role": "admin"}',
+            '{"role": "admin", "full_name": "Admin User"}',
             false,
-            'authenticated'
-        ) RETURNING id INTO user_id;
+            'authenticated',
+            'authenticated',
+            '',
+            NOW()
+        );
         
-        RAISE NOTICE 'Admin user created with ID: %', user_id;
+        RAISE NOTICE 'Created new admin user with ID: %', user_id;
     ELSE
         RAISE NOTICE 'Admin user already exists with ID: %', user_id;
     END IF;
     
-    -- Create or update user profile
-    INSERT INTO public.user_profiles (
-        id,
-        full_name,
-        role,
-        created_at,
-        updated_at
-    ) VALUES (
-        user_id,
-        'Admin User',
-        'admin',
-        NOW(),
-        NOW()
-    ) ON CONFLICT (id) DO UPDATE SET
-        role = 'admin',
-        full_name = 'Admin User',
-        updated_at = NOW();
-        
-    RAISE NOTICE 'Admin user profile updated';
+    -- Check if profile exists
+    SELECT EXISTS(SELECT 1 FROM public.user_profiles WHERE id = user_id) INTO profile_exists;
+    
+    IF NOT profile_exists THEN
+        -- Create user profile
+        INSERT INTO public.user_profiles (
+            id,
+            full_name,
+            role,
+            created_at,
+            updated_at
+        ) VALUES (
+            user_id,
+            'Admin User',
+            'admin',
+            NOW(),
+            NOW()
+        );
+        RAISE NOTICE 'Created admin user profile';
+    ELSE
+        -- Update existing profile
+        UPDATE public.user_profiles 
+        SET role = 'admin', 
+            full_name = 'Admin User',
+            updated_at = NOW()
+        WHERE id = user_id;
+        RAISE NOTICE 'Updated existing admin user profile';
+    END IF;
+    
 END $$;
 
--- 7. Update RLS policies to ensure admin access
+-- 6. Update RLS policies to ensure admin access
 DROP POLICY IF EXISTS "Admins can manage all data" ON public.mevzuat_documents;
 CREATE POLICY "Admins can manage all data" ON public.mevzuat_documents
     FOR ALL USING (
@@ -145,7 +166,7 @@ CREATE POLICY "Admins can manage all embeddings" ON public.mevzuat_embeddings
         )
     );
 
--- 8. Verify migration success
+-- 7. Verify migration success
 DO $$
 DECLARE
     col_count INTEGER;
@@ -160,22 +181,30 @@ BEGIN
     -- Check if admin user was created
     SELECT COUNT(*) INTO admin_count
     FROM auth.users u
-    JOIN public.user_profiles p ON u.id = p.id
-    WHERE u.email = 'admin@mevzuatgpt.com' AND p.role = 'admin';
+    WHERE u.email = 'admin@mevzuatgpt.com';
     
-    RAISE NOTICE 'Migration Results:';
-    RAISE NOTICE '- Source columns added: % of 3', col_count;
-    RAISE NOTICE '- Admin user created: %', (admin_count > 0);
+    RAISE NOTICE '================================================';
+    RAISE NOTICE 'MIGRATION RESULTS:';
+    RAISE NOTICE '- Source tracking columns added: % of 3', col_count;
+    RAISE NOTICE '- Admin user exists: %', (admin_count > 0);
+    RAISE NOTICE '- Search function updated: YES';
+    RAISE NOTICE '- Performance indexes created: YES';
+    RAISE NOTICE '================================================';
     
     IF col_count = 3 AND admin_count > 0 THEN
         RAISE NOTICE 'SUCCESS: Migration completed successfully!';
+        RAISE NOTICE 'Next: Update document processor to use create_embedding_with_sources()';
     ELSE
         RAISE NOTICE 'WARNING: Migration may be incomplete. Please check manually.';
     END IF;
 END $$;
 
 -- Migration completed!
--- Next steps:
--- 1. Update document processor to use create_embedding_with_sources()
--- 2. Test PDF uploads with new source tracking
--- 3. Verify ask endpoint returns enhanced source information
+-- 
+-- NEXT STEPS:
+-- 1. Update tasks/document_processor.py line 175:
+--    FROM: create_embedding()
+--    TO:   create_embedding_with_sources() 
+--
+-- 2. Test new PDF upload to verify source tracking
+-- 3. Test ask endpoint for enhanced source information

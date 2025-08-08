@@ -155,7 +155,7 @@ class QueryService:
                 context_text = self._prepare_context_for_groq(search_results)
                 
                 ai_result = await self.ai_service.generate_response(
-                    prompt=query,
+                    query=query,
                     context=context_text
                 )
                 
