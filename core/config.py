@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # JWT Authentication
     JWT_SECRET_KEY: str = "your-jwt-secret-key"
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # 2 hours
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # OpenAI
