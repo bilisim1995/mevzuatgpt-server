@@ -10,6 +10,16 @@ Tercih edilen iletişim tarzı: Basit, günlük dil. Türkçe iletişim.
 
 ## Son Mimari Değişiklikler (8 Ağustos 2025)
 
+### ✅ ASK ENDPOINT - COMPLETE RAG PIPELINE OPERATIONAL (8 Ağustos 2025)
+- **LLM Integration**: Ollama entegrasyonu (Llama3) ile AI-powered cevap üretimi
+- **Redis Optimization**: Comprehensive caching sistem (embedding cache, search cache, user history)
+- **Rate Limiting**: 30 requests/minute per user protection
+- **Institution Filtering**: Opsiyonel kurum bazında arama kısıtlaması 
+- **Performance Metrics**: End-to-end pipeline timing ve confidence scoring
+- **User Experience**: Personalized suggestions, popular searches, search history
+- **New Services**: RedisService, OllamaService, QueryService added
+- **New Endpoints**: POST /api/user/ask, GET /api/user/suggestions
+
 ### PDF Processing Pipeline Tamamen Operasyonel ✅
 - **Database**: Neon PostgreSQL kullanılıyor (pgvector aktif, 3072 dimension)
 - **Embedding Storage**: String parsing sorunu çözüldü, vektörler doğru formatta kaydediliyor

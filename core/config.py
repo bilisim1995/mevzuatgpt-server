@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://default:password@redis-cloud-endpoint:port"
     CELERY_RESULT_BACKEND: str = "redis://default:password@redis-cloud-endpoint:port"
     
+    # Ollama LLM
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "llama3"
+    OLLAMA_TIMEOUT: int = 30
+    OLLAMA_MAX_TOKENS: int = 2048
+    
     # File Upload Settings
     MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
     ALLOWED_FILE_TYPES: List[str] = ["pdf"]

@@ -12,10 +12,12 @@ from core.database import get_db
 from api.dependencies import get_current_user, get_optional_user
 from models.schemas import (
     UserResponse, SearchRequest, SearchResponse, 
-    DocumentResponse, DocumentListResponse
+    DocumentResponse, DocumentListResponse,
+    AskRequest, AskResponse, SuggestionsResponse
 )
 from services.search_service import SearchService
 from services.document_service import DocumentService
+from services.query_service import QueryService
 from utils.response import success_response
 from utils.exceptions import AppException
 
@@ -212,65 +214,106 @@ async def get_document_categories(
             error_code="CATEGORIES_FAILED"
         )
 
-@router.post("/ask")
+@router.post("/ask", response_model=AskResponse)
 async def ask_question(
-    question: str = Query(..., description="Question to ask about the documents"),
-    context_limit: int = Query(5, ge=1, le=10, description="Number of context chunks to use"),
+    ask_request: AskRequest,
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Ask a question and get AI-generated answer based on document content
+    Ask a question and get AI-powered answer with sources
     
-    This endpoint:
-    1. Performs semantic search to find relevant document chunks
-    2. Uses OpenAI to generate a contextual answer
-    3. Provides source document references
+    This endpoint performs the complete RAG pipeline:
+    1. Generate embeddings for the query (with caching)
+    2. Search for relevant document chunks
+    3. Generate AI response using Ollama
+    4. Return answer with sources and confidence score
+    
+    Features:
+    - Redis caching for performance
+    - Rate limiting protection (30 requests/minute)
+    - Institution filtering
+    - Confidence scoring
+    - User search history tracking
     
     Args:
-        question: User's question
-        context_limit: Maximum number of document chunks to use as context
+        ask_request: Question and search parameters
         current_user: Current authenticated user
         db: Database session
     
     Returns:
-        AI-generated answer with source references
+        AI-generated answer with sources and metadata
     """
     try:
-        search_service = SearchService(db)
+        query_service = QueryService(db)
         
-        # Get relevant context from documents
-        context_chunks = await search_service.semantic_search(
-            query=question,
-            limit=context_limit,
-            similarity_threshold=0.6
+        result = await query_service.process_ask_query(
+            query=ask_request.query,
+            user_id=str(current_user.id),
+            institution_filter=ask_request.institution_filter,
+            limit=ask_request.limit,
+            similarity_threshold=ask_request.similarity_threshold,
+            use_cache=ask_request.use_cache
         )
         
-        if not context_chunks:
-            return success_response(
-                data={
-                    "question": question,
-                    "answer": "Üzgünüm, sorunuzla ilgili belgelerimde yeterli bilgi bulamadım. Lütfen sorunuzu farklı şekilde ifade etmeyi deneyin.",
-                    "sources": [],
-                    "confidence": "low"
+        logger.info(f"Ask query processed for user {current_user.id}: '{ask_request.query[:50]}' - confidence: {result['confidence_score']}")
+        
+        return success_response(data=result)
+        
+    except AppException as e:
+        if e.status_code == 429:  # Rate limit exceeded
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "message": e.message,
+                    "detail": e.detail,
+                    "retry_after": 60
                 }
             )
-        
-        # Generate AI answer
-        answer_data = await search_service.generate_answer(question, context_chunks)
-        
-        logger.info(f"Question answered for user {current_user.id}: '{question}'")
-        
-        return success_response(data=answer_data)
-        
+        raise e
     except Exception as e:
-        logger.error(f"Error generating answer for user {current_user.id}: {str(e)}")
+        logger.error(f"Ask error for user {current_user.id}: {str(e)}")
         raise AppException(
-            message="Failed to generate answer",
+            message="Failed to process question",
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            error_code="ANSWER_FAILED"
+            error_code="ASK_FAILED"
         )
+
+@router.get("/suggestions", response_model=SuggestionsResponse)
+async def get_user_suggestions(
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get personalized suggestions for user
+    
+    Returns user's recent searches, popular searches, available institutions,
+    and suggested queries based on search history and trends.
+    
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+    
+    Returns:
+        Personalized suggestions and search options
+    """
+    try:
+        query_service = QueryService(db)
+        
+        suggestions = await query_service.get_user_suggestions(str(current_user.id))
+        
+        return success_response(data=suggestions)
+        
+    except Exception as e:
+        logger.warning(f"Failed to get suggestions for user {current_user.id}: {str(e)}")
+        # Return empty suggestions on error
+        return success_response(data={
+            "recent_searches": [],
+            "popular_searches": [],
+            "available_institutions": [],
+            "suggestions": []
+        })
 
 @router.get("/recent-documents")
 async def get_recent_documents(

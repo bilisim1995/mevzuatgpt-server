@@ -176,6 +176,69 @@ class SearchResponse(BaseModel):
     results: List[SearchResult]
     total_results: int
 
+# Ask Endpoint Models
+class AskRequest(BaseModel):
+    """Ask endpoint request model"""
+    query: str = Field(..., min_length=3, max_length=1000, description="User's question")
+    institution_filter: Optional[str] = Field(None, description="Filter by institution name")
+    limit: int = Field(10, ge=1, le=20, description="Maximum number of search results")
+    similarity_threshold: float = Field(0.7, ge=0.3, le=1.0, description="Minimum similarity score")
+    use_cache: bool = Field(True, description="Whether to use Redis cache")
+
+class SourceItem(BaseModel):
+    """Source document information in Ask response"""
+    document_id: str
+    document_title: str
+    source_institution: Optional[str]
+    content: str
+    similarity_score: float
+    category: Optional[str]
+    publish_date: Optional[date]
+
+class AskSearchStats(BaseModel):
+    """Search performance statistics for Ask endpoint"""
+    total_chunks_found: int
+    embedding_time_ms: int
+    search_time_ms: int
+    generation_time_ms: int
+    total_pipeline_time_ms: int
+    cache_used: bool
+    rate_limit_remaining: int
+
+class LLMStats(BaseModel):
+    """LLM generation statistics"""
+    model_used: str
+    prompt_tokens: int
+    response_tokens: int
+
+class AskResponse(BaseModel):
+    """Ask endpoint response model"""
+    query: str
+    answer: str
+    confidence_score: float = Field(..., ge=0.0, le=1.0)
+    sources: List[SourceItem]
+    institution_filter: Optional[str]
+    search_stats: AskSearchStats
+    llm_stats: LLMStats
+
+class UserSuggestion(BaseModel):
+    """User search suggestion"""
+    query: str
+    timestamp: Optional[datetime]
+    institution: Optional[str]
+
+class PopularSearch(BaseModel):
+    """Popular search item"""
+    query: str
+    count: int
+
+class SuggestionsResponse(BaseModel):
+    """User suggestions response"""
+    recent_searches: List[UserSuggestion]
+    popular_searches: List[PopularSearch]
+    available_institutions: List[str]
+    suggestions: List[str]
+
 # Embedding Models
 class EmbeddingCreate(BaseModel):
     """Embedding creation model"""
