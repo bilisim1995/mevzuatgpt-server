@@ -14,10 +14,10 @@ from utils.exceptions import AppException
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/user/credits", tags=["user-credits"])
+router = APIRouter(prefix="/api/user", tags=["user-credits"])
 
-@router.get("/balance", response_model=Dict[str, Any])
-async def get_credit_balance(current_user: dict = Depends(get_current_user)):
+@router.get("/credits", response_model=Dict[str, Any])
+async def get_credit_balance(current_user = Depends(get_current_user)):
     """
     Kullanıcının mevcut kredi bakiyesini getir
     
@@ -25,7 +25,7 @@ async def get_credit_balance(current_user: dict = Depends(get_current_user)):
         Kredi bakiye bilgileri
     """
     try:
-        user_id = current_user["id"]
+        user_id = str(current_user.id)
         balance = await credit_service.get_user_balance(user_id)
         is_admin = await credit_service.is_admin_user(user_id)
         
@@ -45,10 +45,10 @@ async def get_credit_balance(current_user: dict = Depends(get_current_user)):
             detail="Kredi bakiyesi getirilemedi"
         )
 
-@router.get("/history", response_model=Dict[str, Any])
+@router.get("/credits/history", response_model=Dict[str, Any])
 async def get_credit_history(
     limit: int = 20,
-    current_user: dict = Depends(get_current_user)
+    current_user = Depends(get_current_user)
 ):
     """
     Kullanıcının kredi transaction geçmişini getir
@@ -60,7 +60,7 @@ async def get_credit_history(
         Transaction geçmişi
     """
     try:
-        user_id = current_user["id"]
+        user_id = str(current_user.id)
         
         if limit > 100:
             limit = 100  # Maksimum limit
@@ -96,8 +96,8 @@ async def get_credit_history(
             detail="Kredi geçmişi getirilemedi"
         )
 
-@router.get("/summary", response_model=Dict[str, Any])
-async def get_credit_summary(current_user: dict = Depends(get_current_user)):
+@router.get("/credits/summary", response_model=Dict[str, Any])
+async def get_credit_summary(current_user = Depends(get_current_user)):
     """
     Kullanıcının kredi özet bilgilerini getir
     
@@ -105,7 +105,7 @@ async def get_credit_summary(current_user: dict = Depends(get_current_user)):
         Detaylı kredi özeti
     """
     try:
-        user_id = current_user["id"]
+        user_id = str(current_user.id)
         summary = await credit_service.get_credit_summary(user_id)
         
         return {
