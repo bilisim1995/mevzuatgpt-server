@@ -1,0 +1,422 @@
+{
+  "info": {
+    "name": "MevzuatGPT Feedback System",
+    "description": "Feedback sistemi test collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "YOUR_ACCESS_TOKEN_HERE",
+      "type": "string"
+    },
+    {
+      "key": "search_log_id",
+      "value": "YOUR_SEARCH_LOG_ID_HERE",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Login - Get Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"your-email@example.com\",\n    \"password\": \"your-password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Login successful\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('access_token');",
+                  "    pm.environment.set('token', jsonData.access_token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Setup - Get Search Log ID",
+      "item": [
+        {
+          "name": "Ask Query - Get Search Log ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"query\": \"Test feedback sorusu için örnek\",\n    \"limit\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/ask",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "ask"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Ask query successful\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('search_log_id');",
+                  "    pm.environment.set('search_log_id', jsonData.search_log_id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. User Feedback Operations",
+      "item": [
+        {
+          "name": "Submit Positive Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"search_log_id\": \"{{search_log_id}}\",\n    \"feedback_type\": \"positive\",\n    \"feedback_comment\": \"Harika bir cevap!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/feedback/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "feedback", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Feedback submitted successfully\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "    pm.expect(jsonData.feedback.feedback_type).to.eql('positive');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update to Negative Feedback (UPSERT Test)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"search_log_id\": \"{{search_log_id}}\",\n    \"feedback_type\": \"negative\",\n    \"feedback_comment\": \"Cevap yeterince detaylı değildi\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/feedback/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "feedback", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Feedback updated successfully\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "    pm.expect(jsonData.feedback.feedback_type).to.eql('negative');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Feedback History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/user/feedback/my?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "feedback", "my"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Feedback history retrieved\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('feedback_list');",
+                  "    pm.expect(jsonData).to.have.property('total_count');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Feedback by Search Log",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/user/feedback/search/{{search_log_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "feedback", "search", "{{search_log_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Feedback by search log retrieved\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData !== null) {",
+                  "        pm.expect(jsonData).to.have.property('feedback_type');",
+                  "        pm.expect(jsonData.search_log_id).to.eql(pm.environment.get('search_log_id'));",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Admin Feedback Operations",
+      "item": [
+        {
+          "name": "Get All Feedback (Admin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/admin/feedback/?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "feedback", ""],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Admin can view all feedback\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('feedback_list');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Negative Feedback Only (Admin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/admin/feedback/?feedback_type=negative&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "feedback", ""],
+              "query": [
+                {
+                  "key": "feedback_type",
+                  "value": "negative"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Admin can filter negative feedback\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('feedback_list');",
+                  "    jsonData.feedback_list.forEach(feedback => {",
+                  "        pm.expect(feedback.feedback_type).to.eql('negative');",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Error Tests",
+      "item": [
+        {
+          "name": "Invalid Feedback Type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"search_log_id\": \"{{search_log_id}}\",\n    \"feedback_type\": \"invalid_type\",\n    \"feedback_comment\": \"Test\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/feedback/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "feedback", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Invalid feedback type rejected\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Non-existent Search Log",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"search_log_id\": \"00000000-0000-0000-0000-000000000000\",\n    \"feedback_type\": \"positive\",\n    \"feedback_comment\": \"Test\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/feedback/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "feedback", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Non-existent search log rejected\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
