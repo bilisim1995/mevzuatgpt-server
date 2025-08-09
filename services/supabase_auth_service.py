@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 from core.supabase_client import supabase_client
 from core.security import SecurityManager
-from models.schemas import UserResponse, UserCreate, UserLogin
+from models.schemas import UserResponse, UserCreate, UserLogin, UserProfileUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +31,13 @@ class SupabaseAuthService:
                     detail="Bu email adresi zaten kayıtlı"
                 )
             
-            # Create user metadata
+            # Create user metadata (yeni profil alanları dahil)
             user_metadata = {
                 "full_name": user_data.full_name,
+                "ad": user_data.ad,
+                "soyad": user_data.soyad,
+                "meslek": user_data.meslek,
+                "calistigi_yer": user_data.calistigi_yer,
                 "role": user_data.role if hasattr(user_data, 'role') else "user"
             }
             
@@ -50,11 +54,15 @@ class SupabaseAuthService:
                     detail=f"Kullanıcı kaydı başarısız: {result['error']}"
                 )
             
-            # Create response
+            # Create response (yeni profil alanları dahil)
             user_response = UserResponse(
                 id=result["user"].id,
                 email=result["user"].email,
                 full_name=user_metadata.get("full_name"),
+                ad=user_metadata.get("ad"),
+                soyad=user_metadata.get("soyad"),
+                meslek=user_metadata.get("meslek"),
+                calistigi_yer=user_metadata.get("calistigi_yer"),
                 role=user_metadata.get("role", "user"),
                 created_at=datetime.now()
             )
@@ -171,6 +179,10 @@ class SupabaseAuthService:
                 id=user_id_val,
                 email=user_email,
                 full_name=user_metadata.get("full_name"),
+                ad=user_metadata.get("ad"),
+                soyad=user_metadata.get("soyad"),
+                meslek=user_metadata.get("meslek"),
+                calistigi_yer=user_metadata.get("calistigi_yer"),
                 role=user_metadata.get("role", "user"),
                 created_at=datetime.now()
             )
@@ -213,6 +225,46 @@ class SupabaseAuthService:
         except Exception as e:
             logger.error(f"Token verification failed: {str(e)}")
             return None
+
+    async def update_user_profile(self, user_id: str, profile_data: UserProfileUpdate) -> bool:
+        """
+        Kullanıcı profil bilgilerini güncelle
+        
+        Args:
+            user_id: Kullanıcı ID
+            profile_data: Güncellenecek profil bilgileri
+            
+        Returns:
+            Başarılı olursa True
+        """
+        try:
+            # User metadata güncelleme
+            user_metadata = {}
+            
+            if profile_data.full_name is not None:
+                user_metadata["full_name"] = profile_data.full_name
+            if profile_data.ad is not None:
+                user_metadata["ad"] = profile_data.ad
+            if profile_data.soyad is not None:
+                user_metadata["soyad"] = profile_data.soyad
+            if profile_data.meslek is not None:
+                user_metadata["meslek"] = profile_data.meslek
+            if profile_data.calistigi_yer is not None:
+                user_metadata["calistigi_yer"] = profile_data.calistigi_yer
+            
+            # Supabase ile güncelleme
+            result = await self.supabase.update_user_metadata(user_id, user_metadata)
+            
+            if result["success"]:
+                logger.info(f"User profile updated successfully: {user_id}")
+                return True
+            else:
+                logger.error(f"Failed to update user profile: {result['error']}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Profile update error: {str(e)}")
+            return False
 
 # Global auth service instance
 auth_service = SupabaseAuthService()

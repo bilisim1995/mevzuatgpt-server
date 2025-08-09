@@ -23,6 +23,14 @@ Preferred communication style: Simple, everyday language.
 - **Testing**: Comprehensive Postman collection for automated testing
 - **Security**: Full RLS implementation with user isolation and admin access
 
+### Extended User Profile System (August 9, 2025)
+- **Enhanced Registration**: Added optional profile fields (ad, soyad, meslek, calistigi_yer) to user registration
+- **Database Schema**: Extended user_profiles table with new VARCHAR columns and performance indexes
+- **API Extensions**: New profile management endpoints (/api/user/profile GET/PUT)
+- **Supabase Integration**: Updated authentication service to handle extended user metadata
+- **Validation**: Proper field length limits and optional field handling
+- **Migration Files**: Complete SQL migration for Supabase compatibility
+
 ## System Architecture
 
 ### Backend Framework Architecture

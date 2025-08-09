@@ -14,6 +14,10 @@ class UserBase(BaseModel):
     """Base user model with common fields"""
     email: EmailStr
     full_name: Optional[str] = None
+    ad: Optional[str] = Field(None, max_length=50, description="Ad (opsiyonel)")
+    soyad: Optional[str] = Field(None, max_length=50, description="Soyad (opsiyonel)")
+    meslek: Optional[str] = Field(None, max_length=100, description="Meslek (opsiyonel)")
+    calistigi_yer: Optional[str] = Field(None, max_length=150, description="Çalıştığı yer (opsiyonel)")
     role: str = Field(default="user", description="User role (user/admin)")
 
 class UserCreate(UserBase):
@@ -45,6 +49,10 @@ class UserLogin(BaseModel):
 class UserProfileUpdate(BaseModel):
     """User profile update model"""
     full_name: Optional[str] = None
+    ad: Optional[str] = Field(None, max_length=50, description="Ad")
+    soyad: Optional[str] = Field(None, max_length=50, description="Soyad")
+    meslek: Optional[str] = Field(None, max_length=100, description="Meslek")
+    calistigi_yer: Optional[str] = Field(None, max_length=150, description="Çalıştığı yer")
     
 class PasswordChange(BaseModel):
     """Password change model"""
@@ -75,6 +83,10 @@ class UserResponse(BaseModel):
     id: UUID
     email: EmailStr
     full_name: Optional[str] = None
+    ad: Optional[str] = None
+    soyad: Optional[str] = None
+    meslek: Optional[str] = None
+    calistigi_yer: Optional[str] = None
     role: str
     created_at: datetime
     updated_at: Optional[datetime] = None
