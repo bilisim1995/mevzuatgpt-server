@@ -209,13 +209,13 @@ class SourceItem(BaseModel):
 
 class AskSearchStats(BaseModel):
     """Search performance statistics for Ask endpoint"""
-    total_chunks_found: int
-    embedding_time_ms: int
-    search_time_ms: int
-    generation_time_ms: int
-    total_pipeline_time_ms: int
-    cache_used: bool
-    rate_limit_remaining: int
+    chunks: int
+    embed_ms: int
+    search_ms: int
+    gen_ms: int
+    total_ms: int
+    cached: bool
+    credits: int
 
 class LLMStats(BaseModel):
     """LLM generation statistics"""
