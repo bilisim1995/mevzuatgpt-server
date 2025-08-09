@@ -1,171 +1,139 @@
-# 🏛️ MevzuatGPT - Hukuki Belge RAG Sistemi
+# MevzuatGPT Destek Ticket Sistemi
 
-> Yapay zeka destekli hukuki belge arama ve analiz platformu
+## 📋 Genel Bakış
 
-## 🎯 Proje Hakkında
+Bu modül, kullanıcıların sistem ile ilgili sorunlarını rapor edebilmeleri, soru sorabilmeleri ve geri bildirimde bulunabilmeleri için geliştirilmiş bir destek ticket sistemidir. Sistem tamamen modüler olarak tasarlanmış olup mevcut MevzuatGPT altyapısını etkilemeden çalışır.
 
-MevzuatGPT, hukuk firmalarına ve kamu kurumlarına yönelik geliştirilmiş modern bir RAG (Retrieval-Augmented Generation) sistemidir. PDF formatındaki hukuki belgeleri analiz ederek, doğal dil ile akıllı arama imkanı sunar.
+## 🏗️ Sistem Mimarisi
 
-### ✨ Temel Özellikler
+### Veritabanı Yapısı
 
-- 🔐 **Güvenli Kullanıcı Yönetimi** - Supabase Auth ile rol tabanlı erişim
-- 📄 **PDF Belge İşleme** - Otomatik metin çıkarma ve vektörizasyon
-- 🔍 **Semantik Arama** - OpenAI embeddings ile anlam tabanlı arama
-- ⚡ **Yüksek Performans** - FastAPI ve PostgreSQL vector search
-- 📊 **Yönetim Paneli** - Admin kullanıcılar için kapsamlı kontrol
-- 🌐 **CDN Entegrasyonu** - Bunny.net ile hızlı dosya erişimi
+#### support_tickets tablosu
+- **id**: UUID birincil anahtar
+- **ticket_number**: Otomatik oluşturulan ticket numarası (TK-001 formatında)
+- **user_id**: Ticket oluşturan kullanıcının UUID'si
+- **subject**: Ticket konusu (maksimum 200 karakter)
+- **category**: Ticket kategorisi
+- **priority**: Ticket öncelik seviyesi
+- **status**: Ticket durumu
+- **created_at**: Oluşturulma tarihi
+- **updated_at**: Son güncelleme tarihi
 
-### 🛠️ Teknoloji Yığını
+#### support_messages tablosu
+- **id**: UUID birincil anahtar
+- **ticket_id**: Hangi ticket'a ait olduğu
+- **sender_id**: Mesajı gönderen kullanıcının UUID'si
+- **message**: Mesaj içeriği
+- **created_at**: Mesaj gönderme tarihi
 
-- **Backend**: Python (FastAPI)
-- **Veritabanı**: Supabase PostgreSQL + pgvector
-- **Auth**: Supabase Authentication
-- **AI**: OpenAI (text-embedding-3-large, gpt-4o)
-- **Storage**: Bunny.net CDN
-- **Background Tasks**: Celery + Redis Cloud
-- **Text Processing**: LangChain
+### Kategoriler
+- `teknik_sorun`: PDF yükleme, sistem hataları, performans sorunları
+- `hesap_sorunu`: Login sorunları, kredi sorunları, profil ayarları
+- `ozellik_talebi`: Yeni özellik istekleri, geliştirme önerileri
+- `guvenlik`: Güvenlik endişeleri, şüpheli aktiviteler
+- `faturalandirma`: Ödeme sorunları, fatura soruları
+- `genel_soru`: Genel kullanım soruları, rehberlik
+- `diger`: Diğer konular
 
-## 🚀 Hızlı Başlangıç
+### Öncelik Seviyeleri
+- `dusuk`: Genel sorular, özellik talepleri
+- `orta`: Standart teknik sorunlar
+- `yuksek`: Kritik işlevsellik sorunları
+- `acil`: Güvenlik sorunları, sistem erişim sorunları
 
-### Önkoşullar
+### Durum Seviyeleri
+- `acik`: Yeni oluşturulan veya kullanıcı yanıtı bekleyen
+- `cevaplandi`: Admin tarafından yanıtlanmış
+- `kapatildi`: Çözüme ulaşmış veya manuel olarak kapatılmış
 
-Aşağıdaki servislere kaydolmanız gerekir:
-- [OpenAI API](https://platform.openai.com/)
-- [Supabase](https://app.supabase.com/)
-- [Bunny.net](https://panel.bunny.net/)
-- [Redis Cloud](https://app.redislabs.com/)
+## 🔐 Güvenlik ve Yetkilendirme
 
-### Kurulum
+### RLS Politikaları
+- **Kullanıcılar**: Sadece kendi ticket'larını görebilir ve yönetebilir
+- **Adminler**: Tüm ticket'ları görebilir ve yönetebilir
+- **Service Role**: Backend işlemler için tam erişim
 
-1. **Proje dosyalarını indirin**
+### Yetki Kontrolü
+- JWT token doğrulama
+- User role kontrolü (admin/user)
+- Ticket sahiplik kontrolü
+
+## 📡 API Endpoint'leri
+
+### Kullanıcı Endpoint'leri (`/api/user/support`)
+- `POST /tickets` - Yeni ticket oluştur
+- `GET /tickets` - Kendi ticket'larını listele
+- `GET /tickets/{id}` - Ticket detay ve mesajlar
+- `POST /tickets/{id}/reply` - Ticket'a mesaj ekle
+
+### Admin Endpoint'leri (`/api/admin/support`)
+- `GET /tickets` - Tüm ticket'ları listele (filtreleme destekli)
+- `GET /tickets/{id}` - Herhangi bir ticket detayı
+- `POST /tickets/{id}/reply` - Admin yanıtı ekle
+- `PUT /tickets/{id}/status` - Ticket durumu güncelle
+
+## 🔧 Dosya Yapısı
+
+```
+destek/
+├── README.md                    # Bu dosya
+├── supabase_migration.sql       # Veritabanı migration
+models/
+├── support_schemas.py           # Pydantic modelleri
+services/
+├── support_service.py           # İş mantığı servisi
+api/
+├── user/
+│   └── support_routes.py        # Kullanıcı API endpoint'leri
+└── admin/
+    └── support_routes.py        # Admin API endpoint'leri
+```
+
+## 🎯 Özellikler
+
+### Temel İşlevsellik
+- ✅ Ticket oluşturma ve yönetimi
+- ✅ Mesaj bazlı iletişim
+- ✅ Otomatik ticket numarası oluşturma
+- ✅ Kategori ve öncelik sistemi
+- ✅ Durum takibi
+
+### Gelişmiş Özellikler
+- ✅ Pagination desteği
+- ✅ Filtreleme ve arama
+- ✅ Admin yönetim paneli
+- ✅ RLS tabanlı güvenlik
+- ✅ Modüler tasarım
+
+## 🚀 Kurulum ve Kullanım
+
+### 1. Veritabanı Kurulumu
 ```bash
-git clone <repository-url>
-cd mevzuatgpt
+# Supabase SQL Editor'da çalıştır
+cat destek/supabase_migration.sql
 ```
 
-2. **Kurulum rehberini takip edin**
-```bash
-# Detaylı kurulum için:
-cat destek/kurulum_sirasi.md
-```
+### 2. API Entegrasyonu
+Sistem otomatik olarak mevcut FastAPI uygulamasına entegre edilir.
 
-3. **Hızlı başlangıç**
-```bash
-# .env dosyasını oluşturun
-cp destek/env_sablonu.env .env
+### 3. Test
+Postman collection'ı ile API endpoint'lerini test edebilirsiniz.
 
-# API anahtarlarını .env dosyasına ekleyin
-nano .env
+## 📊 Performans Notları
 
-# Supabase veritabanını kurun (destek/supabase_kurulum.md)
-# SQL kodlarını Supabase dashboard'da çalıştırın
+- PostgreSQL indeksleri ile optimize edilmiş sorgular
+- RLS ile güvenli veri erişimi
+- Pagination ile büyük veri setleri desteği
+- Async/await ile yüksek performans
 
-# Uygulamayı başlatın
-python app.py server
-```
+## 🔄 Genişletme İmkanları
 
-## 📚 Dökümantasyon
-
-Tüm kurulum ve kullanım rehberleri `destek/` klasöründe bulunur:
-
-### 🔧 Kurulum Rehberleri
-- **[Kurulum Sırası](destek/kurulum_sirasi.md)** - Adım adım kurulum rehberi
-- **[Supabase Kurulum](destek/supabase_kurulum.md)** - Veritabanı ve auth kurulumu
-- **[API Anahtarları](destek/api_anahtarlari_rehberi.md)** - Gerekli servis bilgileri
-
-### 📖 Teknik Dökümantasyon
-- **[Proje Mimarisi](destek/replit_rehberi.md)** - Teknik detaylar ve mimari
-- **[Yapılandırma Şablonu](destek/env_sablonu.env)** - Ortam değişkenleri
-
-## 🏗️ Mimari
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   FastAPI       │    │   Supabase      │
-│   (Web/Mobile)  │───▶│   Backend       │───▶│   PostgreSQL    │
-│                 │    │                 │    │   + pgvector    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                │
-                                ▼
-                    ┌─────────────────┐    ┌─────────────────┐
-                    │   Celery        │    │   OpenAI        │
-                    │   + Redis       │───▶│   Embeddings    │
-                    │   Background    │    │   + ChatGPT     │
-                    └─────────────────┘    └─────────────────┘
-                                │
-                                ▼
-                    ┌─────────────────┐
-                    │   Bunny.net     │
-                    │   CDN Storage   │
-                    │                 │
-                    └─────────────────┘
-```
-
-## 🔧 Geliştirme
-
-### Yerel Geliştirme Ortamı
-
-```bash
-# Geliştirme sunucusunu başlatın
-python app.py server
-
-# Celery worker'ı başlatın (ayrı terminal)
-celery -A tasks.celery_app worker --loglevel=info
-
-# Log dosyalarını takip edin
-tail -f logs/app.log
-```
-
-### API Endpoints
-
-- **Auth**: `/api/auth/` - Kullanıcı girişi, kaydı
-- **Admin**: `/api/admin/` - Belge yönetimi
-- **User**: `/api/user/` - Arama ve kullanıcı işlemleri
-- **Docs**: `/docs` - Otomatik API dökümantasyonu
-
-## 🔐 Güvenlik
-
-- ✅ JWT tabanlı kimlik doğrulama
-- ✅ Role-based access control (RBAC)
-- ✅ Row Level Security (RLS) in database
-- ✅ API rate limiting
-- ✅ Input validation ve sanitization
-
-## 📊 Performans
-
-- ⚡ Async FastAPI with connection pooling
-- 🚀 Vector similarity search with pgvector
-- 📈 CDN caching for file delivery
-- 🔄 Background processing with Celery
-- 📊 Optimized database indexing
-
-## 🤝 Katkıda Bulunma
-
-1. Fork yapın
-2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Commit yapın (`git commit -m 'Add amazing feature'`)
-4. Push yapın (`git push origin feature/amazing-feature`)
-5. Pull Request açın
-
-## 📄 Lisans
-
-Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına bakın.
-
-## 💬 İletişim
-
-- 📧 Email: [email@example.com]
-- 🐛 Issues: [GitHub Issues](link-to-issues)
-- 📚 Wiki: [Project Wiki](link-to-wiki)
-
-## 🙏 Teşekkürler
-
-Bu proje aşağıdaki açık kaynak projelerini kullanır:
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [Supabase](https://supabase.com/)
-- [OpenAI](https://openai.com/)
-- [LangChain](https://langchain.com/)
-- [Celery](https://celery.dev/)
+- Email bildirimleri entegrasyonu
+- Dosya eklentisi desteği
+- Ticket otomatik atama
+- SLA takip sistemi
+- Dashboard ve raporlama
 
 ---
 
-**MevzuatGPT** - Hukuki belgelerinizi akıllı arama ile keşfedin 🚀
+**Not**: Bu sistem tamamen modüler olarak tasarlanmıştır ve mevcut MevzuatGPT işlevselliğini etkilemez.

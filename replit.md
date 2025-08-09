@@ -10,6 +10,19 @@ The platform serves as a legal research assistant, enabling users to query compl
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### Support Ticket System Implementation (August 9, 2025)
+- **New Feature**: Complete modular support ticket system for user inquiries and admin management
+- **Database**: Support tables with RLS policies and automated ticket numbering (TK-001 format)
+- **Categories**: 7 categories including technical issues, account problems, feature requests, security, billing, general questions, other
+- **Priority Levels**: 4 levels from low to urgent with proper escalation
+- **Status Management**: Open, answered, closed status with automatic updates
+- **API Endpoints**: User endpoints (/api/user/support) and Admin endpoints (/api/admin/support)
+- **Features**: Pagination, filtering, search, statistics, message threading
+- **Testing**: Comprehensive Postman collection for automated testing
+- **Security**: Full RLS implementation with user isolation and admin access
+
 ## System Architecture
 
 ### Backend Framework Architecture

@@ -19,6 +19,8 @@ from api.user.credit_routes import router as user_credit_router
 from api.admin.credit_routes import router as admin_credit_router
 from api.user.feedback_routes import router as user_feedback_router
 from api.admin.feedback_routes import router as admin_feedback_router
+from api.user.support_routes import router as user_support_router
+from api.admin.support_routes import router as admin_support_router
 from utils.exceptions import AppException
 
 # Setup logging
@@ -254,6 +256,8 @@ app.include_router(user_router, prefix="/api/user", tags=["User"])
 app.include_router(user_credit_router, tags=["User-Credits"])    # Kullanıcı kredi bilgisi
 app.include_router(user_feedback_router, prefix="/api/user", tags=["User-Feedback"])    # Kullanıcı feedback sistemi
 app.include_router(admin_feedback_router, prefix="/api/admin", tags=["Admin-Feedback"])  # Admin feedback yönetimi
+app.include_router(user_support_router, prefix="/api/user", tags=["User-Support"])       # Kullanıcı destek sistemi
+app.include_router(admin_support_router, prefix="/api/admin", tags=["Admin-Support"])    # Admin destek yönetimi
 
 # Startup event
 @app.on_event("startup")

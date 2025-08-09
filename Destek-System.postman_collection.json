@@ -1,0 +1,1019 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "MevzuatGPT - Destek Ticket System",
+		"description": "Comprehensive test collection for the support ticket system\n\nFeatures:\n- User ticket management\n- Admin ticket management\n- Authentication flow\n- Error handling\n- Comprehensive test scenarios\n\nEnvironment Variables Needed:\n- base_url: API base URL (e.g., http://localhost:5000)\n- user_token: Valid user JWT token\n- admin_token: Valid admin JWT token",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-set base_url if not defined",
+					"if (!pm.environment.get('base_url')) {",
+					"    pm.environment.set('base_url', 'http://localhost:5000');",
+					"}",
+					"",
+					"// Log current environment",
+					"console.log('Base URL:', pm.environment.get('base_url'));",
+					"console.log('User Token available:', !!pm.environment.get('user_token'));",
+					"console.log('Admin Token available:', !!pm.environment.get('admin_token'));"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Authentication Flow",
+			"item": [
+				{
+					"name": "Login as User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Login successful\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"    pm.expect(response.data).to.have.property('access_token');",
+									"    ",
+									"    // Store token for subsequent requests",
+									"    pm.environment.set('user_token', response.data.access_token);",
+									"    console.log('User token saved');",
+									"});",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"userpassword123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						}
+					}
+				},
+				{
+					"name": "Login as Admin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Admin login successful\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"    pm.expect(response.data).to.have.property('access_token');",
+									"    ",
+									"    // Store admin token",
+									"    pm.environment.set('admin_token', response.data.access_token);",
+									"    console.log('Admin token saved');",
+									"});",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"adminpassword123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "User Support Operations",
+			"item": [
+				{
+					"name": "Create New Ticket",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Ticket created successfully\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"    pm.expect(response.ticket).to.have.property('id');",
+									"    pm.expect(response.ticket).to.have.property('ticket_number');",
+									"    ",
+									"    // Store ticket ID for subsequent requests",
+									"    pm.environment.set('user_ticket_id', response.ticket.id);",
+									"    pm.environment.set('user_ticket_number', response.ticket.ticket_number);",
+									"    console.log('Created ticket:', response.ticket.ticket_number);",
+									"});",
+									"",
+									"pm.test(\"Ticket has correct properties\", function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.ticket.subject).to.eql('PDF yükleme sorunu yaşıyorum');",
+									"    pm.expect(response.ticket.category).to.eql('teknik_sorun');",
+									"    pm.expect(response.ticket.priority).to.eql('orta');",
+									"    pm.expect(response.ticket.status).to.eql('acik');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{user_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"subject\": \"PDF yükleme sorunu yaşıyorum\",\n    \"category\": \"teknik_sorun\",\n    \"priority\": \"orta\",\n    \"message\": \"Merhaba, PDF dosyalarımı sisteme yüklemeye çalışırken sürekli hata alıyorum. Dosya boyutu 5MB altında ve PDF formatında. Lütfen yardımcı olabilir misiniz?\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/user/support/tickets",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"support",
+								"tickets"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get My Tickets",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Tickets retrieved successfully\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.tickets).to.be.an('array');",
+									"    pm.expect(response).to.have.property('total_count');",
+									"    pm.expect(response).to.have.property('has_more');",
+									"});",
+									"",
+									"pm.test(\"Pagination info correct\", function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.page).to.eql(1);",
+									"    pm.expect(response.limit).to.eql(10);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{user_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/user/support/tickets?page=1&limit=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"support",
+								"tickets"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Ticket Detail",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Ticket detail retrieved\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('id');",
+									"    pm.expect(response).to.have.property('messages');",
+									"    pm.expect(response.messages).to.be.an('array');",
+									"});",
+									"",
+									"pm.test(\"Initial message exists\", function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.messages.length).to.be.greaterThan(0);",
+									"    pm.expect(response.message_count).to.be.greaterThan(0);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{user_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/user/support/tickets/{{user_ticket_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"support",
+								"tickets",
+								"{{user_ticket_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Reply to Ticket",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Reply sent successfully\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"    pm.expect(response.support_message).to.have.property('id');",
+									"    pm.expect(response.support_message.message).to.include('ek bilgi');",
+									"});",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{user_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message\": \"Ek bilgi olarak, Chrome tarayıcısı kullanıyorum ve hata mesajı 'Upload failed' şeklinde görünüyor. Başka tarayıcı ile denemememi önerir misiniz?\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/user/support/tickets/{{user_ticket_id}}/reply",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"support",
+								"tickets",
+								"{{user_ticket_id}}",
+								"reply"
+							]
+						}
+					}
+				},
+				{
+					"name": "Filter Tickets by Status",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Filtered tickets retrieved\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.tickets).to.be.an('array');",
+									"    ",
+									"    // Check if filter applied correctly",
+									"    if (response.tickets.length > 0) {",
+									"        response.tickets.forEach(ticket => {",
+									"            pm.expect(ticket.status).to.eql('acik');",
+									"        });",
+									"    }",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{user_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/user/support/tickets?status=acik&category=teknik_sorun",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"support",
+								"tickets"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "acik"
+								},
+								{
+									"key": "category",
+									"value": "teknik_sorun"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Admin Support Management",
+			"item": [
+				{
+					"name": "Get All Tickets (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Admin can view all tickets\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.tickets).to.be.an('array');",
+									"    pm.expect(response).to.have.property('total_count');",
+									"});",
+									"",
+									"pm.test(\"Admin response includes user info\", function () {",
+									"    const response = pm.response.json();",
+									"    if (response.tickets.length > 0) {",
+									"        const ticket = response.tickets[0];",
+									"        pm.expect(ticket).to.have.property('user_name');",
+									"        pm.expect(ticket).to.have.property('user_email');",
+									"    }",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/admin/support/tickets?page=1&limit=20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"support",
+								"tickets"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Ticket Detail (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Admin can view any ticket detail\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('id');",
+									"    pm.expect(response).to.have.property('messages');",
+									"    pm.expect(response.messages).to.be.an('array');",
+									"});",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/admin/support/tickets/{{user_ticket_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"support",
+								"tickets",
+								"{{user_ticket_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Admin Reply to Ticket",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Admin reply sent successfully\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"    pm.expect(response.support_message).to.have.property('id');",
+									"});",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message\": \"Merhaba, PDF yükleme sorunuz için Firefox veya Edge tarayıcısını deneyebilirsiniz. Ayrıca tarayıcı cache'ini temizlemenizi de öneririm. Sorun devam ederse, belirli PDF dosyasını bize gönderebilir misiniz?\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/admin/support/tickets/{{user_ticket_id}}/reply",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"support",
+								"tickets",
+								"{{user_ticket_id}}",
+								"reply"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Ticket Status",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Ticket status updated\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"    pm.expect(response.message).to.include('cevaplandi');",
+									"});",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"cevaplandi\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/admin/support/tickets/{{user_ticket_id}}/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"support",
+								"tickets",
+								"{{user_ticket_id}}",
+								"status"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Ticket Statistics",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Ticket statistics retrieved\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.have.property('total_tickets');",
+									"    pm.expect(response).to.have.property('open_tickets');",
+									"    pm.expect(response).to.have.property('answered_tickets');",
+									"    pm.expect(response).to.have.property('closed_tickets');",
+									"    pm.expect(response).to.have.property('by_category');",
+									"    pm.expect(response).to.have.property('by_priority');",
+									"});",
+									"",
+									"pm.test(\"Statistics are numerical\", function () {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.total_tickets).to.be.a('number');",
+									"    pm.expect(response.open_tickets).to.be.a('number');",
+									"    pm.expect(response.answered_tickets).to.be.a('number');",
+									"    pm.expect(response.closed_tickets).to.be.a('number');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/admin/support/tickets/stats",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"support",
+								"tickets",
+								"stats"
+							]
+						}
+					}
+				},
+				{
+					"name": "Search Tickets",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Search results returned\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.tickets).to.be.an('array');",
+									"    ",
+									"    // Check if search worked",
+									"    if (response.tickets.length > 0) {",
+									"        const ticket = response.tickets[0];",
+									"        const searchTerm = 'PDF';",
+									"        const foundInSubject = ticket.subject.includes(searchTerm);",
+									"        const foundInNumber = ticket.ticket_number.includes(searchTerm);",
+									"        pm.expect(foundInSubject || foundInNumber).to.be.true;",
+									"    }",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/admin/support/tickets?search=PDF&priority=orta",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"support",
+								"tickets"
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "PDF"
+								},
+								{
+									"key": "priority",
+									"value": "orta"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Error Handling Tests",
+			"item": [
+				{
+					"name": "Create Ticket - Invalid Data",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Validation error handled\", function () {",
+									"    pm.response.to.have.status(422);",
+									"});",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{user_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"subject\": \"Kısa\",\n    \"category\": \"invalid_category\",\n    \"message\": \"Çok kısa\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/user/support/tickets",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"support",
+								"tickets"
+							]
+						}
+					}
+				},
+				{
+					"name": "Access Ticket Without Auth",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Unauthorized access blocked\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/user/support/tickets",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"support",
+								"tickets"
+							]
+						}
+					}
+				},
+				{
+					"name": "User Access Admin Endpoint",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"User cannot access admin endpoints\", function () {",
+									"    pm.response.to.have.status(403);",
+									"});",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{user_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/admin/support/tickets/stats",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"support",
+								"tickets",
+								"stats"
+							]
+						}
+					}
+				},
+				{
+					"name": "Access Non-existent Ticket",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Non-existent ticket returns 404\", function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{user_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/user/support/tickets/00000000-0000-0000-0000-000000000000",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"support",
+								"tickets",
+								"00000000-0000-0000-0000-000000000000"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Comprehensive Test Flow",
+			"item": [
+				{
+					"name": "Full Support Flow Test",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Complete support workflow\", function () {",
+									"    pm.response.to.have.status(200);",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.success).to.be.true;",
+									"    pm.expect(response.ticket).to.have.property('ticket_number');",
+									"    ",
+									"    // Store for cleanup",
+									"    pm.environment.set('cleanup_ticket_id', response.ticket.id);",
+									"});",
+									""
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{user_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"subject\": \"Sistem performans sorunu - Test\",\n    \"category\": \"teknik_sorun\",\n    \"priority\": \"yuksek\",\n    \"message\": \"Bu bir test ticket'ıdır. Sistem çok yavaş çalışıyor, lütfen kontrol edebilir misiniz?\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/user/support/tickets",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"support",
+								"tickets"
+							]
+						}
+					}
+				}
+			]
+		}
+	]
+}
