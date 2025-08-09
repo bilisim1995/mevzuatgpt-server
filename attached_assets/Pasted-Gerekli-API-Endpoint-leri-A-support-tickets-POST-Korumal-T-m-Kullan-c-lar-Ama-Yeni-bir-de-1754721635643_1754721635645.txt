@@ -1,0 +1,86 @@
+Gerekli API Endpoint'leri
+A) /support/tickets (POST, Korumalı - Tüm Kullanıcılar)
+
+Amaç: Yeni bir destek talebi oluşturmak.
+
+İstek Body (Pydantic ile doğrulanacak): { "subject": "PDF Yüklerken Hata Alıyorum", "category": "teknik_sorun", "message": "Merhaba, yeni bir mevzuat yüklemeye çalıştığımda..." }
+
+İş Mantığı:
+
+JWT'yi doğrula ve user_id'yi al.
+
+support_tickets tablosuna subject, category ve user_id ile yeni bir kayıt ekle. status'u 'acik' olarak ayarla.
+
+Yeni oluşturulan ticket_id'yi al.
+
+support_messages tablosuna, bu ticket_id ile, kullanıcının ilk message'ını ve sender_id olarak user_id'yi ekle.
+
+Kullanıcıya { "status": "success", "message": "Destek talebiniz başarıyla oluşturuldu.", "ticket_id": "..." } yanıtını döndür.
+
+B) /support/tickets (GET, Korumalı - Tüm Kullanıcılar)
+
+Amaç: Giriş yapmış kullanıcının kendi destek taleplerini listelemesi.
+
+İş Mantığı:
+
+JWT'yi doğrula ve user_id'yi al.
+
+support_tickets tablosunda user_id'si eşleşen tüm talepleri, en yeniden en eskiye doğru sıralayarak getir.
+
+Kullanıcıya bu taleplerin listesini döndür.
+
+C) /support/tickets/{ticket_id} (GET, Korumalı - Sadece Talep Sahibi veya Admin)
+
+Amaç: Belirli bir destek talebinin detaylarını ve tüm yazışmalarını görüntülemek.
+
+İş Mantığı:
+
+JWT'yi doğrula, user_id ve role'ü al.
+
+support_tickets tablosundan ticket_id'ye ait kaydı getir.
+
+Yetki Kontrolü: Eğer kullanıcının role'ü 'admin' değilse VE talebin user_id'si giriş yapmış olan user_id ile eşleşmiyorsa, 403 Forbidden hatası döndür.
+
+support_messages tablosundan ticket_id'si eşleşen tüm mesajları getir.
+
+Talebin ana bilgileri ve mesaj listesini kullanıcıya döndür.
+
+D) /support/tickets/{ticket_id}/reply (POST, Korumalı - Sadece Talep Sahibi veya Admin)
+
+Amaç: Mevcut bir talebe yeni bir mesaj/cevap eklemek.
+
+İstek Body: { "message": "Sorununuz çözüldü mü?" }
+
+İş Mantığı:
+
+Yukarıdaki gibi JWT ve yetki kontrolünü yap.
+
+support_messages tablosuna yeni mesajı, ticket_id'yi ve sender_id olarak giriş yapmış kullanıcının user_id'sini ekle.
+
+Talebin sahibinin status'unu 'acik' ise ve cevap bir admin'den geliyorsa, support_tickets tablosundaki talebin status'unu 'cevaplandi' olarak güncelle. Eğer cevap kullanıcıdan geliyorsa, status'u 'acik' olarak güncelle.
+
+Başarılı yanıt döndür.
+
+E) /admin/support/tickets (GET, Korumalı - Sadece Admin)
+
+Amaç: Tüm kullanıcıların destek taleplerini listelemek. (Filtreleme opsiyonel).
+
+İş Mantığı:
+
+JWT'yi doğrula ve kullanıcının rolünün 'admin' olduğunu kontrol et. Değilse 403 Forbidden.
+
+support_tickets tablosundaki tüm kayıtları getir. status=acik gibi query parametreleri ile filtreleme eklenebilir.
+
+Admin'e tüm taleplerin listesini döndür.
+
+## Senin Görevin (Güncellenmiş)
+
+Mevcut sisteme, yukarıda açıklanan Kullanıcı Destek ve Geri Bildirim Sistemini entegre et. Bunun için:
+
+Veritabanını Güncelle: Yukarıdaki SQL kodlarını Supabase'e uygula.
+
+Yeni API Endpoint'leri Oluştur: /support ve /admin/support yolları altında, yukarıda tanımlanan tüm endpoint'leri ve iş mantıklarını içeren yeni bir "router" (API rotası) oluştur.
+
+Yetkilendirme: Her endpoint'in başında, talep sahibi veya admin rolü gibi doğru yetkilendirme kontrollerini yaptığından emin ol.
+
+Veri Doğrulama: Pydantic modelleri kullanarak gelen istek body'lerinin (özellikle yeni talep oluşturma) doğruluğunu kontrol et.
