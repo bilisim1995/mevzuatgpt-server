@@ -1,6 +1,7 @@
 -- ===================================================================
--- MEVZUATGPT FEEDBACK SİSTEMİ - DATABASE MIGRATION
+-- MEVZUATGPT FEEDBACK SİSTEMİ - SUPABASE MIGRATION
 -- Bu SQL'i Supabase SQL Editor'da çalıştırın
+-- Replit veritabanı KULLANILMAZ - Sadece Supabase!
 -- ===================================================================
 
 -- 1. user_feedback tablosu oluştur
