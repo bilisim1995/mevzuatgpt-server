@@ -1,5 +1,5 @@
 -- ===================================================================
--- MEVZUATGPT DESTEK TICKET SİSTEMİ - SUPABASE MIGRATION
+-- MEVZUATGPT DESTEK TICKET SİSTEMİ - SUPABASE MIGRATION (FIXED)
 -- Bu SQL kodlarını Supabase SQL Editor'da çalıştırın
 -- ===================================================================
 
@@ -173,7 +173,7 @@ CREATE POLICY "Service can manage all messages" ON public.support_messages
     FOR ALL USING (auth.jwt() ->> 'role' = 'service_role');
 
 -- ===================================================================
--- DOĞRULAMA SORGULARI - Test için
+-- DOĞRULAMA SORGULARI - Supabase uyumlu versiyon
 -- ===================================================================
 
 -- 1. Tablolar oluşturuldu mu?
@@ -212,24 +212,39 @@ WHERE event_object_schema = 'public'
 AND event_object_table IN ('support_tickets', 'support_messages')
 ORDER BY event_object_table, trigger_name;
 
--- 6. Sequence kontrol
+-- 6. Sequence kontrol (Supabase uyumlu)
 SELECT sequencename, start_value, increment_by, max_value, min_value, cycle
 FROM pg_sequences 
 WHERE schemaname = 'public' 
 AND sequencename = 'ticket_number_seq';
 
+-- 7. Test ticket oluşturma (opsiyonel - auth kullanıcısı ile)
+-- Önce bir kullanıcı ile giriş yapın, sonra bu kodu çalıştırın:
+/*
+INSERT INTO public.support_tickets (user_id, subject, category, priority)
+VALUES (auth.uid(), 'Test ticket - Migration başarılı', 'teknik_sorun', 'orta');
+
+-- Ticket'a mesaj ekle
+INSERT INTO public.support_messages (ticket_id, sender_id, message)
+VALUES (
+    (SELECT id FROM support_tickets WHERE subject = 'Test ticket - Migration başarılı' LIMIT 1), 
+    auth.uid(), 
+    'Migration başarıyla tamamlandı!'
+);
+*/
+
 -- ===================================================================
--- TEST KAYITLARI (Manuel test için - opsiyonel)
+-- BAŞARILI MIGRATION KONTROLÜ
 -- ===================================================================
 
--- Test ticket oluştur (ticket numarası otomatik oluşacak)
--- INSERT INTO public.support_tickets (user_id, subject, category, priority)
--- VALUES (auth.uid(), 'Test ticket', 'teknik_sorun', 'orta');
-
--- Test mesaj ekle
--- INSERT INTO public.support_messages (ticket_id, sender_id, message)
--- VALUES ((SELECT id FROM support_tickets WHERE subject = 'Test ticket' LIMIT 1), auth.uid(), 'Test mesajı');
+-- Bu sorgu başarılı çalışırsa migration tamamdır:
+SELECT 
+    'Migration başarılı!' as status,
+    (SELECT COUNT(*) FROM public.support_tickets) as ticket_count,
+    (SELECT COUNT(*) FROM public.support_messages) as message_count,
+    (SELECT COUNT(*) FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('support_tickets', 'support_messages')) as policy_count;
 
 -- ===================================================================
--- NOT: Migration tamamlandıktan sonra ticket sistemi kullanıma hazır
+-- SON NOT: Bu SQL dosyasını Supabase SQL Editor'da çalıştırdıktan sonra
+-- destek ticket sistemi kullanıma hazır olacaktır.
 -- ===================================================================
