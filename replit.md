@@ -18,7 +18,9 @@ Preferred communication style: Simple, everyday language.
 - **Resolution**: Fixed Supabase RLS policy infinite recursion errors and service client access issues
 - **Embedding Generation**: Created automated embedding generation script for existing documents
 - **Testing**: Comprehensive debug scripts to identify and resolve search pipeline issues
-- **Status**: Search functionality fully restored with proper similarity scoring and document retrieval
+- **PDF URL Display**: Fixed source enhancement to properly show Bunny.net PDF download links in query responses
+- **Cache Management**: Resolved stale cache issues that prevented proper PDF URL display
+- **Status**: Search functionality fully restored with proper similarity scoring, document retrieval, and PDF download links
 
 ### Support Ticket System Implementation (August 9, 2025)
 - **New Feature**: Complete modular support ticket system for user inquiries and admin management

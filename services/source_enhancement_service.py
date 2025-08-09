@@ -289,9 +289,15 @@ class SourceEnhancementService:
                     "chunk_index": result.get("chunk_index", 0)
                 }
                 
-                # Remove null values for cleaner response
-                source = {k: v for k, v in source.items() if v is not None}
-                formatted_sources.append(source)
+                # Keep PDF URL even if None for debugging, but remove other nulls
+                filtered_source = {}
+                for k, v in source.items():
+                    if k == "pdf_url":
+                        filtered_source[k] = v  # Always include pdf_url, even if None
+                    elif v is not None:
+                        filtered_source[k] = v
+                
+                formatted_sources.append(filtered_source)
             
             return formatted_sources
             
