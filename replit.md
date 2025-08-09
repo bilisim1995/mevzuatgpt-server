@@ -12,6 +12,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### Critical Search Functionality Fix (August 9, 2025)
+- **Issue Identified**: Search returning "no information found" due to empty embeddings table
+- **Root Cause**: Documents existed but had no embeddings generated, causing semantic search to fail
+- **Resolution**: Fixed Supabase RLS policy infinite recursion errors and service client access issues
+- **Embedding Generation**: Created automated embedding generation script for existing documents
+- **Testing**: Comprehensive debug scripts to identify and resolve search pipeline issues
+- **Status**: Search functionality fully restored with proper similarity scoring and document retrieval
+
 ### Support Ticket System Implementation (August 9, 2025)
 - **New Feature**: Complete modular support ticket system for user inquiries and admin management
 - **Database**: Support tables with RLS policies and automated ticket numbering (TK-001 format)

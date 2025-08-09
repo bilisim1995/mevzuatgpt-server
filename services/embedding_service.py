@@ -229,7 +229,7 @@ class EmbeddingService:
         """
         try:
             # Use Supabase REST API directly for vector similarity (bypass SQLAlchemy)
-            from models.supabase_client import supabase_client
+            from core.supabase_client import supabase_client
             import json
             
             # Skip RPC function - use direct query for reliability
@@ -237,8 +237,9 @@ class EmbeddingService:
             
             # Fallback: Use direct Supabase table query without SQLAlchemy
             try:
-                # Query embeddings directly from Supabase (only existing columns) - fixed join
-                embedding_response = supabase_client.supabase.table('mevzuat_embeddings') \
+                # Query embeddings directly from Supabase using service client (bypass RLS)
+                service_client = supabase_client.get_client(use_service_key=True)
+                embedding_response = service_client.table('mevzuat_embeddings') \
                     .select('id, document_id, content, metadata, embedding') \
                     .execute()
                     
@@ -246,13 +247,15 @@ class EmbeddingService:
                 document_titles = {}
                 if embedding_response.data:
                     doc_ids = list(set([row['document_id'] for row in embedding_response.data]))
-                    doc_response = supabase_client.supabase.table('mevzuat_documents') \
+                    doc_response = service_client.table('mevzuat_documents') \
                         .select('id, title') \
                         .in_('id', doc_ids) \
                         .execute()
                     
                     if doc_response.data:
                         document_titles = {doc['id']: doc['title'] for doc in doc_response.data}
+                
+                logger.info(f"Search Debug: Retrieved {len(embedding_response.data) if embedding_response.data else 0} embeddings from Supabase")
                 
                 if embedding_response.data:
                     # Calculate cosine similarity in Python (fallback)
@@ -318,13 +321,18 @@ class EmbeddingService:
                             error_count += 1
                             continue
                     
-                    logger.info(f"Processed {processed_count} embeddings, {error_count} errors, {len(results)} matches above 0.3 (hardcoded)")
+                    logger.info(f"Search Debug: Processed {processed_count} embeddings, {error_count} errors, {len(results)} matches above threshold {similarity_threshold}")
                     
                     # Sort by similarity and limit
                     results.sort(key=lambda x: x["similarity_score"], reverse=True)
                     results = results[:limit]
                     
                     logger.info(f"Found {len(results)} similar embeddings via direct Supabase query (threshold: {similarity_threshold})")
+                    
+                    # Debug: Log top 3 results if any
+                    for i, result in enumerate(results[:3]):
+                        logger.info(f"Top result {i+1}: similarity={result['similarity_score']:.3f}, content={result['content'][:100]}")
+                    
                     return results
                     
             except Exception as direct_error:
