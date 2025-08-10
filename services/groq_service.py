@@ -61,30 +61,25 @@ class GroqService:
 
 KATÎ KURALLAR:
 1. SADECE verilen belge içeriğinde bulunan bilgileri kullan
-2. Belge içeriği boş veya yetersizse: "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır."
-3. Kendi genel bilgini ASLA kullanma
-4. Belge dışından örnek, yorum veya ek bilgi verme
-5. Sadece belgedeki bilgileri Türkçe olarak özetle
+2. Kendi genel bilgini ASLA kullanma
+3. Belge dışından örnek, yorum veya ek bilgi verme
+4. Sadece belgedeki bilgileri Türkçe olarak özetle
 
-Cevap formatı:
-- Belge içeriği varsa: Belgeden direkt alıntılarla cevap ver
-- Belge içeriği yoksa: "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır."
-- Asla kendi bilginle tamamlama"""
+ÖNEMLİ: Belge içeriği varsa ve soruyla ilgiliyse detaylı cevap ver. 
+Sadece belge tamamen boş veya soru ile alakasız ise "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır." yaz."""
             
             # Construct user message with context
             if not context or context.strip() == "":
                 user_message = f"""BELGE İÇERİĞİ: [BOŞ]
 
-SORU: {query}
-
-Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır."""
+SORU: {query}"""
             else:
                 user_message = f"""BELGE İÇERİĞİ:
 {context}
 
 SORU: {query}
 
-Sadece yukarıdaki belge içeriğini kullanarak cevapla. Belge dışından bilgi ekleme."""
+Yukarıdaki belgelerden bulunan bilgileri kullanarak soruyu cevapla."""
             
             # Call Groq API
             response = self.client.chat.completions.create(

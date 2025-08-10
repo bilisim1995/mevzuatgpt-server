@@ -12,6 +12,13 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### AI Response Quality Improvement (August 10, 2025)
+- **Issue Fixed**: AI was appending "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır" to all responses
+- **Root Cause**: Hardcoded text in Groq service system prompt was always adding disclaimer text
+- **Solution**: Refined prompt to only show "no information" message when documents are truly empty or irrelevant
+- **Result**: AI now provides clean, accurate responses when relevant documents are found
+- **Testing**: Verified with "Sigortalılık şartları" query - now returns proper bullet-point legal requirements
+
 ### Critical Search Functionality Fix (August 9, 2025)
 - **Issue Identified**: Search returning "no information found" due to empty embeddings table
 - **Root Cause**: Documents existed but had no embeddings generated, causing semantic search to fail
