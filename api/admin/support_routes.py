@@ -20,7 +20,7 @@ support_service = SupportService()
 
 async def verify_admin(current_user = Depends(get_current_user)):
     """Admin yetkisi kontrolü"""
-    if current_user.get("role") != "admin":
+    if current_user.role != "admin":
         raise HTTPException(
             status_code=403,
             detail={
@@ -62,7 +62,7 @@ async def get_all_tickets(
         )
         
         result = await support_service.get_admin_tickets(
-            admin_user_id=admin_user["id"],
+            admin_user_id=admin_user.id,
             page=page,
             limit=limit,
             filters=filters
@@ -108,7 +108,7 @@ async def get_ticket_detail_admin(
     try:
         result = await support_service.get_ticket_detail(
             ticket_id=ticket_id,
-            user_id=admin_user["id"],
+            user_id=admin_user.id,
             is_admin=True
         )
         
@@ -158,7 +158,7 @@ async def admin_reply_to_ticket(
     try:
         result = await support_service.add_message(
             ticket_id=ticket_id,
-            sender_id=admin_user["id"],
+            sender_id=admin_user.id,
             message=message_request.message,
             is_admin=True
         )
@@ -226,7 +226,7 @@ async def update_ticket_status(
         result = await support_service.update_ticket_status(
             ticket_id=ticket_id,
             new_status=status_update.status,
-            admin_user_id=admin_user["id"]
+            admin_user_id=admin_user.id
         )
         
         if not result["success"]:
@@ -276,7 +276,7 @@ async def get_ticket_statistics(
     """
     try:
         result = await support_service.get_ticket_stats(
-            admin_user_id=admin_user["id"]
+            admin_user_id=admin_user.id
         )
         
         if not result["success"]:
@@ -320,7 +320,7 @@ async def get_user_tickets_admin(
         )
         
         result = await support_service.get_admin_tickets(
-            admin_user_id=admin_user["id"],
+            admin_user_id=admin_user.id,
             page=page,
             limit=limit,
             filters=filters
@@ -369,7 +369,7 @@ async def delete_ticket(
         # Önce ticket'ın varlığını kontrol et
         result = await support_service.get_ticket_detail(
             ticket_id=ticket_id,
-            user_id=admin_user["id"],
+            user_id=admin_user.id,
             is_admin=True
         )
         

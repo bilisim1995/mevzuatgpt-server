@@ -34,7 +34,7 @@ async def create_ticket(
     """
     try:
         result = await support_service.create_ticket(
-            user_id=current_user["id"],
+            user_id=current_user.id,
             subject=ticket_request.subject,
             category=ticket_request.category,
             priority=ticket_request.priority,
@@ -96,7 +96,7 @@ async def get_my_tickets(
         )
         
         result = await support_service.get_user_tickets(
-            user_id=current_user["id"],
+            user_id=current_user.id,
             page=page,
             limit=limit,
             filters=filters
@@ -144,7 +144,7 @@ async def get_ticket_detail(
     try:
         result = await support_service.get_ticket_detail(
             ticket_id=ticket_id,
-            user_id=current_user["id"],
+            user_id=current_user.id,
             is_admin=False
         )
         
@@ -195,7 +195,7 @@ async def reply_to_ticket(
     try:
         result = await support_service.add_message(
             ticket_id=ticket_id,
-            sender_id=current_user["id"],
+            sender_id=current_user.id,
             message=message_request.message,
             is_admin=False
         )
@@ -256,7 +256,7 @@ async def get_ticket_messages(
     try:
         result = await support_service.get_ticket_detail(
             ticket_id=ticket_id,
-            user_id=current_user["id"],
+            user_id=current_user.id,
             is_admin=False
         )
         
