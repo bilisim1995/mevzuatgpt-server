@@ -19,6 +19,7 @@ from models.feedback_schemas import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/feedback", tags=["User Feedback"])
 
+@router.post("", response_model=FeedbackOperationResponse)
 @router.post("/", response_model=FeedbackOperationResponse)
 async def submit_feedback(
     feedback_data: FeedbackSubmit,
