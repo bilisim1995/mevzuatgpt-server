@@ -48,16 +48,15 @@ async def submit_feedback(
             .select('query') \
             .eq('id', feedback_data.search_log_id) \
             .eq('user_id', current_user_id) \
-            .single() \
             .execute()
         
-        if not search_response.data:
+        if not search_response.data or len(search_response.data) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Belirtilen sorgu bulunamadı veya size ait değil"
             )
         
-        search_data = search_response.data
+        search_data = search_response.data[0]
         query_text = search_data.get('query', '')
         answer_text = 'AI yanıtı'  # Basitleştirilmiş versiyon
         
