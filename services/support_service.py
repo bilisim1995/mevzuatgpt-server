@@ -199,13 +199,9 @@ class SupportService:
     ) -> Dict[str, Any]:
         """Ticket detaylarını ve mesajları getir"""
         try:
-            # Ticket bilgilerini getir
+            # Ticket bilgilerini getir - simplified query
             ticket_query = self.supabase.table('support_tickets') \
-                .select('''
-                    id, ticket_number, user_id, subject, category, priority, status,
-                    created_at, updated_at,
-                    user_profiles!inner(id, full_name, email)
-                ''') \
+                .select('id, ticket_number, user_id, subject, category, priority, status, created_at, updated_at') \
                 .eq('id', str(ticket_id))
             
             # Yetki kontrolü
@@ -222,33 +218,38 @@ class SupportService:
             
             ticket = ticket_response.data[0]
             
-            # User profile bilgilerini düzelt
-            if ticket.get('user_profiles'):
-                profile = ticket['user_profiles']
+            # User profile bilgilerini ayrı sorgu ile al
+            user_response = self.supabase.table('user_profiles') \
+                .select('id, full_name, email') \
+                .eq('id', str(ticket['user_id'])) \
+                .execute()
+            
+            if user_response.data:
+                profile = user_response.data[0]
                 ticket['user_name'] = profile.get('full_name')
                 ticket['user_email'] = profile.get('email')
-                del ticket['user_profiles']
             
-            # Ticket mesajlarını getir
+            # Ticket mesajlarını getir - simplified query
             messages_response = self.supabase.table('support_messages') \
-                .select('''
-                    id, ticket_id, sender_id, message, created_at,
-                    user_profiles!inner(id, full_name, email, role)
-                ''') \
+                .select('id, ticket_id, sender_id, message, created_at') \
                 .eq('ticket_id', str(ticket_id)) \
                 .order('created_at', desc=False) \
                 .execute()
             
             messages = []
             if messages_response.data:
+                # Her mesaj için sender bilgilerini al
                 for msg in messages_response.data:
-                    # Sender bilgilerini düzelt
-                    if msg.get('user_profiles'):
-                        profile = msg['user_profiles']
+                    sender_response = self.supabase.table('user_profiles') \
+                        .select('id, full_name, email, role') \
+                        .eq('id', str(msg['sender_id'])) \
+                        .execute()
+                    
+                    if sender_response.data:
+                        profile = sender_response.data[0]
                         msg['sender_name'] = profile.get('full_name')
                         msg['sender_email'] = profile.get('email')
                         msg['is_admin'] = profile.get('role') == 'admin'
-                        del msg['user_profiles']
                     
                     messages.append(msg)
             
@@ -284,7 +285,7 @@ class SupportService:
             
             # Admin değilse sadece kendi ticket'ına mesaj gönderebilir
             if not is_admin:
-                ticket_query = ticket_query.eq('user_id', sender_id)
+                ticket_query = ticket_query.eq('user_id', str(sender_id))
             
             ticket_response = ticket_query.execute()
             
@@ -305,8 +306,8 @@ class SupportService:
             
             # Mesaj ekle
             message_data = {
-                'ticket_id': ticket_id,
-                'sender_id': sender_id,
+                'ticket_id': str(ticket_id),
+                'sender_id': str(sender_id),
                 'message': message
             }
             

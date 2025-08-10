@@ -21,8 +21,11 @@
 - ✅ Ticket creation: Working (TK-000001, TK-000002, TK-000003)
 - ✅ User ticket listing: Working (shows user's own tickets)
 - ✅ Admin ticket listing: Working (shows all tickets)
-- ✅ Admin statistics: Working (total counts, categories, priorities)
-- ✅ Message system: Working (initial messages created with tickets)
+- ✅ GET /api/user/tickets/{id}: Working (ticket details with messages)
+- ✅ POST /api/user/tickets/{id}/reply: Working (message threading)
+- ✅ Admin ticket access: Working (admin can view all user tickets)
+- ✅ Message system: Working (initial messages + reply messages)
+- ✅ Status updates: Working (ticket status changes on replies)
 
 ## Error Details:
 
