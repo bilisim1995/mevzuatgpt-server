@@ -35,11 +35,15 @@ class SourceEnhancementService:
         try:
             enhanced_results = []
             
-            # Batch fetch document URLs to avoid duplicate queries
-            document_urls = self._batch_fetch_document_urls(search_results)
+            # Batch fetch document URLs and metadata to avoid duplicate queries
+            document_data = self._batch_fetch_document_urls(search_results)
             
             for result in search_results:
-                enhanced_result = self._enhance_single_result(result, document_urls)
+                # Debug: Check what's in each result before enhancement
+                document_id = result.get("document_id")
+                logger.info(f"Processing result with document_id: {document_id}")
+                
+                enhanced_result = self._enhance_single_result(result, document_data)
                 enhanced_results.append(enhanced_result)
             
             logger.info(f"Enhanced {len(enhanced_results)} search results with source information")
@@ -50,7 +54,7 @@ class SourceEnhancementService:
             # Return original results if enhancement fails
             return search_results
     
-    def _enhance_single_result(self, result: Dict[str, Any], document_urls: Dict[str, str] = None) -> Dict[str, Any]:
+    def _enhance_single_result(self, result: Dict[str, Any], document_data: Dict = None) -> Dict[str, Any]:
         """Enhance a single search result with source information"""
         try:
             # Start with original result
@@ -62,12 +66,39 @@ class SourceEnhancementService:
             chunk_index = result.get("chunk_index", 0)
             content = result.get("content", "")
             
-            # Add PDF URL from pre-fetched cache or database
-            if document_urls and document_id in document_urls:
-                pdf_url = document_urls[document_id]
+            # Debug logging
+            logger.info(f"Enhancing result: document_id={document_id}, title={document_title[:30]}")
+            
+            # Make sure document_id is preserved in enhanced result
+            if document_id:
+                enhanced["document_id"] = document_id
+            
+            # Add PDF URL and metadata from pre-fetched cache or database
+            if document_data and isinstance(document_data, dict):
+                document_urls = document_data.get('urls', {})
+                document_metadata = document_data.get('metadata', {})
+                
+                if document_id and document_id in document_urls:
+                    pdf_url = document_urls[document_id]
+                    enhanced["pdf_url"] = pdf_url
+                
+                # Add metadata information - make sure document_id is present
+                if document_id and document_id in document_metadata:
+                    metadata = document_metadata[document_id]
+                    if isinstance(metadata, dict):
+                        enhanced["source_institution"] = metadata.get("source_institution", "")
+                        enhanced["category"] = metadata.get("category", "")
+                        enhanced["keywords"] = metadata.get("keywords", [])
+                        # Debug log
+                        logger.debug(f"Added metadata for {document_id}: institution={metadata.get('source_institution')}")
+                elif document_id:
+                    logger.warning(f"No metadata found for document_id: {document_id}")
+                else:
+                    logger.warning("Missing document_id in search result")
             else:
-                pdf_url = self._get_pdf_url_from_db(document_id)
-            enhanced["pdf_url"] = pdf_url
+                if document_id:
+                    pdf_url = self._get_pdf_url_from_db(document_id)
+                    enhanced["pdf_url"] = pdf_url
             
             # Use direct column values first, fallback to extraction methods
             page_number = result.get("page_number") or self._extract_page_number(result)
@@ -117,24 +148,26 @@ class SourceEnhancementService:
                 
             from models.supabase_client import supabase_client
             
-            # Batch query for all document URLs
+            # Batch query for all document URLs and metadata
             result = supabase_client.supabase.table('mevzuat_documents') \
-                .select('id, file_url') \
+                .select('id, file_url, metadata') \
                 .in_('id', document_ids) \
                 .execute()
             
-            # Create lookup dictionary
+            # Create lookup dictionary with URLs and metadata
             url_map = {}
+            metadata_map = {}
             if result.data:
                 for doc in result.data:
                     url_map[doc['id']] = doc.get('file_url')
+                    metadata_map[doc['id']] = doc.get('metadata', {})
             
             logger.debug(f"Batch fetched URLs for {len(url_map)} documents")
-            return url_map
+            return {'urls': url_map, 'metadata': metadata_map}
             
         except Exception as e:
             logger.error(f"Failed to batch fetch document URLs: {e}")
-            return {}
+            return {'urls': {}, 'metadata': {}}
     
     def _get_pdf_url_from_db(self, document_id: str) -> Optional[str]:
         """Get actual PDF URL from document table in database"""

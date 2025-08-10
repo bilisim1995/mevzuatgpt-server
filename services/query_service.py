@@ -125,15 +125,19 @@ class QueryService:
                     date_filter=None
                 )
                 
-                # Filter by institution if specified
-                # TEMPORARY FIX: source_institution column missing, skip institution filtering
+                # Filter by institution if specified (using metadata field)
                 if institution_filter and search_results:
-                    logger.warning(f"Institution filtering requested but source_institution column missing - skipping filter: {institution_filter}")
-                    # TODO: Enable this when source_institution column is added
-                    # search_results = [
-                    #     result for result in search_results 
-                    #     if institution_filter.lower() in result.get("source_institution", "").lower()
-                    # ]
+                    original_count = len(search_results)
+                    search_results = [
+                        result for result in search_results 
+                        if self._matches_institution_filter(result, institution_filter)
+                    ]
+                    filtered_count = len(search_results)
+                    logger.info(f"Institution filter '{institution_filter}' applied: {original_count} -> {filtered_count} results")
+                    
+                    # Debug: Check if any results remain after filtering
+                    if not search_results:
+                        logger.warning(f"Institution filter '{institution_filter}' filtered out all results")
                 
                 # Cache search results
                 if use_cache and search_results:
@@ -146,9 +150,23 @@ class QueryService:
             
             search_time = int((time.time() - search_start) * 1000)
             
-            # 4.5. Enhance search results with source information
+            # 4.5. Enhance search results with source information  
+            logger.info(f"Total search results before enhancement: {len(search_results) if search_results else 0}")
             if search_results:
+                # Debug: Check search results before enhancement
+                first_result = search_results[0]
+                logger.info(f"Before enhancement - first result keys: {list(first_result.keys())}")
+                logger.info(f"Before enhancement - first result document_id: '{first_result.get('document_id')}'")
+                
                 search_results = self.source_enhancement_service.enhance_search_results(search_results)
+                
+                # Debug: Check search results after enhancement  
+                if search_results:
+                    first_enhanced = search_results[0]
+                    logger.info(f"After enhancement - first result keys: {list(first_enhanced.keys())}")
+                    logger.info(f"After enhancement - first result document_id: '{first_enhanced.get('document_id')}'")
+                else:
+                    logger.error("Enhancement service returned empty results!")
             
             # 5. Generate AI response using configured provider
             ai_start = time.time()
@@ -165,7 +183,7 @@ class QueryService:
                 llm_response = {
                     "answer": ai_result["response"],
                     "confidence_score": ai_result["confidence_score"],
-                    "sources": search_results,
+                    "sources": self._format_sources_safe(search_results),  # Format sources properly with error handling
                     "ai_model": ai_result["model_used"],
                     "processing_time": ai_result["processing_time"],
                     "token_usage": ai_result.get("token_usage", {})
@@ -299,22 +317,57 @@ class QueryService:
                 "suggestions": []
             }
     
+    def _format_sources_safe(self, search_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Format search results for response with error handling"""
+        try:
+            logger.info(f"Starting _format_sources_safe with {len(search_results) if search_results else 0} results")
+            formatted_sources = []
+            
+            for i, result in enumerate(search_results):
+                try:
+                    # Debug: Check what fields are available
+                    logger.info(f"Formatting source {i+1} - available keys: {list(result.keys())}")
+                    logger.info(f"Document ID: {result.get('document_id')}, Institution: {result.get('source_institution')}")
+                    
+                    formatted_source = {
+                        "document_id": result.get("document_id"),
+                        "document_title": result.get("document_title"),
+                        "source_institution": result.get("source_institution"),
+                        "content": result.get("content", "")[:500] + "..." if len(result.get("content", "")) > 500 else result.get("content", ""),
+                        "similarity_score": result.get("similarity_score"),
+                        "category": result.get("category"),
+                        "publish_date": result.get("publish_date"),
+                        "pdf_url": result.get("pdf_url"),
+                        "citation": result.get("citation"),
+                        "page_number": result.get("page_number"),
+                        "line_start": result.get("line_start"),
+                        "line_end": result.get("line_end"),
+                        "content_preview": result.get("content_preview"),
+                        "chunk_index": result.get("chunk_index")
+                    }
+                    formatted_sources.append(formatted_source)
+                    logger.info(f"Successfully formatted source {i+1}")
+                    
+                except Exception as format_error:
+                    logger.error(f"Failed to format source {i+1}: {format_error}")
+                    # Add minimal source on error
+                    formatted_sources.append({
+                        "document_title": result.get("document_title", "Unknown"),
+                        "content": result.get("content", "")[:100],
+                        "similarity_score": result.get("similarity_score", 0)
+                    })
+            
+            logger.info(f"_format_sources_safe completed: {len(formatted_sources)} sources formatted")
+            return formatted_sources
+            
+        except Exception as e:
+            logger.error(f"Critical error in _format_sources_safe: {e}")
+            # Return unformatted results as fallback
+            return search_results if search_results else []
+
     def _format_sources(self, search_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Format search results for response"""
-        formatted_sources = []
-        
-        for result in search_results:
-            formatted_sources.append({
-                "document_id": result.get("document_id"),
-                "document_title": result.get("document_title"),
-                "source_institution": result.get("source_institution"),
-                "content": result.get("content", "")[:500] + "..." if len(result.get("content", "")) > 500 else result.get("content", ""),
-                "similarity_score": result.get("similarity_score"),
-                "category": result.get("category"),
-                "publish_date": result.get("publish_date")
-            })
-        
-        return formatted_sources
+        """Format search results for response (original method kept for compatibility)"""
+        return self._format_sources_safe(search_results)
     
     def _prepare_context_for_groq(self, search_results: List[Dict[str, Any]]) -> str:
         """
@@ -382,34 +435,76 @@ Benzerlik: {similarity:.2f}
         return suggestions[:10]  # Return max 10 suggestions
     
     async def _update_institutions_cache(self):
-        """Update available institutions cache - TEMPORARY FIX: source_institution column missing"""
+        """Update available institutions cache - Using metadata field for institution data"""
         try:
-            # TEMPORARY: source_institution column doesn't exist in Supabase yet
-            # Using hardcoded institutions list until database is updated
-            institutions = [
-                "Sosyal Güvenlik Kurumu",
-                "Çalışma ve Sosyal Güvenlik Bakanlığı",
-                "Hazine ve Maliye Bakanlığı",
-                "Adalet Bakanlığı",
-                "İçişleri Bakanlığı"
-            ]
+            # Get distinct institutions from metadata field
+            response = supabase_client.supabase.table('mevzuat_documents').select('metadata').execute()
             
-            await redis_service.cache_institutions(institutions)
-            logger.info(f"Updated institutions cache (hardcoded): {len(institutions)} institutions")
-            
-            # TODO: Enable this when source_institution column is added to mevzuat_documents
-            # response = supabase_client.supabase.table('mevzuat_documents').select('source_institution').execute()
-            # if response.data:
-            #     institutions = list(set([
-            #         doc['source_institution'] 
-            #         for doc in response.data 
-            #         if doc.get('source_institution')
-            #     ]))
-            #     institutions.sort()
-            #     await redis_service.cache_institutions(institutions)
+            institutions = set()
+            if response.data:
+                for doc in response.data:
+                    metadata = doc.get('metadata', {})
+                    if isinstance(metadata, dict) and metadata.get('source_institution'):
+                        institutions.add(metadata['source_institution'])
+                
+                institutions_list = sorted(list(institutions))
+                
+                # Add default institutions if none found
+                if not institutions_list:
+                    institutions_list = [
+                        "Sosyal Güvenlik Kurumu",
+                        "Çalışma ve Sosyal Güvenlik Bakanlığı", 
+                        "Hazine ve Maliye Bakanlığı",
+                        "Adalet Bakanlığı",
+                        "İçişleri Bakanlığı"
+                    ]
+                
+                await redis_service.cache_institutions(institutions_list)
+                logger.info(f"Updated institutions cache from metadata: {len(institutions_list)} institutions")
             
         except Exception as e:
             logger.warning(f"Failed to update institutions cache: {e}")
+            # Fallback to default institutions
+            institutions = [
+                "Sosyal Güvenlik Kurumu",
+                "Çalışma ve Sosyal Güvenlik Bakanlığı",
+                "Hazine ve Maliye Bakanlığı"
+            ]
+            await redis_service.cache_institutions(institutions)
+    
+    def _matches_institution_filter(self, search_result: Dict[str, Any], institution_filter: str) -> bool:
+        """Check if search result matches the institution filter using metadata"""
+        try:
+            # Check metadata for institution information
+            metadata = search_result.get("metadata", {})
+            if isinstance(metadata, dict):
+                source_institution = metadata.get("source_institution", "")
+                if source_institution and institution_filter.lower() in source_institution.lower():
+                    return True
+            
+            # Fallback: check document title for institution keywords
+            title = search_result.get("document_title", "")
+            filter_lower = institution_filter.lower()
+            
+            # Map common filter terms to title keywords
+            institution_keywords = {
+                "sosyal güvenlik": ["sgk", "sigorta", "sosyal", "güvenlik"],
+                "çalışma": ["çalışma", "iş", "işçi"],
+                "hazine": ["hazine", "maliye", "vergi"],
+                "adalet": ["adalet", "mahkeme", "ceza"],
+                "içişleri": ["içişleri", "polis", "güvenlik"]
+            }
+            
+            for institution, keywords in institution_keywords.items():
+                if institution in filter_lower:
+                    if any(keyword in title.lower() for keyword in keywords):
+                        return True
+            
+            return False
+            
+        except Exception as e:
+            logger.warning(f"Error matching institution filter: {e}")
+            return False
     
     async def _log_search_query(
         self,
