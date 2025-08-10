@@ -12,7 +12,16 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### AI Response Quality Improvement (August 10, 2025)
+### Smart Credit Refund System Implementation (August 10, 2025)
+- **New Feature**: Automatic credit refund system for "no information found" responses
+- **Detection Logic**: AI responses are analyzed for phrases like "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır"
+- **Refund Process**: When no information is found, users automatically get their credits refunded
+- **Implementation**: Added to /api/user/ask endpoint with phrase detection and credit service integration
+- **Admin Handling**: Admin users see refund simulation in response (refund_would_apply field) but don't get charged
+- **Testing**: Confirmed working with normal users - credits properly refunded when AI can't find relevant information
+- **Fairness**: Ensures users only pay for queries that return useful information from legal documents
+
+### AI Response Quality Improvement (August 10, 2025)  
 - **Issue Fixed**: AI was appending "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır" to all responses
 - **Root Cause**: Hardcoded text in Groq service system prompt was always adding disclaimer text
 - **Solution**: Refined prompt to only show "no information" message when documents are truly empty or irrelevant

@@ -306,17 +306,58 @@ async def ask_question(
             use_cache=ask_request.use_cache
         )
         
-        # 6. Başarılı işlem sonrası kredi bilgilerini response'a ekle (admin değilse)
+        # 6. AI cevabını kontrol et - bilgi bulunamadıysa kredi iade et
+        ai_answer = result.get("answer", "")
+        no_info_phrases = [
+            "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır",
+            "belge içeriğinde bu konuda bilgi bulunmamaktadır",
+            "bilgi bulunmamaktadır"
+        ]
+        
+        # Bilgi bulunamadığını gösteren ifadeler varsa kredi iade et
+        is_no_info_response = any(phrase in ai_answer for phrase in no_info_phrases)
+        
+        # Debug log
+        if is_no_info_response:
+            logger.info(f"No info response detected for query '{ask_request.query}' - AI answer: '{ai_answer[:100]}...'")
+        else:
+            logger.debug(f"Info found for query '{ask_request.query}' - AI answer: '{ai_answer[:100]}...'")
+        refund_applied = False
+        
+        if not is_admin and is_no_info_response and required_credits > 0:
+            # Kredi iadesi yap
+            refund_success = await credit_service.refund_credits(
+                user_id=user_id,
+                amount=required_credits,
+                query_id=result.get("search_log_id"),  # Search log ID'yi kullan
+                reason=f"Bilgi bulunamadı: '{ask_request.query[:50]}{'...' if len(ask_request.query) > 50 else ''}'"
+            )
+            
+            if refund_success:
+                refund_applied = True
+                logger.info(f"Credit refunded for user {user_id}: {required_credits} credits (no info found)")
+            else:
+                logger.error(f"Credit refund failed for user {user_id}")
+        
+        # 7. Kredi bilgilerini response'a ekle
         if not is_admin:
+            final_balance = current_balance if refund_applied else current_balance - required_credits
+            credits_used = 0 if refund_applied else required_credits
+            
             result["credit_info"] = {
-                "credits_used": required_credits,
-                "remaining_balance": current_balance - required_credits
+                "credits_used": credits_used,
+                "remaining_balance": final_balance,
+                "refund_applied": refund_applied,
+                "refund_reason": "Bilgi bulunamadı" if refund_applied else None,
+                "no_info_detected": is_no_info_response  # Debug bilgisi
             }
         else:
             result["credit_info"] = {
                 "credits_used": 0,
                 "remaining_balance": "unlimited",
-                "admin_user": True
+                "admin_user": True,
+                "refund_would_apply": is_no_info_response,  # Admin olsaydı kredi iade edilir miydi
+                "no_info_detected": is_no_info_response  # Debug bilgisi
             }
         
         logger.info(f"Ask query processed for user {user_id}: '{ask_request.query[:50]}' - confidence: {result['confidence_score']}")
