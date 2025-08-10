@@ -45,7 +45,7 @@ async def submit_feedback(
         from models.supabase_client import supabase_client
         
         search_response = supabase_client.supabase.table('search_logs') \
-            .select('query, ai_response') \
+            .select('query') \
             .eq('id', feedback_data.search_log_id) \
             .eq('user_id', current_user_id) \
             .single() \
@@ -59,7 +59,7 @@ async def submit_feedback(
         
         search_data = search_response.data
         query_text = search_data.get('query', '')
-        answer_text = search_data.get('ai_response', '')
+        answer_text = 'AI yanıtı'  # Basitleştirilmiş versiyon
         
         # Feedback'i kaydet/güncelle
         result = await feedback_service.submit_feedback(
