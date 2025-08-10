@@ -7,7 +7,7 @@ import logging
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 
-from models.supabase_client import supabase_client
+from core.supabase_client import supabase_client
 from models.support_schemas import (
     TicketCategory, TicketPriority, TicketStatus,
     TicketFilterParams, SupportTicket, SupportMessage,
