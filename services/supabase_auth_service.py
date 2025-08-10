@@ -31,21 +31,11 @@ class SupabaseAuthService:
                     detail="Bu email adresi zaten kayıtlı"
                 )
             
-            # Create user metadata (yeni profil alanları dahil)
-            user_metadata = {
-                "full_name": user_data.full_name,
-                "ad": user_data.ad,
-                "soyad": user_data.soyad,
-                "meslek": user_data.meslek,
-                "calistigi_yer": user_data.calistigi_yer,
-                "role": user_data.role if hasattr(user_data, 'role') else "user"
-            }
-            
-            # Register with Supabase
+            # Register with Supabase Auth (minimal metadata)
             result = await self.supabase.register_user(
                 email=user_data.email,
                 password=user_data.password,
-                user_metadata=user_metadata
+                user_metadata={}  # Empty metadata, will use user_profiles table
             )
             
             if not result["success"]:
@@ -54,25 +44,46 @@ class SupabaseAuthService:
                     detail=f"Kullanıcı kaydı başarısız: {result['error']}"
                 )
             
-            # Create response (yeni profil alanları dahil)
+            user_id = str(result["user"].id)
+            
+            # Create user profile in user_profiles table
+            profile_data = {
+                "id": user_id,
+                "email": user_data.email,
+                "full_name": user_data.full_name,
+                "ad": user_data.ad,
+                "soyad": user_data.soyad,
+                "meslek": user_data.meslek,
+                "calistigi_yer": user_data.calistigi_yer,
+                "role": getattr(user_data, 'role', 'user')
+            }
+            
+            # Insert into user_profiles
+            profile_result = self.supabase.service_client.table("user_profiles").insert(profile_data).execute()
+            
+            if not profile_result.data:
+                logger.error("Failed to create user profile")
+                # Don't fail registration, just log error
+            
+            # Create response from profile data
             user_response = UserResponse(
-                id=result["user"].id,
-                email=result["user"].email,
-                full_name=user_metadata.get("full_name"),
-                ad=user_metadata.get("ad"),
-                soyad=user_metadata.get("soyad"),
-                meslek=user_metadata.get("meslek"),
-                calistigi_yer=user_metadata.get("calistigi_yer"),
-                role=user_metadata.get("role", "user"),
+                id=user_id,
+                email=user_data.email,
+                full_name=user_data.full_name,
+                ad=user_data.ad,
+                soyad=user_data.soyad,
+                meslek=user_data.meslek,
+                calistigi_yer=user_data.calistigi_yer,
+                role=getattr(user_data, 'role', 'user'),
                 created_at=datetime.now()
             )
             
             # Generate JWT token
             access_token = self.security.create_access_token(
                 data={
-                    "sub": str(result["user"].id),
-                    "email": result["user"].email,
-                    "role": user_metadata.get("role", "user")
+                    "sub": user_id,
+                    "email": user_data.email,
+                    "role": getattr(user_data, 'role', 'user')
                 }
             )
             
@@ -106,25 +117,38 @@ class SupabaseAuthService:
                     detail="Email veya şifre hatalı"
                 )
             
-            # Get user metadata
+            # Get user profile from user_profiles table
             user = result["user"]
-            user_metadata = getattr(user, 'user_metadata', {}) or {}
+            user_id = str(getattr(user, 'id', ''))
+            user_email = getattr(user, 'email', '')
             
-            # Create response
+            # Fetch profile data from user_profiles table
+            try:
+                profile_result = self.supabase.service_client.table("user_profiles").select("*").eq("id", user_id).single().execute()
+                profile_data = profile_result.data if profile_result.data else {}
+            except Exception as e:
+                logger.warning(f"Failed to get user profile, using defaults: {e}")
+                profile_data = {}
+            
+            # Create response from profile data
             user_response = UserResponse(
-                id=getattr(user, 'id', None),
-                email=getattr(user, 'email', None),
-                full_name=user_metadata.get("full_name"),
-                role=user_metadata.get("role", "user"),
+                id=user_id,
+                email=user_email,
+                full_name=profile_data.get("full_name"),
+                ad=profile_data.get("ad"),
+                soyad=profile_data.get("soyad"),
+                meslek=profile_data.get("meslek"),
+                calistigi_yer=profile_data.get("calistigi_yer"),
+                role=profile_data.get("role", "user"),
                 created_at=datetime.now()
             )
             
             # Generate JWT token
             access_token = self.security.create_access_token(
                 data={
-                    "sub": str(getattr(user, 'id', '')),
-                    "email": getattr(user, 'email', ''),
-                    "role": user_metadata.get("role", "user")
+                    "sub": user_id,
+                    "email": user_email,
+                    "role": profile_data.get("role", "user")
                 }
             )
             
@@ -159,31 +183,26 @@ class SupabaseAuthService:
             return None
     
     async def get_user_by_id(self, user_id: str) -> Optional[UserResponse]:
-        """Get user by ID"""
+        """Get user by ID from user_profiles table"""
         try:
-            user_data = await self.supabase.get_user_by_id(user_id)
-            if not user_data:
+            # Get profile data from user_profiles table
+            profile_result = self.supabase.service_client.table("user_profiles").select("*").eq("id", user_id).single().execute()
+            
+            if not profile_result.data:
+                logger.warning(f"User profile not found: {user_id}")
                 return None
             
-            # Handle both dict and object formats
-            if hasattr(user_data, 'user_metadata'):
-                user_metadata = getattr(user_data, 'user_metadata', {}) or {}
-                user_id_val = getattr(user_data, 'id', user_id)
-                user_email = getattr(user_data, 'email', '')
-            else:
-                user_metadata = user_data.get("user_metadata", {}) or {}
-                user_id_val = user_data.get("id", user_id)
-                user_email = user_data.get("email", '')
+            profile_data = profile_result.data
             
             return UserResponse(
-                id=user_id_val,
-                email=user_email,
-                full_name=user_metadata.get("full_name"),
-                ad=user_metadata.get("ad"),
-                soyad=user_metadata.get("soyad"),
-                meslek=user_metadata.get("meslek"),
-                calistigi_yer=user_metadata.get("calistigi_yer"),
-                role=user_metadata.get("role", "user"),
+                id=profile_data.get("id", user_id),
+                email=profile_data.get("email", ""),
+                full_name=profile_data.get("full_name"),
+                ad=profile_data.get("ad"),
+                soyad=profile_data.get("soyad"),
+                meslek=profile_data.get("meslek"),
+                calistigi_yer=profile_data.get("calistigi_yer"),
+                role=profile_data.get("role", "user"),
                 created_at=datetime.now()
             )
             
@@ -228,7 +247,7 @@ class SupabaseAuthService:
 
     async def update_user_profile(self, user_id: str, profile_data: UserProfileUpdate) -> bool:
         """
-        Kullanıcı profil bilgilerini güncelle
+        Kullanıcı profil bilgilerini user_profiles tablosunda güncelle
         
         Args:
             user_id: Kullanıcı ID
@@ -238,28 +257,35 @@ class SupabaseAuthService:
             Başarılı olursa True
         """
         try:
-            # User metadata güncelleme
-            user_metadata = {}
+            # Prepare update data
+            update_data = {}
             
             if profile_data.full_name is not None:
-                user_metadata["full_name"] = profile_data.full_name
+                update_data["full_name"] = profile_data.full_name
             if profile_data.ad is not None:
-                user_metadata["ad"] = profile_data.ad
+                update_data["ad"] = profile_data.ad
             if profile_data.soyad is not None:
-                user_metadata["soyad"] = profile_data.soyad
+                update_data["soyad"] = profile_data.soyad
             if profile_data.meslek is not None:
-                user_metadata["meslek"] = profile_data.meslek
+                update_data["meslek"] = profile_data.meslek
             if profile_data.calistigi_yer is not None:
-                user_metadata["calistigi_yer"] = profile_data.calistigi_yer
+                update_data["calistigi_yer"] = profile_data.calistigi_yer
             
-            # Supabase ile güncelleme
-            result = await self.supabase.update_user_metadata(user_id, user_metadata)
+            if not update_data:
+                logger.warning("No data to update")
+                return True
             
-            if result["success"]:
+            # Add updated_at timestamp
+            update_data["updated_at"] = datetime.now().isoformat()
+            
+            # Update user_profiles table
+            result = self.supabase.service_client.table("user_profiles").update(update_data).eq("id", user_id).execute()
+            
+            if result.data:
                 logger.info(f"User profile updated successfully: {user_id}")
                 return True
             else:
-                logger.error(f"Failed to update user profile: {result['error']}")
+                logger.error(f"Failed to update user profile: no data returned")
                 return False
                 
         except Exception as e:
