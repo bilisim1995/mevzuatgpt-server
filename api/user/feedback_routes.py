@@ -77,6 +77,7 @@ async def submit_feedback(
     except HTTPException:
         raise
     except Exception as e:
+        current_user_id = str(current_user.id) if hasattr(current_user, 'id') else 'unknown'
         logger.error(f"Feedback submission error for user {current_user_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -125,6 +126,7 @@ async def get_my_feedback(
         )
         
     except Exception as e:
+        current_user_id = str(current_user.id) if hasattr(current_user, 'id') else 'unknown'
         logger.error(f"Get user feedback error for user {current_user_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
