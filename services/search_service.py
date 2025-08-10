@@ -30,7 +30,8 @@ class SearchService:
         limit: int = 10,
         similarity_threshold: float = 0.3,
         category_filter: Optional[str] = None,
-        date_filter: Optional[Dict[str, date]] = None
+        date_filter: Optional[Dict[str, date]] = None,
+        document_ids_filter: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Perform semantic search using vector similarity
@@ -52,12 +53,13 @@ class SearchService:
             # Generate embedding for the search query
             query_embedding = await self.embedding_service.generate_embedding(query)
             
-            # Perform vector similarity search
+            # Perform vector similarity search with optional document ID filtering
             results = await self.embedding_service.search_similar_embeddings(
                 query_embedding=query_embedding,
                 limit=limit,
                 similarity_threshold=similarity_threshold,
-                category_filter=category_filter
+                category_filter=category_filter,
+                document_ids_filter=document_ids_filter
             )
             
             # Apply date filter if provided

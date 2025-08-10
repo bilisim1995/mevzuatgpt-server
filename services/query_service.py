@@ -15,7 +15,7 @@ from services.groq_service import GroqService
 from services.redis_service import redis_service
 from services.reliability_service import ReliabilityService
 from services.source_enhancement_service import SourceEnhancementService
-from models.supabase_client import supabase_client
+from core.supabase_client import supabase_client
 from utils.exceptions import AppException
 
 logger = logging.getLogger(__name__)
@@ -112,32 +112,31 @@ class QueryService:
                 search_results = cached_results
                 logger.info(f"Using cached search results for: {query[:50]}")
             else:
-                # Get institutions if filter requested
+                # Pre-filter documents by institution for optimization
+                document_ids_filter = None
                 if institution_filter:
-                    # Update available institutions cache
+                    logger.info(f"🔍 Starting institution pre-filtering for: '{institution_filter}'")
                     await self._update_institutions_cache()
+                    try:
+                        document_ids_filter = await self._get_documents_by_institution(institution_filter)
+                        if document_ids_filter:
+                            logger.info(f"✅ OPTIMIZATION: Pre-filtering to {len(document_ids_filter)} documents for institution: '{institution_filter}'")
+                        else:
+                            logger.warning(f"⚠️  No documents found for institution: '{institution_filter}'")
+                            # Return empty results early if no documents match institution
+                            return self._build_empty_response(query, institution_filter)
+                    except Exception as e:
+                        logger.error(f"❌ Pre-filtering failed: {e}")
+                        document_ids_filter = None
                 
                 search_results = await self.search_service.semantic_search(
                     query=query,
                     limit=limit,
                     similarity_threshold=similarity_threshold,
                     category_filter=None,
-                    date_filter=None
+                    date_filter=None,
+                    document_ids_filter=document_ids_filter  # Pass pre-filtered document IDs
                 )
-                
-                # Filter by institution if specified (using metadata field)
-                if institution_filter and search_results:
-                    original_count = len(search_results)
-                    search_results = [
-                        result for result in search_results 
-                        if self._matches_institution_filter(result, institution_filter)
-                    ]
-                    filtered_count = len(search_results)
-                    logger.info(f"Institution filter '{institution_filter}' applied: {original_count} -> {filtered_count} results")
-                    
-                    # Debug: Check if any results remain after filtering
-                    if not search_results:
-                        logger.warning(f"Institution filter '{institution_filter}' filtered out all results")
                 
                 # Cache search results
                 if use_cache and search_results:
@@ -434,6 +433,27 @@ Benzerlik: {similarity:.2f}
         
         return suggestions[:10]  # Return max 10 suggestions
     
+    def _build_empty_response(self, query: str, institution_filter: str = None) -> Dict[str, Any]:
+        """Build empty response when no documents match institution filter"""
+        return {
+            "success": True,
+            "data": {
+                "query": query,
+                "institution_filter": institution_filter,
+                "answer": "Belirtilen kurum için ilgili belgeler bulunamadı.",
+                "sources": [],
+                "total_results": 0,
+                "reliability_score": 0.0,
+                "search_metadata": {
+                    "total_documents_searched": 0,
+                    "embedding_time": 0,
+                    "search_time": 0,
+                    "ai_time": 0,
+                    "total_time": 0
+                }
+            }
+        }
+    
     async def _update_institutions_cache(self):
         """Update available institutions cache - Using metadata field for institution data"""
         try:
@@ -534,3 +554,25 @@ Benzerlik: {similarity:.2f}
         except Exception as e:
             logger.warning(f"Failed to log search query: {e}")
             return None
+    
+    async def _get_documents_by_institution(self, institution_filter: str) -> List[str]:
+        """Get document IDs that belong to the specified institution"""
+        try:
+            # Query documents with metadata containing the institution (use service client to bypass RLS)
+            service_client = supabase_client.get_client(use_service_key=True)
+            response = service_client.table('mevzuat_documents') \
+                .select('id') \
+                .filter('metadata->source_institution', 'ilike', f'%{institution_filter}%') \
+                .execute()
+            
+            if response.data:
+                document_ids = [doc['id'] for doc in response.data]
+                logger.info(f"Found {len(document_ids)} documents for institution '{institution_filter}'")
+                return document_ids
+            else:
+                logger.warning(f"No documents found for institution: '{institution_filter}'")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Failed to get documents by institution: {e}")
+            return []

@@ -213,7 +213,8 @@ class EmbeddingService:
         query_embedding: List[float], 
         limit: int = 10,
         similarity_threshold: float = 0.3,
-        category_filter: Optional[str] = None
+        category_filter: Optional[str] = None,
+        document_ids_filter: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Search for similar embeddings using vector similarity
@@ -223,6 +224,7 @@ class EmbeddingService:
             limit: Maximum number of results
             similarity_threshold: Minimum similarity score
             category_filter: Optional category filter
+            document_ids_filter: Optional list of document IDs to limit search to
             
         Returns:
             List of similar embeddings with similarity scores
@@ -239,9 +241,16 @@ class EmbeddingService:
             try:
                 # Query embeddings directly from Supabase using service client (bypass RLS)
                 service_client = supabase_client.get_client(use_service_key=True)
-                embedding_response = service_client.table('mevzuat_embeddings') \
-                    .select('id, document_id, content, metadata, embedding') \
-                    .execute()
+                
+                # Apply document ID filter if provided (for institution filtering)
+                query = service_client.table('mevzuat_embeddings') \
+                    .select('id, document_id, content, metadata, embedding')
+                
+                if document_ids_filter:
+                    query = query.in_('document_id', document_ids_filter)
+                    logger.info(f"Applying document ID filter: {len(document_ids_filter)} documents")
+                
+                embedding_response = query.execute()
                     
                 # Get document info separately to avoid join issues
                 document_titles = {}
