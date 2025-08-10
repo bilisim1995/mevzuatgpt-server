@@ -126,11 +126,14 @@ class QueryService:
                 )
                 
                 # Filter by institution if specified
+                # TEMPORARY FIX: source_institution column missing, skip institution filtering
                 if institution_filter and search_results:
-                    search_results = [
-                        result for result in search_results 
-                        if institution_filter.lower() in result.get("source_institution", "").lower()
-                    ]
+                    logger.warning(f"Institution filtering requested but source_institution column missing - skipping filter: {institution_filter}")
+                    # TODO: Enable this when source_institution column is added
+                    # search_results = [
+                    #     result for result in search_results 
+                    #     if institution_filter.lower() in result.get("source_institution", "").lower()
+                    # ]
                 
                 # Cache search results
                 if use_cache and search_results:
@@ -379,21 +382,31 @@ Benzerlik: {similarity:.2f}
         return suggestions[:10]  # Return max 10 suggestions
     
     async def _update_institutions_cache(self):
-        """Update available institutions cache"""
+        """Update available institutions cache - TEMPORARY FIX: source_institution column missing"""
         try:
-            # Get distinct institutions from database
-            response = supabase_client.supabase.table('mevzuat_documents').select('source_institution').execute()
+            # TEMPORARY: source_institution column doesn't exist in Supabase yet
+            # Using hardcoded institutions list until database is updated
+            institutions = [
+                "Sosyal Güvenlik Kurumu",
+                "Çalışma ve Sosyal Güvenlik Bakanlığı",
+                "Hazine ve Maliye Bakanlığı",
+                "Adalet Bakanlığı",
+                "İçişleri Bakanlığı"
+            ]
             
-            if response.data:
-                institutions = list(set([
-                    doc['source_institution'] 
-                    for doc in response.data 
-                    if doc.get('source_institution')
-                ]))
-                institutions.sort()
-                
-                await redis_service.cache_institutions(institutions)
-                logger.info(f"Updated institutions cache: {len(institutions)} institutions")
+            await redis_service.cache_institutions(institutions)
+            logger.info(f"Updated institutions cache (hardcoded): {len(institutions)} institutions")
+            
+            # TODO: Enable this when source_institution column is added to mevzuat_documents
+            # response = supabase_client.supabase.table('mevzuat_documents').select('source_institution').execute()
+            # if response.data:
+            #     institutions = list(set([
+            #         doc['source_institution'] 
+            #         for doc in response.data 
+            #         if doc.get('source_institution')
+            #     ]))
+            #     institutions.sort()
+            #     await redis_service.cache_institutions(institutions)
             
         except Exception as e:
             logger.warning(f"Failed to update institutions cache: {e}")
