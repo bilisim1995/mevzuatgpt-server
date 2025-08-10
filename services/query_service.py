@@ -208,8 +208,8 @@ class QueryService:
                 )
                 await redis_service.increment_search_popularity(query)
             
-            # 9. Log search for analytics
-            await self._log_search_query(
+            # 9. Log search for analytics and get search log ID
+            search_log_id = await self._log_search_query(
                 user_id=user_id,
                 query=query,
                 institution_filter=institution_filter,
@@ -224,6 +224,7 @@ class QueryService:
                 "query": query,
                 "answer": llm_response.get("answer", llm_response.get("response", "")),
                 "confidence_score": enhanced_confidence,
+                "search_log_id": search_log_id,  # Add search log ID for feedback
                 "sources": self.source_enhancement_service.format_sources_for_response(search_results),
                 "institution_filter": institution_filter,
                 "search_stats": {
@@ -404,8 +405,8 @@ Benzerlik: {similarity:.2f}
         institution_filter: Optional[str],
         results_count: int,
         response_generated: bool
-    ):
-        """Log search query for analytics"""
+    ) -> Optional[str]:
+        """Log search query for analytics and return the search log ID"""
         try:
             # Remove institution_filter from log_data since it doesn't exist in SearchLog table
             log_data = {
@@ -416,7 +417,12 @@ Benzerlik: {similarity:.2f}
                 "ip_address": "127.0.0.1"  # Remove user_agent field
             }
             
-            supabase_client.supabase.table('search_logs').insert(log_data).execute()
+            result = supabase_client.supabase.table('search_logs').insert(log_data).execute()
+            
+            if result.data and len(result.data) > 0:
+                return result.data[0]['id']  # Return the UUID ID
+            return None
             
         except Exception as e:
             logger.warning(f"Failed to log search query: {e}")
+            return None
