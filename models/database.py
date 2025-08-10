@@ -110,6 +110,13 @@ class SearchLog(Base):
     user_agent = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
+    # Enhanced fields for search history
+    response = Column(Text, nullable=True)  # AI response
+    sources = Column(JSONB, nullable=True)  # Source documents array
+    reliability_score = Column(Float, nullable=True)  # 0.0-1.0 reliability score
+    credits_used = Column(Integer, nullable=True, default=0)  # Credits consumed
+    institution_filter = Column(String(100), nullable=True)  # Institution filter used
+    
     # Indexes
     __table_args__ = (
         Index('idx_user_id', 'user_id'),

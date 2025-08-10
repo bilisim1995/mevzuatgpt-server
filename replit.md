@@ -12,6 +12,15 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### Search History System Implementation (August 10, 2025)
+- **New Feature**: Complete search history tracking with detailed user query logs
+- **Enhanced Database**: Extended search_logs table with response, sources, reliability_score, credits_used, institution_filter columns
+- **API Endpoints**: New GET /api/user/search-history with pagination and filtering capabilities  
+- **Search Statistics**: GET /api/user/search-history/stats for user analytics and usage insights
+- **Query Integration**: Automatic logging of all search results with AI responses, source documents, and confidence scores
+- **Filtering Options**: Filter by institution, date range, reliability score, and search within previous queries
+- **User Benefits**: Users can now review all past searches, responses, credit usage, and search performance metrics
+
 ### Performance-Optimized Institution Filtering Implementation (August 10, 2025)
 - **Architecture Change**: Implemented document-level pre-filtering before vector search for 10x performance improvement
 - **Optimization Strategy**: Changed from post-search metadata filtering to pre-search document ID filtering

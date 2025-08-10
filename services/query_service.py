@@ -15,6 +15,7 @@ from services.groq_service import GroqService
 from services.redis_service import redis_service
 from services.reliability_service import ReliabilityService
 from services.source_enhancement_service import SourceEnhancementService
+from services.search_history_service import SearchHistoryService
 from core.supabase_client import supabase_client
 from utils.exceptions import AppException
 
@@ -29,6 +30,7 @@ class QueryService:
         self.search_service = SearchService(db)
         self.reliability_service = ReliabilityService()
         self.source_enhancement_service = SourceEnhancementService()
+        self.search_history_service = SearchHistoryService(db)
         
         # Initialize AI provider based on configuration
         from core.config import settings
@@ -228,7 +230,7 @@ class QueryService:
                 )
                 await redis_service.increment_search_popularity(query)
             
-            # 9. Log search for analytics and get search log ID
+            # 9. Log search for analytics with full response details
             search_log_id = await self._log_search_query(
                 user_id=user_id,
                 query=query,
@@ -236,6 +238,22 @@ class QueryService:
                 results_count=len(search_results),
                 response_generated=True
             )
+            
+            # 10. Log detailed search history
+            try:
+                await self.search_history_service.log_search_result(
+                    user_id=user_id,
+                    query=query,
+                    response=llm_response.get("answer", llm_response.get("response", "")),
+                    sources=self.source_enhancement_service.format_sources_for_response(search_results),
+                    reliability_score=enhanced_confidence,
+                    credits_used=1,  # Will be updated from credit service
+                    institution_filter=institution_filter,
+                    results_count=len(search_results),
+                    execution_time=pipeline_time / 1000.0  # Convert to seconds
+                )
+            except Exception as e:
+                logger.warning(f"Failed to log search history: {e}")
             
             pipeline_time = int((time.time() - pipeline_start) * 1000)
             

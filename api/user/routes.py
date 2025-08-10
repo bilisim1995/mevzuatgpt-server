@@ -4,6 +4,7 @@ Accessible by authenticated users with appropriate permissions
 """
 
 from fastapi import APIRouter, Depends, Query, HTTPException, status
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 import logging
@@ -15,10 +16,12 @@ from models.schemas import (
     DocumentResponse, DocumentListResponse,
     AskRequest, AskResponse, SuggestionsResponse
 )
+from models.search_history_schemas import SearchHistoryResponse, SearchHistoryFilters
 from services.search_service import SearchService
 from services.document_service import DocumentService
 from services.query_service import QueryService
 from services.credit_service import credit_service
+from services.search_history_service import SearchHistoryService
 from utils.response import success_response
 from utils.exceptions import AppException
 
@@ -447,6 +450,118 @@ async def get_user_suggestions(
             "available_institutions": [],
             "suggestions": []
         })
+
+
+@router.get("/search-history", response_model=SearchHistoryResponse)
+async def get_search_history(
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page"),
+    institution: Optional[str] = Query(None, description="Filter by institution"),
+    date_from: Optional[datetime] = Query(None, description="Filter from date"),
+    date_to: Optional[datetime] = Query(None, description="Filter to date"),
+    min_reliability: Optional[float] = Query(None, ge=0.0, le=1.0, description="Minimum reliability score"),
+    search_query: Optional[str] = Query(None, description="Search within queries"),
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get user's search history with pagination and filtering
+    
+    Returns paginated list of user's previous searches with:
+    - Original query
+    - AI response
+    - Source documents
+    - Reliability scores
+    - Credits used
+    - Search date and time
+    
+    Args:
+        page: Page number (1-based)
+        limit: Items per page (max 100)
+        institution: Filter by institution name
+        date_from: Filter searches from this date
+        date_to: Filter searches until this date
+        min_reliability: Minimum reliability score filter
+        search_query: Search within user's queries
+        current_user: Current authenticated user
+        db: Database session
+    
+    Returns:
+        Paginated search history with statistics
+    """
+    try:
+        search_history_service = SearchHistoryService(db)
+        
+        # Build filters
+        filters = None
+        if any([institution, date_from, date_to, min_reliability, search_query]):
+            filters = SearchHistoryFilters(
+                institution=institution,
+                date_from=date_from,
+                date_to=date_to,
+                min_reliability=min_reliability,
+                search_query=search_query
+            )
+        
+        # Get search history
+        history = await search_history_service.get_user_search_history(
+            user_id=str(current_user.id),
+            page=page,
+            limit=limit,
+            filters=filters
+        )
+        
+        logger.info(f"Search history retrieved for user {current_user.id}: {len(history.items)} items")
+        
+        return success_response(data=history.dict())
+        
+    except Exception as e:
+        logger.error(f"Error retrieving search history for user {current_user.id}: {str(e)}")
+        raise AppException(
+            message="Search history retrieval failed",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@router.get("/search-history/stats")
+async def get_search_statistics(
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get user's search statistics
+    
+    Returns summary statistics about user's search activity:
+    - Total number of searches
+    - Total credits used
+    - Average reliability score
+    - Most used institution
+    - Search counts for today and this month
+    
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+    
+    Returns:
+        Search statistics summary
+    """
+    try:
+        search_history_service = SearchHistoryService(db)
+        
+        stats = await search_history_service.get_search_statistics(str(current_user.id))
+        
+        logger.info(f"Search statistics retrieved for user {current_user.id}")
+        
+        return success_response(data=stats)
+        
+    except Exception as e:
+        logger.error(f"Error retrieving search statistics for user {current_user.id}: {str(e)}")
+        raise AppException(
+            message="Search statistics retrieval failed", 
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 @router.get("/recent-documents")
 async def get_recent_documents(
