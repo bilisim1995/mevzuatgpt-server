@@ -21,7 +21,8 @@ class SupportService:
     """Destek ticket yönetimi için modüler servis"""
     
     def __init__(self):
-        self.supabase = supabase_client.supabase
+        # Service role kullan - RLS bypass için
+        self.supabase = supabase_client.service_client
     
     async def create_ticket(
         self,
@@ -35,7 +36,7 @@ class SupportService:
         try:
             # 1. Ticket oluştur
             ticket_data = {
-                'user_id': user_id,
+                'user_id': str(user_id),  # UUID'yi string'e çevir
                 'subject': subject,
                 'category': category.value if isinstance(category, TicketCategory) else category,
                 'priority': priority.value if isinstance(priority, TicketPriority) else priority,
@@ -57,8 +58,8 @@ class SupportService:
             
             # 2. İlk mesajı ekle
             message_data = {
-                'ticket_id': ticket_id,
-                'sender_id': user_id,
+                'ticket_id': str(ticket_id),  # UUID'yi string'e çevir
+                'sender_id': str(user_id),    # UUID'yi string'e çevir  
                 'message': initial_message
             }
             
@@ -68,7 +69,7 @@ class SupportService:
             
             if not message_response.data:
                 # Ticket'ı da sil (rollback)
-                self.supabase.table('support_tickets').delete().eq('id', ticket_id).execute()
+                self.supabase.table('support_tickets').delete().eq('id', str(ticket_id)).execute()
                 return {
                     'success': False,
                     'error': 'Ticket mesajı oluşturulamadı'
@@ -99,14 +100,10 @@ class SupportService:
     ) -> Dict[str, Any]:
         """Kullanıcının ticket'larını listele"""
         try:
-            # Base query
+            # Base query - simple approach without foreign key joins first
             query = self.supabase.table('support_tickets') \
-                .select('''
-                    id, ticket_number, subject, category, priority, status,
-                    created_at, updated_at,
-                    user_profiles!inner(id, full_name, email)
-                ''') \
-                .eq('user_id', user_id)
+                .select('id, ticket_number, subject, category, priority, status, created_at, updated_at, user_id') \
+                .eq('user_id', str(user_id))
             
             # Filtreler uygula
             if filters:
@@ -122,7 +119,7 @@ class SupportService:
             # Toplam kayıt sayısını al
             count_query = self.supabase.table('support_tickets') \
                 .select('id') \
-                .eq('user_id', user_id)
+                .eq('user_id', str(user_id))
             
             if filters:
                 if filters.status:
@@ -209,11 +206,11 @@ class SupportService:
                     created_at, updated_at,
                     user_profiles!inner(id, full_name, email)
                 ''') \
-                .eq('id', ticket_id)
+                .eq('id', str(ticket_id))
             
             # Yetki kontrolü
             if not is_admin:
-                ticket_query = ticket_query.eq('user_id', user_id)
+                ticket_query = ticket_query.eq('user_id', str(user_id))
             
             ticket_response = ticket_query.execute()
             
@@ -238,7 +235,7 @@ class SupportService:
                     id, ticket_id, sender_id, message, created_at,
                     user_profiles!inner(id, full_name, email, role)
                 ''') \
-                .eq('ticket_id', ticket_id) \
+                .eq('ticket_id', str(ticket_id)) \
                 .order('created_at', desc=False) \
                 .execute()
             
@@ -283,7 +280,7 @@ class SupportService:
             # Önce ticket'ın varlığını ve yetki kontrolü
             ticket_query = self.supabase.table('support_tickets') \
                 .select('id, user_id, status') \
-                .eq('id', ticket_id)
+                .eq('id', str(ticket_id))
             
             # Admin değilse sadece kendi ticket'ına mesaj gönderebilir
             if not is_admin:
@@ -327,7 +324,7 @@ class SupportService:
             new_status = 'cevaplandi' if is_admin else 'acik'
             self.supabase.table('support_tickets') \
                 .update({'status': new_status, 'updated_at': 'now()'}) \
-                .eq('id', ticket_id) \
+                .eq('id', str(ticket_id)) \
                 .execute()
             
             logger.info(f"Yeni mesaj eklendi: {ticket_id} - {sender_id} - Admin: {is_admin}")
@@ -364,7 +361,7 @@ class SupportService:
             # Ticket varlık kontrolü
             ticket_response = self.supabase.table('support_tickets') \
                 .select('id, status') \
-                .eq('id', ticket_id) \
+                .eq('id', str(ticket_id)) \
                 .execute()
             
             if not ticket_response.data:
@@ -377,7 +374,7 @@ class SupportService:
             status_value = new_status.value if hasattr(new_status, 'value') else new_status
             update_response = self.supabase.table('support_tickets') \
                 .update({'status': status_value, 'updated_at': 'now()'}) \
-                .eq('id', ticket_id) \
+                .eq('id', str(ticket_id)) \
                 .execute()
             
             if update_response.data:
@@ -416,13 +413,9 @@ class SupportService:
                     'error': 'Bu işlem için admin yetkisi gerekli'
                 }
             
-            # Base query
+            # Base query - simplified without foreign key joins
             query = self.supabase.table('support_tickets') \
-                .select('''
-                    id, ticket_number, user_id, subject, category, priority, status,
-                    created_at, updated_at,
-                    user_profiles!inner(id, full_name, email)
-                ''')
+                .select('id, ticket_number, user_id, subject, category, priority, status, created_at, updated_at')
             
             # Filtreler uygula
             if filters:
