@@ -43,9 +43,9 @@ async def submit_feedback(
         
         # Önce search_log'dan query ve answer bilgilerini al
         # Bu bilgileri feedback tablosunda tutmak için gerekli
-        from models.supabase_client import supabase_client
+        from core.supabase_client import supabase_client
         
-        search_response = supabase_client.supabase.table('search_logs') \
+        search_response = supabase_client.service_client.table('search_logs') \
             .select('query') \
             .eq('id', feedback_data.search_log_id) \
             .eq('user_id', current_user_id) \
@@ -142,7 +142,7 @@ async def get_feedback_by_search(
     Belirli bir sorgu için feedback'i getir
     
     Args:
-        search_log_id: Search log ID'si
+        search_log_id: Search log UUID'si (36 karakter UUID format)
         current_user_id: Mevcut kullanıcı ID'si
     
     Returns:
