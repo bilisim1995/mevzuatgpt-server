@@ -12,6 +12,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### AI Response Format Improvement (August 11, 2025)
+- **Issue Fixed**: AI responses included unnecessary template phrases like "Belge içeriğinde, sigortalılık şartları şu şekilde belirtilmiştir:"
+- **Solution**: Updated Groq service system prompt to provide direct, concise answers without introductory phrases
+- **Prompt Changes**: Added "Doğrudan cevap ver, gereksiz başlık veya giriş cümlesi kullanma" rule to system message
+- **User Message**: Simplified prompt to "Soruyu doğrudan cevapla, giriş cümlesi kullanma"
+- **Result**: AI now provides clean, direct answers like "Sigortalılık şartları: 1. ..." instead of template-heavy responses
+- **Impact**: Better user experience with more natural, focused responses from the AI system
+
 ### Search History System Implementation (August 10, 2025)
 - **New Feature**: Complete search history tracking with detailed user query logs
 - **Enhanced Database**: Extended search_logs table with response, sources, reliability_score, credits_used, institution_filter columns

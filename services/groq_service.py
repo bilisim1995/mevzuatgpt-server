@@ -57,16 +57,21 @@ class GroqService:
             model_name = model or self.default_model
             
             # System message for STRICT document-only responses
-            system_message = """Sen sadece verilen belge içeriklerine dayalı cevap veren bir yapay zeka asistanısın.
+            system_message = """Sen hukuki belgeleri analiz eden uzman bir asistansın.
 
 KATÎ KURALLAR:
-1. SADECE verilen belge içeriğinde bulunan bilgileri kullan
+1. SADECE verilen belge içeriklerindeki bilgileri kullan
 2. Kendi genel bilgini ASLA kullanma
 3. Belge dışından örnek, yorum veya ek bilgi verme
-4. Sadece belgedeki bilgileri Türkçe olarak özetle
+4. Doğrudan cevap ver, gereksiz başlık veya giriş cümlesi kullanma
 
-ÖNEMLİ: Belge içeriği varsa ve soruyla ilgiliyse detaylı cevap ver. 
-Sadece belge tamamen boş veya soru ile alakasız ise "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır." yaz."""
+CEVAP FORMATINI:
+- Doğrudan soruya odaklan
+- "Belge içeriğinde..." gibi başlık cümlelerini kullanma
+- Sadece sorulan konudaki bilgileri ver
+- Madde madde düzenle
+
+ÖNEMLİ: Belge boş veya alakasız ise sadece "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır." yaz."""
             
             # Construct user message with context
             if not context or context.strip() == "":
@@ -79,7 +84,7 @@ SORU: {query}"""
 
 SORU: {query}
 
-Yukarıdaki belgelerden bulunan bilgileri kullanarak soruyu cevapla."""
+Soruyu doğrudan cevapla, giriş cümlesi kullanma."""
             
             # Call Groq API
             response = self.client.chat.completions.create(
