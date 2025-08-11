@@ -22,6 +22,8 @@ from api.admin.feedback_routes import router as admin_feedback_router
 from api.user.support_routes import router as user_support_router
 from api.admin.support_routes import router as admin_support_router
 from api.user.profile_routes import router as user_profile_router
+from api.user.maintenance_routes import router as user_maintenance_router
+from api.admin.maintenance_routes import router as admin_maintenance_router
 from utils.exceptions import AppException
 
 # Setup logging
@@ -267,6 +269,8 @@ app.include_router(admin_feedback_router, prefix="/api/admin", tags=["Admin-Feed
 app.include_router(user_support_router, prefix="/api/user", tags=["User-Support"])       # Kullanıcı destek sistemi
 app.include_router(admin_support_router, prefix="/api/admin", tags=["Admin-Support"])    # Admin destek yönetimi
 app.include_router(user_profile_router, prefix="/api/user", tags=["User-Profile"])       # Kullanıcı profil yönetimi
+app.include_router(user_maintenance_router, prefix="/api/maintenance", tags=["Maintenance"])  # Bakım modu durumu
+app.include_router(admin_maintenance_router, prefix="/api/admin", tags=["Admin-Maintenance"])  # Admin bakım yönetimi
 
 # Startup event
 @app.on_event("startup")
