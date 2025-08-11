@@ -231,33 +231,20 @@ class QueryService:
                 )
                 await redis_service.increment_search_popularity(query)
             
-            # 9. Log search for analytics with full response details
+            # 9. Log search with enhanced data
+            actual_credits = credit_service.calculate_credit_cost(query) if not await credit_service.is_admin_user(user_id) else 0
+            
             search_log_id = await self._log_search_query(
                 user_id=user_id,
                 query=query,
+                response=llm_response.get("answer", llm_response.get("response", "")),
+                sources=self.source_enhancement_service.format_sources_for_response(search_results),
+                reliability_score=float(enhanced_confidence) if enhanced_confidence is not None else None,
+                credits_used=actual_credits,
                 institution_filter=institution_filter,
                 results_count=len(search_results),
                 response_generated=True
             )
-            
-            # 10. Log detailed search history with actual values
-            try:
-                # Get actual credits used from the service
-                actual_credits = credit_service.calculate_credit_cost(query) if not await credit_service.is_admin_user(user_id) else 0
-                
-                await self.search_history_service.log_search_result(
-                    user_id=user_id,
-                    query=query,
-                    response=llm_response.get("answer", llm_response.get("response", "")),
-                    sources=self.source_enhancement_service.format_sources_for_response(search_results),
-                    reliability_score=float(enhanced_confidence) if enhanced_confidence is not None else None,
-                    credits_used=actual_credits,
-                    institution_filter=institution_filter,
-                    results_count=len(search_results),
-                    execution_time=pipeline_time / 1000.0  # Convert to seconds
-                )
-            except Exception as e:
-                logger.warning(f"Failed to log search history: {e}")
             
             pipeline_time = int((time.time() - pipeline_start) * 1000)
             
@@ -552,26 +539,35 @@ Benzerlik: {similarity:.2f}
         self,
         user_id: str,
         query: str,
-        institution_filter: Optional[str],
-        results_count: int,
-        response_generated: bool
+        response: str = None,
+        sources: List[Dict] = None,
+        reliability_score: float = None,
+        credits_used: int = 0,
+        institution_filter: Optional[str] = None,
+        results_count: int = 0,
+        response_generated: bool = True
     ) -> Optional[str]:
-        """Log search query for analytics and return the search log ID"""
+        """Log search query with full details and return the search log ID"""
         try:
             # Use service client to bypass RLS issues
             log_data = {
                 "user_id": user_id,
                 "query": query,
+                "response": response,
+                "sources": sources,
+                "reliability_score": reliability_score,
+                "credits_used": credits_used,
+                "institution_filter": institution_filter,
                 "results_count": results_count,
                 "execution_time": 0.5,  # Add execution time placeholder
-                "ip_address": "127.0.0.1"  # Remove user_agent field
+                "ip_address": "127.0.0.1"
             }
             
             result = supabase_client.service_client.table('search_logs').insert(log_data).execute()
             
             if result.data and len(result.data) > 0:
                 search_log_id = result.data[0]['id']  # Return the UUID ID
-                logger.info(f"Search query logged with ID: {search_log_id}")
+                logger.info(f"Search query logged with full details - ID: {search_log_id}")
                 return search_log_id
             return None
             
