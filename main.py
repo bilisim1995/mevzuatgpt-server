@@ -44,9 +44,16 @@ app.add_middleware(
 )
 
 # CORS middleware for mobile/web integration
+# Parse ALLOWED_ORIGINS from string to list
+allowed_origins = []
+if settings.ALLOWED_ORIGINS == "*":
+    allowed_origins = ["*"]
+else:
+    allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
