@@ -19,8 +19,11 @@ Preferred communication style: Simple, everyday language.
 - **Format Rules**: AI now uses ## for headers, - or 1. for lists, **bold** for emphasis, and clean Markdown syntax
 - **Prompt Changes**: Added "Doğrudan cevap ver, gereksiz başlık veya giriş cümlesi kullanma" rule to system message
 - **User Message**: Simplified prompt to "Soruyu doğrudan cevapla, giriş cümlesi kullanma"
+- **Repetition Fix**: Added "TEKRAR YAPMA" rule and post-processing to prevent repetitive text patterns
+- **API Parameters**: Added frequency_penalty=0.7, presence_penalty=0.3, reduced top_p to 0.85 for consistency
+- **Text Cleaning**: Implemented _clean_repetitive_text() function to remove duplicate sentences and patterns
 - **Result**: AI provides structured Markdown responses like "## Sigortalılık Şartları\n1. **Yaş şartı**: 18 yaş üstü..."
-- **Impact**: Better user experience with well-formatted, natural responses that render beautifully in web interfaces
+- **Impact**: Better user experience with well-formatted, natural responses without repetitive text issues
 
 ### Search History System Implementation (August 10, 2025)
 - **New Feature**: Complete search history tracking with detailed user query logs

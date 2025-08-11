@@ -64,14 +64,16 @@ KATÎ KURALLAR:
 2. Kendi genel bilgini ASLA kullanma
 3. Belge dışından örnek, yorum veya ek bilgi verme
 4. Doğrudan cevap ver, gereksiz başlık veya giriş cümlesi kullanma
+5. TEKRAR YAPMA - aynı cümleyi tekrar etme
 
 CEVAP FORMATINI:
 - Markdown formatında cevap ver
+- Kısa, öz ve net cevap ver
 - Başlıklar için ## veya ### kullan
 - Listeler için - veya 1. kullan
 - Önemli metinler için **kalın** yazı kullan
-- Doğrudan soruya odaklan
-- "Belge içeriğinde..." gibi başlık cümlelerini kullanma
+- Cevabı bitirir bitirmez DURUR, devam etme
+- Aynı cümleyi tekrarlamanın yasaktır
 
 ÖNEMLİ: Belge boş veya alakasız ise sadece "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır." yaz."""
             
@@ -88,7 +90,7 @@ SORU: {query}
 
 Soruyu doğrudan cevapla, giriş cümlesi kullanma."""
             
-            # Call Groq API
+            # Call Groq API with improved parameters to prevent repetition
             response = self.client.chat.completions.create(
                 model=model_name,
                 messages=[
@@ -97,12 +99,17 @@ Soruyu doğrudan cevapla, giriş cümlesi kullanma."""
                 ],
                 max_tokens=max_tokens,
                 temperature=temperature,
-                top_p=0.9,
+                top_p=0.85,  # Reduced for less randomness
+                frequency_penalty=0.7,  # Penalize repetition
+                presence_penalty=0.3,   # Encourage new topics
                 stream=False
             )
             
-            # Extract response
+            # Extract response and clean repetitions
             ai_response = response.choices[0].message.content.strip()
+            
+            # Post-process to remove repetitive patterns
+            ai_response = self._clean_repetitive_text(ai_response)
             
             # Calculate processing time
             processing_time = round(time.time() - start_time, 2)
@@ -183,6 +190,57 @@ Soruyu doğrudan cevapla, giriş cümlesi kullanma."""
         except Exception as e:
             logger.warning(f"Error calculating confidence: {str(e)}")
             return 0.5  # Default confidence
+    
+    def _clean_repetitive_text(self, text: str) -> str:
+        """
+        Remove repetitive patterns from AI response
+        
+        Args:
+            text: Raw AI response text
+            
+        Returns:
+            Cleaned text without repetitions
+        """
+        try:
+            import re
+            
+            # Remove obvious repetitive patterns like "text, text, text, text..."
+            text = re.sub(r'(\b.{10,50}?)\s*,\s*\1(?:\s*,\s*\1){2,}', r'\1', text)
+            
+            # Remove sentences that repeat more than twice
+            sentences = [s.strip() for s in re.split(r'[.!?]', text) if s.strip()]
+            
+            if len(sentences) <= 2:
+                return text
+            
+            # Track sentence frequency and remove excessive repetitions
+            sentence_count = {}
+            cleaned_sentences = []
+            
+            for sentence in sentences:
+                normalized = sentence.lower().strip()
+                if len(normalized) < 10:  # Keep short sentences
+                    cleaned_sentences.append(sentence)
+                    continue
+                    
+                sentence_count[normalized] = sentence_count.get(normalized, 0) + 1
+                
+                # Only keep first 2 occurrences of any sentence
+                if sentence_count[normalized] <= 2:
+                    cleaned_sentences.append(sentence)
+            
+            # Reconstruct text
+            if cleaned_sentences:
+                cleaned_text = '. '.join(cleaned_sentences)
+                if not cleaned_text.endswith('.'):
+                    cleaned_text += '.'
+                return cleaned_text
+            
+            return text
+            
+        except Exception as e:
+            logger.warning(f"Error cleaning repetitive text: {e}")
+            return text
     
     async def health_check(self) -> Dict[str, Any]:
         """
