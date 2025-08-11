@@ -319,7 +319,9 @@ class SourceEnhancementService:
                     "citation": result.get("citation", ""),
                     "content_preview": result.get("content_preview", ""),
                     "similarity_score": result.get("similarity_score", 0.0),
-                    "chunk_index": result.get("chunk_index", 0)
+                    "chunk_index": result.get("chunk_index", 0),
+                    "source_institution": result.get("source_institution", ""),
+                    "category": result.get("category", "")
                 }
                 
                 # Keep PDF URL even if None for debugging, but remove other nulls
