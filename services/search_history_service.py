@@ -113,7 +113,7 @@ class SearchHistoryService:
                         institution_filter=row.get('institution_filter'),
                         results_count=row.get('results_count', 0),
                         execution_time=row.get('execution_time'),
-                        created_at=datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
+                        created_at=datetime.fromisoformat(row['created_at'].replace('Z', '+00:00')) if isinstance(row['created_at'], str) else row['created_at']
                     ))
             
             has_more = total_count > (page * limit)
@@ -179,7 +179,8 @@ class SearchHistoryService:
             most_used_institution = max(set(institutions), key=institutions.count) if institutions else None
             
             # Time-based counts
-            now = datetime.now()
+            from datetime import timezone
+            now = datetime.now(timezone.utc)
             today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             
@@ -187,7 +188,16 @@ class SearchHistoryService:
             searches_this_month = 0
             
             for row in data:
-                created_at = datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
+                created_at_str = row['created_at']
+                if isinstance(created_at_str, str):
+                    created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                else:
+                    created_at = created_at_str
+                
+                # Convert to UTC for comparison if needed
+                if created_at.tzinfo is None:
+                    from datetime import timezone
+                    created_at = created_at.replace(tzinfo=timezone.utc)
                 if created_at >= today_start:
                     searches_today += 1
                 if created_at >= month_start:

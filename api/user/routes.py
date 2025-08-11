@@ -513,7 +513,7 @@ async def get_search_history(
         
         logger.info(f"Search history retrieved for user {current_user.id}: {len(history.items)} items")
         
-        return success_response(data=history.dict())
+        return success_response(data=history.model_dump())
         
     except Exception as e:
         logger.error(f"Error retrieving search history for user {current_user.id}: {str(e)}")
