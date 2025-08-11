@@ -71,7 +71,7 @@ class SearchHistoryService:
             
             # Get total count
             count_response = self.supabase.table('search_logs') \
-                .select('id', count='exact') \
+                .select('*', count='exact', head=True) \
                 .eq('user_id', str(user_id))
             
             if filters:
@@ -196,7 +196,6 @@ class SearchHistoryService:
                 
                 # Convert to UTC for comparison if needed
                 if created_at.tzinfo is None:
-                    from datetime import timezone
                     created_at = created_at.replace(tzinfo=timezone.utc)
                 if created_at >= today_start:
                     searches_today += 1
