@@ -4,7 +4,7 @@ Search history schemas for request/response models
 
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 class SearchHistoryItem(BaseModel):
@@ -19,6 +19,12 @@ class SearchHistoryItem(BaseModel):
     results_count: int = 0
     execution_time: Optional[float] = None
     created_at: datetime
+    
+    @validator('created_at', pre=True)
+    def parse_created_at(cls, v):
+        if isinstance(v, str):
+            return datetime.fromisoformat(v.replace('Z', '+00:00'))
+        return v
     
     class Config:
         json_encoders = {

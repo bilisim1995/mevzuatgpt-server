@@ -113,7 +113,7 @@ class SearchHistoryService:
                         institution_filter=row.get('institution_filter'),
                         results_count=row.get('results_count', 0),
                         execution_time=row.get('execution_time'),
-                        created_at=datetime.fromisoformat(row['created_at'].replace('Z', '+00:00')) if isinstance(row['created_at'], str) else row['created_at']
+                        created_at=row['created_at']
                     ))
             
             has_more = total_count > (page * limit)
@@ -195,7 +195,7 @@ class SearchHistoryService:
                     created_at = created_at_str
                 
                 # Convert to UTC for comparison if needed
-                if created_at.tzinfo is None:
+                if hasattr(created_at, 'tzinfo') and created_at.tzinfo is None:
                     created_at = created_at.replace(tzinfo=timezone.utc)
                 if created_at >= today_start:
                     searches_today += 1
