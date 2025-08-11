@@ -276,3 +276,39 @@ class SearchHistoryService:
         except Exception as e:
             logger.error(f"Error logging search result for user {user_id}: {e}")
             return False
+    
+    async def update_search_response(self, search_log_id: str, response: str, reliability_score: float = None, sources: list = None):
+        """Update search log with response data"""
+        try:
+            update_data = {"response": response}
+            
+            if reliability_score is not None:
+                update_data["reliability_score"] = reliability_score
+            
+            if sources is not None:
+                update_data["sources"] = sources
+            
+            result = self.supabase.table('search_logs') \
+                .update(update_data) \
+                .eq('id', search_log_id) \
+                .execute()
+                
+            if result.data:
+                logger.info(f"Search response updated for log {search_log_id}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to update search response for log {search_log_id}: {e}")
+    
+    async def update_search_credits(self, search_log_id: str, credits_used: int):
+        """Update search log with actual credits used"""
+        try:
+            result = self.supabase.table('search_logs') \
+                .update({"credits_used": credits_used}) \
+                .eq('id', search_log_id) \
+                .execute()
+                
+            if result.data:
+                logger.info(f"Search credits updated for log {search_log_id}: {credits_used}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to update search credits for log {search_log_id}: {e}")

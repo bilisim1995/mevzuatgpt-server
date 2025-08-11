@@ -239,15 +239,18 @@ class QueryService:
                 response_generated=True
             )
             
-            # 10. Log detailed search history
+            # 10. Log detailed search history with actual values
             try:
+                # Get actual credits used from the service
+                actual_credits = credit_service.calculate_credit_cost(query) if not await credit_service.is_admin_user(user_id) else 0
+                
                 await self.search_history_service.log_search_result(
                     user_id=user_id,
                     query=query,
                     response=llm_response.get("answer", llm_response.get("response", "")),
                     sources=self.source_enhancement_service.format_sources_for_response(search_results),
-                    reliability_score=enhanced_confidence,
-                    credits_used=1,  # Will be updated from credit service
+                    reliability_score=float(enhanced_confidence) if enhanced_confidence is not None else None,
+                    credits_used=actual_credits,
                     institution_filter=institution_filter,
                     results_count=len(search_results),
                     execution_time=pipeline_time / 1000.0  # Convert to seconds
