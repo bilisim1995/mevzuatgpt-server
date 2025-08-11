@@ -35,11 +35,11 @@ class MaintenanceService:
             # Get maintenance status from database
             result = self.supabase.table('maintenance_mode') \
                 .select('is_enabled, title, message, start_time, end_time') \
-                .single() \
+                .limit(1) \
                 .execute()
             
-            if result.data:
-                data = result.data
+            if result.data and len(result.data) > 0:
+                data = result.data[0]
                 return MaintenanceStatusResponse(
                     is_enabled=data.get('is_enabled', False),
                     title=data.get('title', 'Sistem Bakımda'),
@@ -75,11 +75,11 @@ class MaintenanceService:
             # Get full maintenance details
             result = self.supabase.table('maintenance_mode') \
                 .select('*') \
-                .single() \
+                .limit(1) \
                 .execute()
             
-            if result.data:
-                data = result.data
+            if result.data and len(result.data) > 0:
+                data = result.data[0]
                 return MaintenanceDetailResponse(
                     id=data['id'],
                     is_enabled=data.get('is_enabled', False),
