@@ -15,10 +15,12 @@ Preferred communication style: Simple, everyday language.
 ### AI Response Format Improvement (August 11, 2025)
 - **Issue Fixed**: AI responses included unnecessary template phrases like "Belge içeriğinde, sigortalılık şartları şu şekilde belirtilmiştir:"
 - **Solution**: Updated Groq service system prompt to provide direct, concise answers without introductory phrases
+- **Markdown Support**: Added Markdown formatting instructions for better response structure (headers, lists, bold text)
+- **Format Rules**: AI now uses ## for headers, - or 1. for lists, **bold** for emphasis, and clean Markdown syntax
 - **Prompt Changes**: Added "Doğrudan cevap ver, gereksiz başlık veya giriş cümlesi kullanma" rule to system message
 - **User Message**: Simplified prompt to "Soruyu doğrudan cevapla, giriş cümlesi kullanma"
-- **Result**: AI now provides clean, direct answers like "Sigortalılık şartları: 1. ..." instead of template-heavy responses
-- **Impact**: Better user experience with more natural, focused responses from the AI system
+- **Result**: AI provides structured Markdown responses like "## Sigortalılık Şartları\n1. **Yaş şartı**: 18 yaş üstü..."
+- **Impact**: Better user experience with well-formatted, natural responses that render beautifully in web interfaces
 
 ### Search History System Implementation (August 10, 2025)
 - **New Feature**: Complete search history tracking with detailed user query logs

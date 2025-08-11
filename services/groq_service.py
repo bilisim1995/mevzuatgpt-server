@@ -66,10 +66,12 @@ KATÎ KURALLAR:
 4. Doğrudan cevap ver, gereksiz başlık veya giriş cümlesi kullanma
 
 CEVAP FORMATINI:
+- Markdown formatında cevap ver
+- Başlıklar için ## veya ### kullan
+- Listeler için - veya 1. kullan
+- Önemli metinler için **kalın** yazı kullan
 - Doğrudan soruya odaklan
 - "Belge içeriğinde..." gibi başlık cümlelerini kullanma
-- Sadece sorulan konudaki bilgileri ver
-- Madde madde düzenle
 
 ÖNEMLİ: Belge boş veya alakasız ise sadece "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır." yaz."""
             
