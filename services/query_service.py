@@ -16,6 +16,7 @@ from services.redis_service import redis_service
 from services.reliability_service import ReliabilityService
 from services.source_enhancement_service import SourceEnhancementService
 from services.search_history_service import SearchHistoryService
+from services.credit_service import credit_service
 from core.supabase_client import supabase_client
 from utils.exceptions import AppException
 
@@ -557,7 +558,7 @@ Benzerlik: {similarity:.2f}
     ) -> Optional[str]:
         """Log search query for analytics and return the search log ID"""
         try:
-            # Remove institution_filter from log_data since it doesn't exist in SearchLog table
+            # Use service client to bypass RLS issues
             log_data = {
                 "user_id": user_id,
                 "query": query,
@@ -566,10 +567,12 @@ Benzerlik: {similarity:.2f}
                 "ip_address": "127.0.0.1"  # Remove user_agent field
             }
             
-            result = supabase_client.supabase.table('search_logs').insert(log_data).execute()
+            result = supabase_client.service_client.table('search_logs').insert(log_data).execute()
             
             if result.data and len(result.data) > 0:
-                return result.data[0]['id']  # Return the UUID ID
+                search_log_id = result.data[0]['id']  # Return the UUID ID
+                logger.info(f"Search query logged with ID: {search_log_id}")
+                return search_log_id
             return None
             
         except Exception as e:
