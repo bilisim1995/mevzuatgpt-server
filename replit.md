@@ -23,7 +23,8 @@ Preferred communication style: Simple, everyday language.
 - **API Parameters**: Added frequency_penalty=0.7, presence_penalty=0.3, reduced top_p to 0.85 for consistency
 - **Text Cleaning**: Implemented _clean_repetitive_text() function to remove duplicate sentences and patterns
 - **Result**: AI provides structured Markdown responses like "## Sigortalılık Şartları\n1. **Yaş şartı**: 18 yaş üstü..."
-- **Impact**: Better user experience with well-formatted, natural responses without repetitive text issues
+- **Source Validation**: Enhanced page/line number accuracy with validation functions and realistic estimation
+- **Impact**: Better user experience with well-formatted, natural responses and accurate source references
 
 ### Search History System Implementation (August 10, 2025)
 - **New Feature**: Complete search history tracking with detailed user query logs

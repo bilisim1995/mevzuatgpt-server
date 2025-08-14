@@ -112,13 +112,16 @@ class SourceEnhancementService:
                     line_start = line_range["start"]
                     line_end = line_range["end"]
             
-            # Set final values
-            if page_number:
+            # Set final values with validation
+            if page_number and isinstance(page_number, int) and page_number > 0:
                 enhanced["page_number"] = page_number
-            if line_start:
+            if line_start and isinstance(line_start, int) and line_start > 0:
                 enhanced["line_start"] = line_start
-            if line_end:
+            if line_end and isinstance(line_end, int) and line_end > 0:
                 enhanced["line_end"] = line_end
+                
+            # Validate source data consistency
+            enhanced = self._validate_source_data(enhanced)
             
             # Add source citation
             citation = self._generate_citation(document_title, page_number, line_range)
@@ -221,8 +224,10 @@ class SourceEnhancementService:
             # Fallback: estimate from chunk_index  
             chunk_index = result.get("chunk_index", 0)
             if chunk_index >= 0:  # Allow chunk_index 0
-                # Conservative estimate: assume ~8 chunks per page (more realistic for legal documents)
-                estimated_page = (chunk_index // 8) + 1
+                # More realistic estimate for legal documents: ~10-12 chunks per page
+                # Legal docs tend to have smaller chunks due to formatting
+                estimated_page = (chunk_index // 10) + 1
+                logger.debug(f"Estimated page {estimated_page} from chunk_index {chunk_index}")
                 return estimated_page
             
             return None
@@ -241,11 +246,16 @@ class SourceEnhancementService:
             lines = content.split('\n')
             content_lines = len(lines)
             
-            # Realistic line calculation for sequential chunks (0,1,2,3...)
-            # Conservative estimate: each chunk represents ~5-8 lines of original document
-            lines_per_chunk = 6  # Conservative estimate
+            # More realistic line calculation for legal documents
+            # Legal documents have dense content: ~4-6 lines per chunk
+            lines_per_chunk = 5  # More accurate for legal content
             estimated_start = (chunk_index * lines_per_chunk) + 1
-            estimated_end = estimated_start + max(3, min(content_lines, 8)) - 1  # Cap at reasonable range
+            
+            # Calculate end based on actual content lines, but cap for realism
+            content_line_count = max(3, min(content_lines, 6))  # Legal chunks are typically 3-6 lines
+            estimated_end = estimated_start + content_line_count - 1
+            
+            logger.debug(f"Line range calculated: {estimated_start}-{estimated_end} for chunk {chunk_index}")
             
             return {
                 "start": max(1, estimated_start),
@@ -255,6 +265,42 @@ class SourceEnhancementService:
         except Exception as e:
             logger.error(f"Failed to calculate line range: {e}")
             return None
+    
+    def _validate_source_data(self, enhanced: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate and clean source data for consistency"""
+        try:
+            # Validate page number
+            page_number = enhanced.get("page_number")
+            if page_number is not None:
+                if not isinstance(page_number, int) or page_number < 1:
+                    logger.warning(f"Invalid page number {page_number}, removing")
+                    enhanced.pop("page_number", None)
+            
+            # Validate line numbers
+            line_start = enhanced.get("line_start")
+            line_end = enhanced.get("line_end")
+            
+            if line_start is not None or line_end is not None:
+                # Both should be present and valid
+                if (not isinstance(line_start, int) or line_start < 1 or
+                    not isinstance(line_end, int) or line_end < 1 or
+                    line_end < line_start):
+                    
+                    logger.warning(f"Invalid line range {line_start}-{line_end}, removing")
+                    enhanced.pop("line_start", None)
+                    enhanced.pop("line_end", None)
+            
+            # Validate chunk_index
+            chunk_index = enhanced.get("chunk_index")
+            if chunk_index is not None and (not isinstance(chunk_index, int) or chunk_index < 0):
+                logger.warning(f"Invalid chunk_index {chunk_index}, setting to 0")
+                enhanced["chunk_index"] = 0
+            
+            return enhanced
+            
+        except Exception as e:
+            logger.error(f"Error validating source data: {e}")
+            return enhanced
     
     def _generate_citation(self, document_title: str, page_number: Optional[int], 
                           line_range: Optional[Dict[str, int]]) -> str:
