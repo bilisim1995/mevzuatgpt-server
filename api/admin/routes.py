@@ -58,6 +58,10 @@ async def upload_document(
         Upload response with document ID and processing status
     """
     try:
+        # Debug logging
+        logger.info(f"Upload request received - file: {file.filename if file else 'None'}, title: {title}")
+        logger.info(f"File content type: {file.content_type if file else 'None'}")
+        
         # Validate file type and size
         if not file.filename.lower().endswith('.pdf'):
             raise AppException(
