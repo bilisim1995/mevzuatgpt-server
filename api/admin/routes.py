@@ -24,7 +24,7 @@ from utils.exceptions import AppException
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-@router.post("/upload-document", response_model=UploadResponse)
+@router.post("/upload-document")
 async def upload_document(
     file: UploadFile = File(...),
     title: str = Form(...),
