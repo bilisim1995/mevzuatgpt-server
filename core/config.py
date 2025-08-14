@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_WINDOW: int = 60  # seconds
     
     # Vector Search  
-    EMBEDDING_DIMENSION: int = 1024  # text-embedding-3-large with 1024 dimensions (supported value for HNSW compatibility)
+    EMBEDDING_DIMENSION: int = 3072  # text-embedding-3-large full dimensions with halfvec HNSW compatibility
     SEARCH_LIMIT: int = 10
     SIMILARITY_THRESHOLD: float = 0.65  # Optimized for text-embedding-3-large
     

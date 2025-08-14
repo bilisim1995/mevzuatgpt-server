@@ -44,10 +44,10 @@ class EmbeddingService:
             response = await loop.run_in_executor(
                 None,
                 lambda: self.client.embeddings.create(
-                    model=settings.OPENAI_EMBEDDING_MODEL,  # Use configurable model
+                    model=settings.OPENAI_EMBEDDING_MODEL,  # text-embedding-3-large
                     input=text.strip(),
-                    encoding_format="float",
-                    dimensions=settings.EMBEDDING_DIMENSION  # Force 2000 dimensions for HNSW compatibility
+                    encoding_format="float"
+                    # Use full 3072 dimensions for maximum quality
                 )
             )
             
@@ -91,10 +91,10 @@ class EmbeddingService:
             response = await loop.run_in_executor(
                 None,
                 lambda: self.client.embeddings.create(
-                    model=settings.OPENAI_EMBEDDING_MODEL,  # Use configurable model
+                    model=settings.OPENAI_EMBEDDING_MODEL,  # text-embedding-3-large
                     input=clean_texts,
-                    encoding_format="float",
-                    dimensions=settings.EMBEDDING_DIMENSION  # Force 2000 dimensions for HNSW compatibility
+                    encoding_format="float"
+                    # Use full 3072 dimensions for maximum quality
                 )
             )
             
