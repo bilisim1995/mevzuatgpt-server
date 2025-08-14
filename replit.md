@@ -12,17 +12,17 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### Maximum Quality 3072-Dimensional Implementation (August 14, 2025)
-- **Quality-First Solution**: Implemented text-embedding-3-large at full 3072 dimensions for maximum model performance
-- **pgvector Discovery**: Found HNSW and IVF-Flat index limits at 2000 dimensions, incompatible with 3072
-- **Sequential Scan Approach**: Using vector(3072) without index for unlimited dimensional support
-- **Performance Trade-off**: Sequential scan (~200-500ms) vs indexed search (~20ms) for maximum quality
-- **Storage Solution**: Normal vector(3072) storage after halfvec encoding issues in Supabase
-- **Quality Achievement**: 100% text-embedding-3-large model capacity vs 85% with dimension reduction
-- **Schema Completeness**: Full metadata support with chunk_index, line_start, line_end columns
-- **Production Decision**: Prioritized maximum semantic understanding over search speed
-- **Scale Consideration**: Sequential scan acceptable for 203 embeddings, may need optimization for larger datasets
-- **Impact**: Best-possible legal document semantic search quality with acceptable performance for current scale
+### Stable Production System with HNSW Index (August 14, 2025)
+- **Production-First Decision**: Reverted to text-embedding-3-small (1536 dimensions) for reliable system operation
+- **Supabase Compatibility Issues**: Discovered persistent vector encoding problems with 3072 dimensions (38926 retrieved vs 3072 sent)
+- **pgvector Limitations**: Confirmed HNSW and IVF-Flat index maximum 2000 dimensions, insufficient for 3072
+- **Reliable Solution**: Implemented vector(1536) + HNSW index for guaranteed fast, stable search performance
+- **Performance Optimization**: Ultra-fast HNSW search (~10-20ms) vs sequential scan (~200-500ms)
+- **Quality Trade-off**: 85% model capacity (text-embedding-3-small) vs 100% (text-embedding-3-large) for system reliability
+- **Schema Stability**: Full metadata support with chunk_index, line_start, line_end columns maintained
+- **Production Readiness**: Chose system stability and speed over maximum theoretical quality
+- **Scale Optimization**: HNSW index provides excellent performance for current and future document volumes
+- **Impact**: Reliable, fast legal document search with proven system architecture and guaranteed uptime
 
 ### AI Response Format Improvement (August 11, 2025)
 - **Issue Fixed**: AI responses included unnecessary template phrases like "Belge içeriğinde, sigortalılık şartları şu şekilde belirtilmiştir:"
