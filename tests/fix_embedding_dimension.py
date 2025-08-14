@@ -13,7 +13,10 @@ from typing import List
 # Add project root to path
 sys.path.append('/home/runner/workspace')
 
-from core.supabase_client import supabase_client
+from core.supabase_client import SupabaseClient
+
+# Initialize client
+sb_client = SupabaseClient().get_client(use_service_key=True)
 
 # Logging setup
 logging.basicConfig(
@@ -28,17 +31,17 @@ def clear_all_embeddings():
         logger.info("🗑️ Tüm embedding'ler siliniyor...")
         
         # Count before deletion
-        count_response = supabase_client.table('mevzuat_embeddings').select('id').execute()
+        count_response = sb_client.table('mevzuat_embeddings').select('id').execute()
         before_count = len(count_response.data) if count_response.data else 0
         logger.info(f"📊 Silinecek embedding sayısı: {before_count}")
         
         # Delete all embeddings
-        delete_response = supabase_client.table('mevzuat_embeddings').delete().neq('id', '00000000-0000-0000-0000-000000000000').execute()
+        delete_response = sb_client.table('mevzuat_embeddings').delete().neq('id', '00000000-0000-0000-0000-000000000000').execute()
         
         logger.info(f"✅ {before_count} embedding silindi")
         
         # Reset all document statuses to processing for re-processing
-        update_response = supabase_client.table('mevzuat_documents') \
+        update_response = sb_client.table('mevzuat_documents') \
             .update({'status': 'processing'}) \
             .eq('status', 'completed') \
             .execute()
@@ -58,7 +61,7 @@ def check_embedding_table_structure():
         logger.info("🔍 Embedding tablo yapısı kontrol ediliyor...")
         
         # Sample embedding test - dimension kontrolü için
-        sample_response = supabase_client.table('mevzuat_embeddings').select('embedding').limit(1).execute()
+        sample_response = sb_client.table('mevzuat_embeddings').select('embedding').limit(1).execute()
         
         if sample_response.data and sample_response.data[0].get('embedding'):
             embedding = sample_response.data[0]['embedding']

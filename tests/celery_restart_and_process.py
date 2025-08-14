@@ -18,7 +18,10 @@ import logging
 # Add project root to path
 sys.path.append('/home/runner/workspace')
 
-from core.supabase_client import supabase_client
+from core.supabase_client import SupabaseClient
+
+# Initialize client
+sb_client = SupabaseClient().get_client(use_service_key=True)
 from tasks.document_processor import process_document_task
 
 # Logging setup
@@ -79,7 +82,7 @@ class CeleryManager:
     def get_processing_documents(self) -> List[Dict[str, Any]]:
         """Processing status'taki dokümanları getir"""
         try:
-            response = supabase_client.table('mevzuat_documents') \
+            response = sb_client.table('mevzuat_documents') \
                 .select('id, title, status, created_at') \
                 .eq('status', 'processing') \
                 .execute()
@@ -94,7 +97,7 @@ class CeleryManager:
         """Embedding'i olmayan completed dokümanları getir"""
         try:
             # Tüm completed dokümanları al
-            docs_response = supabase_client.table('mevzuat_documents') \
+            docs_response = sb_client.table('mevzuat_documents') \
                 .select('id, title, status') \
                 .eq('status', 'completed') \
                 .execute()
@@ -102,7 +105,7 @@ class CeleryManager:
             docs_without_embeddings = []
             for doc in docs_response.data or []:
                 # Bu dokümana ait embedding var mı kontrol et
-                embed_response = supabase_client.table('mevzuat_embeddings') \
+                embed_response = sb_client.table('mevzuat_embeddings') \
                     .select('id') \
                     .eq('document_id', doc['id']) \
                     .limit(1) \
