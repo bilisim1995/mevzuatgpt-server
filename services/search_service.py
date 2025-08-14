@@ -28,7 +28,7 @@ class SearchService:
         self,
         query: str,
         limit: int = 10,
-        similarity_threshold: float = 0.3,
+        similarity_threshold: float = 0.45,
         category_filter: Optional[str] = None,
         date_filter: Optional[Dict[str, date]] = None,
         document_ids_filter: Optional[List[str]] = None

@@ -308,8 +308,8 @@ class EmbeddingService:
                             
                             logger.debug(f"Calculated similarity: {similarity:.3f} for content: {embedding_row['content'][:50]}...")
                             
-                            # Force 0.3 threshold for debugging
-                            if similarity >= 0.3:
+                            # Use dynamic threshold
+                            if similarity >= similarity_threshold:
                                 document_id = embedding_row["document_id"]
                                 
                                 results.append({
