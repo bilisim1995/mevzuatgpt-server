@@ -46,7 +46,8 @@ class EmbeddingService:
                 lambda: self.client.embeddings.create(
                     model=settings.OPENAI_EMBEDDING_MODEL,  # Use configurable model
                     input=text.strip(),
-                    encoding_format="float"
+                    encoding_format="float",
+                    dimensions=settings.EMBEDDING_DIMENSION  # Force 2000 dimensions for HNSW compatibility
                 )
             )
             
@@ -92,7 +93,8 @@ class EmbeddingService:
                 lambda: self.client.embeddings.create(
                     model=settings.OPENAI_EMBEDDING_MODEL,  # Use configurable model
                     input=clean_texts,
-                    encoding_format="float"
+                    encoding_format="float",
+                    dimensions=settings.EMBEDDING_DIMENSION  # Force 2000 dimensions for HNSW compatibility
                 )
             )
             
