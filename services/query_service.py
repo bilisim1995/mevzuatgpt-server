@@ -48,7 +48,7 @@ class QueryService:
         user_id: str,
         institution_filter: Optional[str] = None,
         limit: int = 10,
-        similarity_threshold: float = 0.45,
+        similarity_threshold: float = 0.65,
         use_cache: bool = True
     ) -> Dict[str, Any]:
         """

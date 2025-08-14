@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     # Vector Search
     EMBEDDING_DIMENSION: int = 3072  # text-embedding-3-large
     SEARCH_LIMIT: int = 10
-    SIMILARITY_THRESHOLD: float = 0.45  # Lowered for mixed dimension compatibility
+    SIMILARITY_THRESHOLD: float = 0.65  # Optimized for text-embedding-3-large
     
     model_config = {
         "env_file": ".env", 
