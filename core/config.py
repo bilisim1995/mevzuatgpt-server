@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: str = "your-openai-api-key"
     OPENAI_MODEL: str = "gpt-4o"  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024
-    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-large"
     OPENAI_MAX_TOKENS: int = 4000
     
     # Bunny.net Storage
@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_WINDOW: int = 60  # seconds
     
     # Vector Search  
-    EMBEDDING_DIMENSION: int = 1536  # text-embedding-3-small with stable HNSW compatibility
+    EMBEDDING_DIMENSION: int = 3072  # text-embedding-3-large full dimensions with halfvec HNSW
     SEARCH_LIMIT: int = 10
     SIMILARITY_THRESHOLD: float = 0.65  # Optimized for text-embedding-3-large
     
