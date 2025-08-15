@@ -32,15 +32,9 @@ CREATE INDEX idx_embeddings_page_number ON mevzuat_embeddings(page_number);
 CREATE INDEX idx_embeddings_created_at ON mevzuat_embeddings(created_at);
 
 -- Create vector similarity index (HNSW for 1536 dimensions)
--- HNSW is optimal for 1536 dimensions and provides fast similarity search
 CREATE INDEX idx_embeddings_vector_hnsw ON mevzuat_embeddings 
 USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
-
--- Alternative: IVFFlat index (comment out HNSW above if using this)
--- CREATE INDEX idx_embeddings_vector_ivfflat ON mevzuat_embeddings 
--- USING ivfflat (embedding vector_cosine_ops)
--- WITH (lists = 100);
 
 -- Row Level Security (RLS) policies
 ALTER TABLE mevzuat_embeddings ENABLE ROW LEVEL SECURITY;
