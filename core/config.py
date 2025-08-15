@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: str = "your-openai-api-key"
     OPENAI_MODEL: str = "gpt-4o"  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024
-    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"  # Stable 1536 dimensions
     OPENAI_MAX_TOKENS: int = 4000
     
     # Bunny.net Storage
