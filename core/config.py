@@ -38,11 +38,17 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # 2 hours
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
-    # OpenAI
+    # OpenAI - Upgraded to text-embedding-3-large for 2048 dimensions
     OPENAI_API_KEY: str = "your-openai-api-key"
     OPENAI_MODEL: str = "gpt-4o"  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024
-    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"  # Stable 1536 dimensions
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-large"  # Upgraded: 2048 dimensions for Elasticsearch
+    OPENAI_EMBEDDING_DIMENSIONS: int = 2048  # ES 8.19.2 optimized dimensions
     OPENAI_MAX_TOKENS: int = 4000
+    
+    # Elasticsearch Vector Database (Primary)
+    ELASTICSEARCH_URL: str = "https://elastic.mevzuatgpt.org"
+    ELASTICSEARCH_INDEX: str = "mevzuat_embeddings"
+    ELASTICSEARCH_TIMEOUT: int = 30
     
     # Bunny.net Storage
     BUNNY_STORAGE_API_KEY: str = "your-bunny-api-key"
@@ -77,10 +83,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_REQUESTS: int = 100
     RATE_LIMIT_WINDOW: int = 60  # seconds
     
-    # Vector Search  
-    EMBEDDING_DIMENSION: int = 1536  # text-embedding-3-small stable working system
+    # Vector Search - Elasticsearch optimized
     SEARCH_LIMIT: int = 10
-    SIMILARITY_THRESHOLD: float = 0.65  # Optimized for text-embedding-3-large
+    SIMILARITY_THRESHOLD: float = 0.7  # Optimized for Elasticsearch cosine similarity
     
     model_config = {
         "env_file": ".env", 
@@ -88,8 +93,6 @@ class Settings(BaseSettings):
         "case_sensitive": True,
         "env_ignore_empty": False
     }
-    
-
     
     @field_validator("ALLOWED_FILE_TYPES")
     @classmethod
@@ -105,6 +108,9 @@ class Settings(BaseSettings):
             raise ValueError("ENVIRONMENT must be one of: development, staging, production")
         return v
 
-
 # Create global settings instance
 settings = Settings()
+
+def get_settings() -> Settings:
+    """Get global settings instance for dependency injection"""
+    return settings

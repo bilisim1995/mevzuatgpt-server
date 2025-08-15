@@ -137,19 +137,19 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
         chunks_with_sources = parsed_data["chunks"]
         logger.info(f"Generated {len(chunks_with_sources)} chunks with source information from {parsed_data['total_pages']} pages")
         
-        # Step 4: Generate embeddings for chunks with enhanced source metadata
-        logger.info(f"Generating embeddings for {len(chunks_with_sources)} chunks")
+        # Step 4: Generate embeddings and store in Elasticsearch
+        logger.info(f"Generating 2048D embeddings for {len(chunks_with_sources)} chunks")
         
-        # Store embeddings one by one using Supabase client with enhanced metadata
+        # Prepare chunks data for Elasticsearch bulk storage
+        chunks_for_elasticsearch = []
         for i, chunk_data in enumerate(chunks_with_sources):
             chunk_text = chunk_data["content"]
             
-            # Generate embedding for this chunk
+            # Generate 2048-dimensional embedding
             embedding = await embedding_service.generate_embedding(chunk_text)
             
-            # Prepare metadata WITHOUT source information (only in columns now)
+            # Prepare enhanced metadata for Elasticsearch
             chunk_metadata = {
-                "chunk_index": chunk_data["chunk_index"],
                 "total_chunks": len(chunks_with_sources),
                 "chunk_length": len(chunk_text),
                 "document_title": document['title'],
@@ -159,16 +159,26 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
                 "text_preview": chunk_text[:200] + "..." if len(chunk_text) > 200 else chunk_text
             }
             
-            await supabase_client.create_embedding_with_sources(
-                doc_id=document_id,
-                content=chunk_text,
-                embedding=embedding,
-                chunk_index=chunk_data["chunk_index"],
-                page_number=chunk_data.get("page_number"),
-                line_start=chunk_data.get("line_start"),
-                line_end=chunk_data.get("line_end"),
-                metadata=chunk_metadata
-            )
+            # Prepare chunk for Elasticsearch
+            elasticsearch_chunk = {
+                "content": chunk_text,
+                "embedding": embedding,
+                "chunk_index": chunk_data["chunk_index"],
+                "page_number": chunk_data.get("page_number"),
+                "line_start": chunk_data.get("line_start"),
+                "line_end": chunk_data.get("line_end"),
+                "source_institution": document.get('source_institution'),
+                "source_document": document['filename'],
+                "metadata": chunk_metadata
+            }
+            chunks_for_elasticsearch.append(elasticsearch_chunk)
+        
+        # Store all embeddings in Elasticsearch using bulk operation
+        logger.info(f"Storing {len(chunks_for_elasticsearch)} embeddings in Elasticsearch")
+        embedding_ids = await embedding_service.store_embeddings(
+            document_id=document_id,
+            chunks=chunks_for_elasticsearch
+        )
         
         # Step 6: Update document status to completed
         await supabase_client.update_document_status(document_id, "completed")

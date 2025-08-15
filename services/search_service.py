@@ -10,7 +10,7 @@ import asyncio
 from datetime import datetime, date
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import settings
+from core.config import get_settings
 from services.embedding_service import EmbeddingService
 from utils.exceptions import AppException
 
@@ -19,10 +19,11 @@ logger = logging.getLogger(__name__)
 class SearchService:
     """Service class for semantic search and AI-powered responses"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession = None):
         self.db = db
-        self.embedding_service = EmbeddingService(db)
-        self.client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        self.settings = get_settings()
+        self.embedding_service = EmbeddingService()
+        self.client = openai.OpenAI(api_key=self.settings.OPENAI_API_KEY)
     
     async def semantic_search(
         self,
@@ -53,13 +54,13 @@ class SearchService:
             # Generate embedding for the search query
             query_embedding = await self.embedding_service.generate_embedding(query)
             
-            # Perform vector similarity search with optional document ID filtering
-            results = await self.embedding_service.search_similar_embeddings(
-                query_embedding=query_embedding,
-                limit=limit,
-                similarity_threshold=similarity_threshold,
-                category_filter=category_filter,
-                document_ids_filter=document_ids_filter
+            # Perform Elasticsearch vector similarity search
+            results = await self.embedding_service.similarity_search(
+                query_text=query,
+                k=limit,
+                institution_filter=category_filter,
+                document_ids=document_ids_filter,
+                similarity_threshold=similarity_threshold
             )
             
             # Apply date filter if provided
@@ -81,20 +82,18 @@ class SearchService:
                 
                 results = filtered_results[:limit]
             
-            # Format results for API response
+            # Format results for API response (Elasticsearch format)
             formatted_results = []
             for result in results:
                 formatted_results.append({
                     "document_id": str(result["document_id"]),
-                    "document_title": result["document_title"],
+                    "document_title": result.get("source_document", "Unknown Document"),
                     "content": result["content"],
-                    "similarity_score": round(result["similarity_score"], 4),
-                    "metadata": {
-                        "category": result.get("category"),
-                        "source_institution": result.get("source_institution"),
-                        "publish_date": result.get("publish_date").isoformat() if result.get("publish_date") else None,
-                        **result.get("metadata", {})
-                    }
+                    "similarity_score": round(result["similarity"], 4),
+                    "chunk_index": result.get("chunk_index", 0),
+                    "page_number": result.get("page_number"),
+                    "source_institution": result.get("source_institution"),
+                    "metadata": result.get("metadata", {})
                 })
             
             logger.info(f"Semantic search completed: '{query}' - {len(formatted_results)} results")
