@@ -1,0 +1,156 @@
+{
+    "success": true,
+    "timestamp": "2025-08-16T13:28:05.715967",
+    "data": {
+        "query": "Sigortalılık şartları nelerdir ?",
+        "answer": "## Sigortalılık Şartları\n\nSigortalılık şartları, belge içeriğinde belirtilen koşulların karşılanmasıyla oluşur. Aşağıdaki koşulların karşılanması gerekir:\n\n* Kanunun 4 üncü maddesinin birinci fıkrasının (a), (b) ve (c) bentleri ile 506 sayılı Kanunun geçici 20 nci maddesi ve 2925 sayılı Kanun kapsamında çalışmamak,\n* İsteğe bağlı sigortalı veya isteğe bağlı iştirakçi olmamak,\n* Kurumumuzdan ve 506 sayılı Kanunun geçici 20 nci maddesi kapsamındaki sandıklardan kendi sigortalılıklarından dolayı gelir veya aylık almamak,\n* 18 yaşını doldurmuş olmak,\n* Kendi sigortalılıklarından dolayı aylık alan sigortalılar ek 6 ncı madde kapsamında sigortalı olamayacaklardır. Bu koşulların karşılanması, sigortalılık şartlarının oluşmasına yardımcı olur.",
+        "confidence_score": 0.8358840000000001,
+        "search_log_id": "1462367a-5d48-4fa3-bd90-ea8f4f99093d",
+        "sources": [
+            {
+                "document_title": "test_document.pdf",
+                "pdf_url": null,
+                "page_number": 1,
+                "line_start": 1,
+                "line_end": 3,
+                "citation": "test_document.pdf, s. 1, satır 1-3",
+                "content_preview": "Sosyal güvenlik sigortalılık şartları ve yükümlülükleri",
+                "similarity_score": 0.6551,
+                "chunk_index": 0,
+                "source_institution": "TEST_INSTITUTION",
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 5,
+                "line_start": 146,
+                "line_end": 151,
+                "citation": "82660-111-136.pdf, s. 5, satır 146-151",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE - Kanunun 4 üncü maddesinin birinci fıkrasının (a), (b) ve (c) bentleri ile 506 sayılı Kanunun geçici 20 nci...",
+                "similarity_score": 0.6452,
+                "chunk_index": 29,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 16,
+                "line_start": 576,
+                "line_end": 581,
+                "citation": "82660-111-136.pdf, s. 16, satır 576-581",
+                "content_preview": "sigortalı olmamak, - İsteğe bağlı sigortalı olmamak, - 506 sayılı Kanunun geçici 20 nci maddesi kapsamında sigortalı olmamak, - Kendi...",
+                "similarity_score": 0.5972,
+                "chunk_index": 115,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 10,
+                "line_start": 351,
+                "line_end": 356,
+                "citation": "82660-111-136.pdf, s. 10, satır 351-356",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE Sürekli iş göremezlik geliri almakta iken sürekli iş göremezlik derecesi kontrol muayene sonucu % 10’un altına...",
+                "similarity_score": 0.5895,
+                "chunk_index": 70,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 25,
+                "line_start": 931,
+                "line_end": 936,
+                "citation": "82660-111-136.pdf, s. 25, satır 931-936",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE 1/10/2008 tarihi itibariyle Kanunun 4 üncü maddesinin birinci fıkrasının (b) bendi kapsamında çalışması...",
+                "similarity_score": 0.5762,
+                "chunk_index": 186,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 8,
+                "line_start": 276,
+                "line_end": 281,
+                "citation": "82660-111-136.pdf, s. 8, satır 276-281",
+                "content_preview": "sigortalı oldukları sonradan tespit (Değişik, 19/6/2020 tarihli ve 2020/21 sayılı Genelge) edilenler (Ek, 11/12/2014 tarihli ve 2014/32 sayılı...",
+                "similarity_score": 0.5698,
+                "chunk_index": 55,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 3,
+                "line_start": 71,
+                "line_end": 76,
+                "citation": "82660-111-136.pdf, s. 3, satır 71-76",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE tahsil edilmeyerek yeni bir istek ve tescil belgesi alınmadan 2000 yılını izleyen yıllar için ödediği primleri...",
+                "similarity_score": 0.5683,
+                "chunk_index": 14,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 16,
+                "line_start": 566,
+                "line_end": 571,
+                "citation": "82660-111-136.pdf, s. 16, satır 566-571",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE 1- Sigortalı sayılanlar 6111 sayılı Kanunla Kanuna eklenen ek 6 ncı madde ile 1/3/2011 tarihinden itibaren...",
+                "similarity_score": 0.5682,
+                "chunk_index": 113,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 17,
+                "line_start": 601,
+                "line_end": 606,
+                "citation": "82660-111-136.pdf, s. 17, satır 601-606",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE Kanuna 1/3/2011 tarihinden itibaren eklenen ek 6 ncı madde ile hizmet akdine tabi şehir içinde çalıştıkları...",
+                "similarity_score": 0.5678,
+                "chunk_index": 120,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 23,
+                "line_start": 856,
+                "line_end": 861,
+                "citation": "82660-111-136.pdf, s. 23, satır 856-861",
+                "content_preview": "20’si malullük, yaşlılık ve ölüm sigortaları, % 12,5’i genel sağlık sigortası primidir. Bu sigortalılardan 4447 sayılı Kanuna tabi olmak isteyenler %...",
+                "similarity_score": 0.5598,
+                "chunk_index": 171,
+                "category": ""
+            }
+        ],
+        "institution_filter": null,
+        "search_stats": {
+            "total_chunks_found": 10,
+            "embedding_time_ms": 197,
+            "search_time_ms": 1361,
+            "generation_time_ms": 608,
+            "reliability_time_ms": 0,
+            "total_pipeline_time_ms": 3979,
+            "cache_used": false,
+            "rate_limit_remaining": 29
+        },
+        "llm_stats": {
+            "model_used": "llama3-8b-8192",
+            "prompt_tokens": 0,
+            "response_tokens": 0
+        },
+        "credit_info": {
+            "credits_used": 0,
+            "remaining_balance": "unlimited",
+            "admin_user": true,
+            "refund_would_apply": false,
+            "no_info_detected": false
+        }
+    }
+}
