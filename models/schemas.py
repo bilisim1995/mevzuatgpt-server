@@ -194,7 +194,7 @@ class AskRequest(BaseModel):
     query: str = Field(..., min_length=3, max_length=1000, description="User's question")
     institution_filter: Optional[str] = Field(None, description="Filter by institution name")
     limit: int = Field(10, ge=1, le=20, description="Maximum number of search results")
-    similarity_threshold: float = Field(0.65, ge=0.3, le=1.0, description="Minimum similarity score")
+    similarity_threshold: float = Field(0.5, ge=0.3, le=1.0, description="Minimum similarity score")
     use_cache: bool = Field(True, description="Whether to use Redis cache")
 
 class SourceItem(BaseModel):

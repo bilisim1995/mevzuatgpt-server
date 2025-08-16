@@ -48,7 +48,7 @@ class QueryService:
         user_id: str,
         institution_filter: Optional[str] = None,
         limit: int = 10,
-        similarity_threshold: float = 0.65,
+        similarity_threshold: float = 0.5,
         use_cache: bool = True
     ) -> Dict[str, Any]:
         """
@@ -200,27 +200,11 @@ class QueryService:
             
             ai_time = int((time.time() - ai_start) * 1000)
             
-            # 6. Calculate enhanced reliability score
+            # 6. Calculate confidence score based on search results
             reliability_start = time.time()
-            try:
-                reliability_result = await self.reliability_service.calculate_comprehensive_confidence(
-                    search_results=search_results,
-                    ai_answer=llm_response.get("answer", llm_response.get("response", "")),
-                    use_parallel=True  # Use parallel scoring for better performance
-                )
-                
-                # Use enhanced confidence score
-                enhanced_confidence = reliability_result["confidence_score"]
-                confidence_breakdown = reliability_result.get("confidence_breakdown")
-                
-                reliability_time = int((time.time() - reliability_start) * 1000)
-                logger.info(f"Enhanced reliability calculated in {reliability_time}ms: {enhanced_confidence:.2f}")
-                
-            except Exception as e:
-                logger.warning(f"Reliability calculation failed, using basic confidence: {e}")
-                enhanced_confidence = llm_response["confidence_score"]
-                confidence_breakdown = None
-                reliability_time = 0
+            enhanced_confidence = self._calculate_simple_confidence(search_results, llm_response.get("answer", ""))
+            confidence_breakdown = None
+            reliability_time = int((time.time() - reliability_start) * 1000)
             
             # 8. Update user history and analytics
             if use_cache:
@@ -489,17 +473,62 @@ Benzerlik: {similarity:.2f}
                     ]
                 
                 await redis_service.cache_institutions(institutions_list)
-                logger.info(f"Updated institutions cache from metadata: {len(institutions_list)} institutions")
+                
+            logger.info(f"Updated institutions cache with {len(institutions_list)} institutions")
             
         except Exception as e:
             logger.warning(f"Failed to update institutions cache: {e}")
-            # Fallback to default institutions
-            institutions = [
-                "Sosyal Güvenlik Kurumu",
-                "Çalışma ve Sosyal Güvenlik Bakanlığı",
-                "Hazine ve Maliye Bakanlığı"
+    
+    def _calculate_simple_confidence(self, search_results: List[Dict[str, Any]], ai_answer: str) -> float:
+        """
+        Calculate simple confidence score based on search quality and AI response
+        
+        Args:
+            search_results: List of search results
+            ai_answer: Generated AI response
+            
+        Returns:
+            Confidence score between 0.0 and 1.0
+        """
+        try:
+            if not search_results or not ai_answer:
+                return 0.3  # Low confidence for no results or no answer
+            
+            # Base score from search results
+            avg_similarity = sum(r.get('similarity_score', 0) for r in search_results) / len(search_results)
+            result_count_factor = min(len(search_results) / 5.0, 1.0)  # More results = higher confidence
+            
+            # AI answer quality factors
+            answer_length_factor = min(len(ai_answer) / 200.0, 1.0)  # Longer answers generally better
+            
+            # Check for uncertainty phrases
+            uncertainty_phrases = [
+                "belirsiz", "kesin değil", "tam olarak bilinmiyor", 
+                "açık değil", "net değil", "bilgi bulunmamaktadır"
             ]
-            await redis_service.cache_institutions(institutions)
+            uncertainty_penalty = 0.2 if any(phrase in ai_answer.lower() for phrase in uncertainty_phrases) else 0.0
+            
+            # Calculate final confidence
+            confidence = (
+                avg_similarity * 0.4 +           # 40% from search similarity
+                result_count_factor * 0.3 +      # 30% from result count
+                answer_length_factor * 0.3       # 30% from answer quality
+            ) - uncertainty_penalty
+            
+            # Ensure range 0.3-0.95 (avoid extremes)
+            final_confidence = max(0.3, min(0.95, confidence))
+            
+            logger.debug(f"Confidence calculation: similarity={avg_similarity:.3f}, "
+                        f"count_factor={result_count_factor:.3f}, "
+                        f"answer_factor={answer_length_factor:.3f}, "
+                        f"penalty={uncertainty_penalty:.3f}, "
+                        f"final={final_confidence:.3f}")
+            
+            return final_confidence
+            
+        except Exception as e:
+            logger.error(f"Confidence calculation failed: {e}")
+            return 0.5  # Neutral fallback
     
     def _matches_institution_filter(self, search_result: Dict[str, Any], institution_filter: str) -> bool:
         """Check if search result matches the institution filter using metadata"""
