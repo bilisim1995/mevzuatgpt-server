@@ -299,13 +299,21 @@ async def delete_document(
         document = document_response.data[0]
         storage_path = document.get('file_url')  # Use file_url instead of storage_path
         
-        # Step 2: Delete embeddings first (foreign key constraint)
-        logger.info(f"Deleting embeddings for document: {document_id}")
+        # Step 2: Delete embeddings from Elasticsearch first
+        logger.info(f"Deleting embeddings from Elasticsearch for document: {document_id}")
+        from services.elasticsearch_service import ElasticsearchService
+        es_service = ElasticsearchService()
+        es_deleted_count = await es_service.delete_embeddings_by_document(document_id)
+        logger.info(f"Deleted {es_deleted_count} embeddings from Elasticsearch")
+        await es_service.close()
+        
+        # Step 3: Delete embeddings from Supabase (if any exist there)
+        logger.info(f"Deleting embeddings from Supabase for document: {document_id}")
         embeddings_response = supabase_client.supabase.table('mevzuat_embeddings').delete().eq('document_id', document_id).execute()
         embeddings_count = len(embeddings_response.data) if embeddings_response.data else 0
-        logger.info(f"Deleted {embeddings_count} embeddings")
+        logger.info(f"Deleted {embeddings_count} embeddings from Supabase")
         
-        # Step 3: Delete physical file from Bunny.net
+        # Step 4: Delete physical file from Bunny.net
         physical_deleted = False
         if storage_path:
             try:
@@ -319,7 +327,7 @@ async def delete_document(
         else:
             logger.warning("No file_url found, skipping physical file deletion")
         
-        # Step 4: Delete document record from database
+        # Step 5: Delete document record from database
         logger.info(f"Deleting document record: {document_id}")
         supabase_client.supabase.table('mevzuat_documents').delete().eq('id', document_id).execute()
         logger.info("Document record deleted from database")
@@ -330,7 +338,8 @@ async def delete_document(
             "data": {
                 "document_id": document_id,
                 "document_title": document.get('title'),
-                "embeddings_deleted": embeddings_count,
+                "elasticsearch_embeddings_deleted": es_deleted_count,
+                "supabase_embeddings_deleted": embeddings_count,
                 "physical_file_deleted": physical_deleted,
                 "file_url": storage_path
             }
