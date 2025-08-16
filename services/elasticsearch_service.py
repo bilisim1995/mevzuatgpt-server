@@ -58,55 +58,67 @@ class ElasticsearchService:
             return {"health": "error", "error": str(e)}
     
     async def bulk_create_embeddings(self, embeddings_data: List[Dict[str, Any]]) -> List[str]:
-        """Bulk create embeddings using HTTP POST"""
+        """Bulk create embeddings using HTTP POST with batching to avoid payload limits"""
         try:
             session = await self._get_session()
             
-            # Prepare bulk request body
-            bulk_body = []
-            for data in embeddings_data:
-                # Index action
-                bulk_body.append(json.dumps({"index": {"_index": self.index_name}}))
-                
-                # Document data
-                doc = {
-                    "document_id": data["document_id"],
-                    "content": data["content"],
-                    "embedding": data["embedding"],
-                    "chunk_index": data.get("chunk_index", 0),
-                    "page_number": data.get("page_number"),
-                    "line_start": data.get("line_start"),
-                    "line_end": data.get("line_end"),
-                    "source_institution": data.get("source_institution"),
-                    "source_document": data.get("source_document"),
-                    "metadata": data.get("metadata", {}),
-                    "created_at": datetime.utcnow().isoformat()
-                }
-                bulk_body.append(json.dumps(doc))
+            # Split into smaller batches to avoid 413 Request Entity Too Large
+            batch_size = 50  # Reduced from unlimited to prevent payload issues
+            all_embedding_ids = []
             
-            bulk_data = "\n".join(bulk_body) + "\n"
-            
-            async with session.post(
-                f"{self.elasticsearch_url}/_bulk",
-                data=bulk_data,
-                headers={"Content-Type": "application/x-ndjson"}
-            ) as response:
+            for i in range(0, len(embeddings_data), batch_size):
+                batch = embeddings_data[i:i + batch_size]
+                logger.info(f"Processing batch {i//batch_size + 1}/{(len(embeddings_data) + batch_size - 1)//batch_size} ({len(batch)} embeddings)")
                 
-                if response.status == 200:
-                    result = await response.json()
+                # Prepare bulk request body for this batch
+                bulk_body = []
+                for data in batch:
+                    # Index action
+                    bulk_body.append(json.dumps({"index": {"_index": self.index_name}}))
                     
-                    # Extract document IDs from response
-                    embedding_ids = []
-                    for item in result.get("items", []):
-                        if "index" in item and item["index"].get("_id"):
-                            embedding_ids.append(item["index"]["_id"])
+                    # Document data
+                    doc = {
+                        "document_id": data["document_id"],
+                        "content": data["content"],
+                        "embedding": data["embedding"],
+                        "chunk_index": data.get("chunk_index", 0),
+                        "page_number": data.get("page_number"),
+                        "line_start": data.get("line_start"),
+                        "line_end": data.get("line_end"),
+                        "source_institution": data.get("source_institution"),
+                        "source_document": data.get("source_document"),
+                        "metadata": data.get("metadata", {}),
+                        "created_at": datetime.utcnow().isoformat()
+                    }
+                    bulk_body.append(json.dumps(doc))
+                
+                bulk_data = "\n".join(bulk_body) + "\n"
+                
+                async with session.post(
+                    f"{self.elasticsearch_url}/_bulk",
+                    data=bulk_data,
+                    headers={"Content-Type": "application/x-ndjson"}
+                ) as response:
                     
-                    logger.info(f"Bulk created {len(embedding_ids)} embeddings")
-                    return embedding_ids
-                else:
-                    error_text = await response.text()
-                    logger.error(f"Bulk create failed: HTTP {response.status}, {error_text}")
-                    return []
+                    if response.status == 200:
+                        result = await response.json()
+                        
+                        # Extract document IDs from response
+                        batch_ids = []
+                        for item in result.get("items", []):
+                            if "index" in item and item["index"].get("_id"):
+                                batch_ids.append(item["index"]["_id"])
+                        
+                        all_embedding_ids.extend(batch_ids)
+                        logger.info(f"Batch {i//batch_size + 1} created {len(batch_ids)} embeddings")
+                        
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"Batch {i//batch_size + 1} failed: HTTP {response.status}, {error_text}")
+                        # Continue with next batch even if one fails
+            
+            logger.info(f"Bulk create completed: {len(all_embedding_ids)} total embeddings created")
+            return all_embedding_ids
                     
         except Exception as e:
             logger.error(f"Bulk create embeddings failed: {e}")
