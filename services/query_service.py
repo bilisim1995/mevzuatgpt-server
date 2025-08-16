@@ -118,18 +118,17 @@ class QueryService:
                 # Pre-filter documents by institution for optimization
                 document_ids_filter = None
                 if institution_filter:
-                    logger.info(f"🔍 Starting institution pre-filtering for: '{institution_filter}'")
+                    logger.info(f"Starting institution pre-filtering for: '{institution_filter}'")
                     await self._update_institutions_cache()
                     try:
                         document_ids_filter = await self._get_documents_by_institution(institution_filter)
                         if document_ids_filter:
-                            logger.info(f"✅ OPTIMIZATION: Pre-filtering to {len(document_ids_filter)} documents for institution: '{institution_filter}'")
+                            logger.info(f"OPTIMIZATION: Pre-filtering to {len(document_ids_filter)} documents for institution: '{institution_filter}'")
                         else:
-                            logger.warning(f"⚠️  No documents found for institution: '{institution_filter}'")
-                            # Return empty results early if no documents match institution
-                            return self._build_empty_response(query, institution_filter)
+                            logger.warning(f"No documents found for institution: '{institution_filter}' - continuing without filter")
+                            document_ids_filter = None
                     except Exception as e:
-                        logger.error(f"❌ Pre-filtering failed: {e}")
+                        logger.error(f"Pre-filtering failed: {e}")
                         document_ids_filter = None
                 
                 search_results = await self.search_service.semantic_search(
@@ -154,21 +153,14 @@ class QueryService:
             
             # 4.5. Enhance search results with source information  
             logger.info(f"Total search results before enhancement: {len(search_results) if search_results else 0}")
+            
             if search_results:
-                # Debug: Check search results before enhancement
-                first_result = search_results[0]
-                logger.info(f"Before enhancement - first result keys: {list(first_result.keys())}")
-                logger.info(f"Before enhancement - first result document_id: '{first_result.get('document_id')}'")
-                
-                search_results = self.source_enhancement_service.enhance_search_results(search_results)
-                
-                # Debug: Check search results after enhancement  
-                if search_results:
-                    first_enhanced = search_results[0]
-                    logger.info(f"After enhancement - first result keys: {list(first_enhanced.keys())}")
-                    logger.info(f"After enhancement - first result document_id: '{first_enhanced.get('document_id')}'")
-                else:
-                    logger.error("Enhancement service returned empty results!")
+                try:
+                    search_results = self.source_enhancement_service.enhance_search_results(search_results)
+                    logger.info(f"✅ Enhanced {len(search_results)} search results with source information")
+                except Exception as e:
+                    logger.error(f"Enhancement service failed: {e}")
+                    # Continue with unenhanced results
             
             # 5. Generate AI response using configured provider
             ai_start = time.time()
@@ -317,10 +309,6 @@ class QueryService:
             
             for i, result in enumerate(search_results):
                 try:
-                    # Debug: Check what fields are available
-                    logger.info(f"Formatting source {i+1} - available keys: {list(result.keys())}")
-                    logger.info(f"Document ID: {result.get('document_id')}, Institution: {result.get('source_institution')}")
-                    
                     formatted_source = {
                         "document_id": result.get("document_id"),
                         "document_title": result.get("document_title"),
@@ -338,7 +326,6 @@ class QueryService:
                         "chunk_index": result.get("chunk_index")
                     }
                     formatted_sources.append(formatted_source)
-                    logger.info(f"Successfully formatted source {i+1}")
                     
                 except Exception as format_error:
                     logger.error(f"Failed to format source {i+1}: {format_error}")
