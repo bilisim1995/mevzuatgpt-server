@@ -3,11 +3,12 @@ Admin routes for document management and system administration
 Only accessible by users with 'admin' role
 """
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import logging
+from datetime import datetime
 
 from core.database import get_db
 from api.dependencies import get_admin_user
@@ -132,6 +133,57 @@ async def upload_document(
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="UPLOAD_FAILED"
+        )
+
+@router.get("/elasticsearch/health", response_model=Dict[str, Any])
+async def elasticsearch_health(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Check Elasticsearch cluster health (Admin only)"""
+    try:
+        from services.elasticsearch_service import ElasticsearchService
+        
+        elasticsearch_service = ElasticsearchService()
+        health_data = await elasticsearch_service.health_check()
+        
+        return {
+            "success": True,
+            "data": health_data
+        }
+        
+    except Exception as e:
+        logger.error(f"Elasticsearch health check failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to check Elasticsearch health: {str(e)}"
+        )
+
+@router.get("/embeddings/count", response_model=Dict[str, Any])
+async def embeddings_count(
+    document_id: Optional[str] = Query(None, description="Filter by document ID"),
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Get total embeddings count from Elasticsearch (Admin only)"""
+    try:
+        from services.embedding_service import EmbeddingService
+        
+        embedding_service = EmbeddingService()
+        count = await embedding_service.get_embeddings_count(document_id)
+        
+        return {
+            "success": True,
+            "data": {
+                "total_embeddings": count,
+                "document_id": document_id,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get embeddings count: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get embeddings count: {str(e)}"
         )
 
 @router.get("/documents", response_model=DocumentListResponse)
