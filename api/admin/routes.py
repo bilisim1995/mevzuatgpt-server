@@ -303,7 +303,7 @@ async def delete_document(
         logger.info(f"Deleting embeddings from Elasticsearch for document: {document_id}")
         from services.elasticsearch_service import ElasticsearchService
         es_service = ElasticsearchService()
-        es_deleted_count = await es_service.delete_embeddings_by_document(document_id)
+        es_deleted_count = await es_service.delete_document_embeddings(document_id)
         logger.info(f"Deleted {es_deleted_count} embeddings from Elasticsearch")
         await es_service.close()
         
