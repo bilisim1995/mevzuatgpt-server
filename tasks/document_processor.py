@@ -284,7 +284,9 @@ def _extract_text_from_pdf(pdf_content: bytes) -> str:
             error_code="PDF_NO_TEXT_CONTENT"
         )
         
-    except PyPDF2.errors.PdfReadError as e:
+    except Exception as pdf_read_error:
+        if "PdfReadError" in str(type(pdf_read_error)):
+            e = pdf_read_error
         logger.error(f"PDF read error: {str(e)}")
         raise AppException(
             message="Invalid or corrupted PDF file",
@@ -322,14 +324,32 @@ def _clean_extracted_text(text: str) -> str:
     text = text.replace('\x00', '')  # Remove null bytes
     text = text.replace('\ufffd', '')  # Remove replacement characters
     
-    # Normalize Turkish characters
-    turkish_char_map = {
-        'Ğ': 'Ğ', 'ğ': 'ğ', 'Ü': 'Ü', 'ü': 'ü', 'Ş': 'Ş', 'ş': 'ş',
-        'İ': 'İ', 'ı': 'ı', 'Ö': 'Ö', 'ö': 'ö', 'Ç': 'Ç', 'ç': 'ç'
-    }
-    
-    for old_char, new_char in turkish_char_map.items():
-        text = text.replace(old_char, new_char)
+    # Ensure proper UTF-8 encoding for Turkish characters
+    try:
+        # Handle Turkish characters properly - ensure UTF-8 encoding
+        if isinstance(text, bytes):
+            text = text.decode('utf-8', errors='replace')
+        
+        # Normalize Turkish characters to ensure consistency
+        import unicodedata
+        text = unicodedata.normalize('NFC', text)
+        
+        # Fix common OCR/encoding issues with Turkish characters
+        turkish_fixes = {
+            'Ğ': 'Ğ', 'ğ': 'ğ', 'Ü': 'Ü', 'ü': 'ü', 'Ş': 'Ş', 'ş': 'ş',
+            'İ': 'İ', 'ı': 'ı', 'Ö': 'Ö', 'ö': 'ö', 'Ç': 'Ç', 'ç': 'ç',
+            # Common encoding issues
+            'Â°': 'ğ', 'Ã§': 'ç', 'Ã¼': 'ü', 'Ä±': 'ı', 'Ã¶': 'ö', 'Ã': 'ş'
+        }
+        
+        for wrong, correct in turkish_fixes.items():
+            text = text.replace(wrong, correct)
+            
+    except Exception as encoding_error:
+        logger.warning(f"Turkish character encoding issue: {encoding_error}")
+        # Fallback to safe ASCII replacement
+        if isinstance(text, bytes):
+            text = text.decode('utf-8', errors='ignore')
     
     return text.strip()
 

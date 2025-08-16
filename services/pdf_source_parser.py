@@ -138,8 +138,28 @@ class PDFSourceParser:
             cleaned_line = cleaned_line.replace('‚', ',').replace('"', '"').replace('"', '"')
             cleaned_line = cleaned_line.replace(''', "'").replace(''', "'")
             
-            # Normalize Turkish characters  
-            cleaned_line = cleaned_line.replace('ı', 'ı').replace('İ', 'İ')
+            # Ensure proper UTF-8 encoding for Turkish characters
+            try:
+                # Handle encoding properly
+                if isinstance(cleaned_line, bytes):
+                    cleaned_line = cleaned_line.decode('utf-8', errors='replace')
+                
+                # Normalize Turkish characters with Unicode normalization
+                import unicodedata
+                cleaned_line = unicodedata.normalize('NFC', cleaned_line)
+                
+                # Fix common Turkish character encoding issues
+                turkish_char_fixes = {
+                    'Â°': 'ğ', 'Ã§': 'ç', 'Ã¼': 'ü', 'Ä±': 'ı', 'Ã¶': 'ö', 'Ã': 'ş',
+                    'Ãœ': 'Ü', 'Ä°': 'İ', 'Ã–': 'Ö', 'Ã‡': 'Ç', 'Åž': 'Ş', 'Ä': 'Ğ'
+                }
+                
+                for wrong, correct in turkish_char_fixes.items():
+                    cleaned_line = cleaned_line.replace(wrong, correct)
+                    
+            except Exception as encoding_error:
+                logger.warning(f"Text encoding issue on line: {encoding_error}")
+                # Continue with the line as-is if encoding fails
             
             if cleaned_line:  # Only add non-empty lines
                 cleaned_lines.append(cleaned_line)

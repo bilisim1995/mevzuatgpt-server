@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class EmbeddingService:
     """Clean Elasticsearch-based embedding service with OpenAI text-embedding-3-large"""
     
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.settings = get_settings()
         self.openai_client = openai.OpenAI(api_key=self.settings.OPENAI_API_KEY)
         self.elasticsearch_service = ElasticsearchService()
@@ -41,11 +41,32 @@ class EmbeddingService:
         try:
             # Run OpenAI API call in thread pool to avoid blocking
             loop = asyncio.get_event_loop()
+            # Ensure text is properly encoded for OpenAI API
+            try:
+                # Handle Turkish characters properly for API call
+                if isinstance(text, bytes):
+                    processed_text = text.decode('utf-8', errors='replace')
+                else:
+                    processed_text = str(text)
+                
+                # Normalize Unicode for consistency
+                import unicodedata
+                processed_text = unicodedata.normalize('NFC', processed_text.strip())
+                
+                # Ensure text length is reasonable for API
+                if len(processed_text) > 8000:  # OpenAI limit safety
+                    processed_text = processed_text[:8000]
+                    logger.warning(f"Text truncated to 8000 characters for embedding generation")
+                
+            except Exception as text_processing_error:
+                logger.warning(f"Text processing issue: {text_processing_error}")
+                processed_text = str(text).strip()[:8000]
+            
             response = await loop.run_in_executor(
                 None,
                 lambda: self.openai_client.embeddings.create(
                     model=self.settings.OPENAI_EMBEDDING_MODEL,  # text-embedding-3-large
-                    input=text.strip(),
+                    input=processed_text,
                     encoding_format="float",
                     dimensions=self.settings.OPENAI_EMBEDDING_DIMENSIONS  # 2048 for ES optimization
                 )
