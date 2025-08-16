@@ -25,7 +25,7 @@ class GroqService:
             )
         
         self.client = Groq(api_key=settings.GROQ_API_KEY)
-        self.default_model = "llama3-8b-8192"  # Fast and efficient
+        self.default_model = "llama3-70b-8192"  # More capable model for detailed responses
         
         logger.info("Groq service initialized successfully")
     
@@ -34,8 +34,8 @@ class GroqService:
         query: str,
         context: str,
         model: Optional[str] = None,
-        max_tokens: int = 1024,
-        temperature: float = 0.1
+        max_tokens: int = 2048,
+        temperature: float = 0.3
     ) -> Dict[str, Any]:
         """
         Generate AI response using Groq
@@ -56,26 +56,39 @@ class GroqService:
             # Use specified model or default
             model_name = model or self.default_model
             
-            # System message for STRICT document-only responses
-            system_message = """Sen hukuki belgeleri analiz eden uzman bir asistansın.
+            # System message for comprehensive legal analysis
+            system_message = """Sen hukuki belgeleri analiz eden uzman bir hukuk danışmanısın. 
 
-KATÎ KURALLAR:
+TEMEL KURALLAR:
 1. SADECE verilen belge içeriklerindeki bilgileri kullan
 2. Kendi genel bilgini ASLA kullanma
 3. Belge dışından örnek, yorum veya ek bilgi verme
-4. Doğrudan cevap ver, gereksiz başlık veya giriş cümlesi kullanma
-5. TEKRAR YAPMA - aynı cümleyi tekrar etme
+4. Kapsamlı, detaylı ve analitik cevaplar ver
+5. Yasal metinleri açıklayarak anlaşılır hale getir
+
+CEVAP STİLİ:
+- **Kapsamlı ve detaylı** yanıtlar ver (en az 3-4 paragraf)
+- **Analitik yaklaşım** kullan - sadece aktarma değil, açıklama da yap
+- **Hukuki terimleri açıkla** ve anlamlarını netleştir
+- **Bağlam bilgisi** ver - düzenlemenin amacını ve kapsamını açıkla
+- **Pratik uygulamalar** hakkında belgedeki bilgileri detaylandır
+- **İlgili maddeler** arasında bağlantı kur ve bir bütün olarak ele al
 
 CEVAP FORMATINI:
-- Markdown formatında cevap ver
-- Kısa, öz ve net cevap ver
-- Başlıklar için ## veya ### kullan
+- Markdown formatında profesyonel sunum
+- Ana başlıklar için ## kullan
+- Alt başlıklar için ### kullan  
+- Önemli noktalar için **kalın** yazı
+- Madde numaraları ve referanslar için `kod` formatı
 - Listeler için - veya 1. kullan
-- Önemli metinler için **kalın** yazı kullan
-- Cevabı bitirir bitirmez DURUR, devam etme
-- Aynı cümleyi tekrarlamanın yasaktır
+- Uzun cevaplar tercih et - kısa değil, kapsamlı ol
 
-ÖNEMLİ: Belge boş veya alakasız ise sadece "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır." yaz."""
+YASAKLAR:
+- Aynı cümleleri tekrarlama
+- Çok kısa, yüzeysel cevaplar verme
+- Genel hukuki bilgi ekleme (sadece belge içeriği)
+
+ÖNEMLİ: Belge boş veya alakasız ise: "Verilen belge içeriğinde bu konuda detaylı bilgi bulunmamaktadır. Lütfen daha spesifik soru sorun veya ilgili belge bölümünü kontrol edin." yaz."""
             
             # Construct user message with context
             if not context or context.strip() == "":
@@ -88,9 +101,9 @@ SORU: {query}"""
 
 SORU: {query}
 
-Soruyu doğrudan cevapla, giriş cümlesi kullanma."""
+Bu soruyu kapsamlı, detaylı ve analitik şekilde cevapla. Sadece kısa cevap verme - konuyu derinlemesine açıkla, belgedeki ilgili tüm bilgileri kullan ve hukuki terimleri anlaşılır şekilde açıkla. En az 200-300 kelimelik detaylı analiz yap."""
             
-            # Call Groq API with improved parameters to prevent repetition
+            # Call Groq API with optimized parameters for detailed responses
             response = self.client.chat.completions.create(
                 model=model_name,
                 messages=[
@@ -99,9 +112,9 @@ Soruyu doğrudan cevapla, giriş cümlesi kullanma."""
                 ],
                 max_tokens=max_tokens,
                 temperature=temperature,
-                top_p=0.85,  # Reduced for less randomness
-                frequency_penalty=0.7,  # Penalize repetition
-                presence_penalty=0.3,   # Encourage new topics
+                top_p=0.9,  # Increased for more creativity
+                frequency_penalty=0.5,  # Moderate repetition penalty
+                presence_penalty=0.6,   # Strong encouragement for new topics
                 stream=False
             )
             
@@ -160,9 +173,11 @@ Soruyu doğrudan cevapla, giriş cümlesi kullanma."""
             confidence = 0.5
             
             # Length factor (longer responses tend to be more comprehensive)
-            if len(response) > 100:
+            if len(response) > 200:
                 confidence += 0.1
-            if len(response) > 300:
+            if len(response) > 500:
+                confidence += 0.1
+            if len(response) > 800:
                 confidence += 0.1
             
             # Context utilization (response should reference context)
