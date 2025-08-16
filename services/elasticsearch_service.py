@@ -63,7 +63,7 @@ class ElasticsearchService:
             session = await self._get_session()
             
             # Split into smaller batches to avoid 413 Request Entity Too Large
-            batch_size = 50  # Reduced from unlimited to prevent payload issues
+            batch_size = 10  # Further reduced due to 2048D vectors being very large
             all_embedding_ids = []
             
             for i in range(0, len(embeddings_data), batch_size):
