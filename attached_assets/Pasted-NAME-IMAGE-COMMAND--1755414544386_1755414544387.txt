@@ -1,0 +1,14 @@
+NAME                             IMAGE                                    COMMAND                   SERVICE     CREATED       STATUS                     PORTS
+realtime-dev.supabase-realtime   supabase/realtime:v2.34.47               "/usr/bin/tini -s -g…"    realtime    8 hours ago   Up 8 hours (healthy)       
+supabase-analytics               supabase/logflare:1.14.2                 "sh run.sh"               analytics   8 hours ago   Up 8 hours (healthy)       0.0.0.0:4000->4000/tcp, [::]:4000->4000/tcp
+supabase-auth                    supabase/gotrue:v2.176.1                 "auth"                    auth        8 hours ago   Up 8 hours (healthy)       
+supabase-db                      supabase/postgres:15.8.1.060             "docker-entrypoint.s…"    db          8 hours ago   Up 8 hours (healthy)       5432/tcp
+supabase-edge-functions          supabase/edge-runtime:v1.67.4            "edge-runtime start …"    functions   8 hours ago   Up 8 hours                 
+supabase-imgproxy                darthsim/imgproxy:v3.8.0                 "imgproxy"                imgproxy    8 hours ago   Up 8 hours (healthy)       8080/tcp
+supabase-kong                    kong:2.8.1                               "bash -c 'eval \"echo…"   kong        8 hours ago   Up 8 hours (healthy)       0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp, 8001/tcp, 0.0.0.0:8443->8443/tcp, [::]:8443->8443/tcp, 8444/tcp
+supabase-meta                    supabase/postgres-meta:v0.89.3           "docker-entrypoint.s…"    meta        8 hours ago   Up 8 hours (healthy)       8080/tcp
+supabase-pooler                  supabase/supavisor:2.5.6                 "/usr/bin/tini -s -g…"    supavisor   8 hours ago   Exited (1) 4 minutes ago   
+supabase-rest                    postgrest/postgrest:v12.2.12             "postgrest"               rest        8 hours ago   Up 8 hours                 3000/tcp
+supabase-storage                 supabase/storage-api:v1.24.7             "docker-entrypoint.s…"    storage     8 hours ago   Up 8 hours (healthy)       5000/tcp
+supabase-studio                  supabase/studio:2025.06.30-sha-6f5982d   "docker-entrypoint.s…"    studio      8 hours ago   Up 8 hours (healthy)       3000/tcp
+supabase-vector                  timberio/vector:0.28.1-alpine            "/usr/local/bin/vect…"    vector      8 hours ago   Up 8 hours (healthy)       
