@@ -28,8 +28,9 @@ class SupabaseClient:
         return self.service_client if use_service_key else self.supabase
     
     async def authenticate_user(self, email: str, password: str) -> Dict[str, Any]:
-        """Authenticate user with Supabase Auth"""
+        """Authenticate user with Supabase Auth or direct database fallback"""
         try:
+            # Try Supabase Auth first
             response = self.supabase.auth.sign_in_with_password({
                 "email": email,
                 "password": password
@@ -40,7 +41,72 @@ class SupabaseClient:
                 "session": response.session
             }
         except Exception as e:
+            logger.warning(f"Supabase Auth failed, trying direct database auth: {str(e)}")
+            
+            # Fallback to direct database authentication
+            if "Email logins are disabled" in str(e) or "422" in str(e):
+                return await self._authenticate_direct(email, password)
+            
             logger.error(f"Authentication failed: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def _authenticate_direct(self, email: str, password: str) -> Dict[str, Any]:
+        """Direct database authentication when Supabase auth is disabled"""
+        try:
+            from passlib.context import CryptContext
+            import asyncpg
+            from core.config import settings
+            
+            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            
+            # Connect to database
+            conn = await asyncpg.connect(settings.DATABASE_URL)
+            
+            # Get user from auth.users
+            auth_user = await conn.fetchrow('''
+                SELECT id, email, encrypted_password 
+                FROM auth.users 
+                WHERE email = $1
+            ''', email)
+            
+            if not auth_user:
+                await conn.close()
+                return {"success": False, "error": "User not found"}
+            
+            # Verify password
+            if not pwd_context.verify(password, auth_user['encrypted_password']):
+                await conn.close()
+                return {"success": False, "error": "Invalid credentials"}
+            
+            # Get user profile
+            profile = await conn.fetchrow('''
+                SELECT * FROM user_profiles 
+                WHERE user_id = $1
+            ''', auth_user['id'])
+            
+            await conn.close()
+            
+            if not profile:
+                return {"success": False, "error": "Profile not found"}
+            
+            # Create mock user object
+            class MockUser:
+                def __init__(self, user_id, email):
+                    self.id = str(user_id)
+                    self.email = email
+            
+            return {
+                "success": True,
+                "user": MockUser(auth_user['id'], auth_user['email']),
+                "session": None,
+                "profile": profile  # Add profile data
+            }
+            
+        except Exception as e:
+            logger.error(f"Direct auth failed: {e}")
             return {
                 "success": False,
                 "error": str(e)
