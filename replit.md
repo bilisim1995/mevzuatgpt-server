@@ -79,6 +79,16 @@ A comprehensive confidence scoring mechanism includes:
 
 ## Recent Changes
 
+### Self-hosted Supabase Migration Preparation (August 16, 2025)
+- **Infrastructure Migration**: Configured environment variables for self-hosted Supabase at https://supabase.mevzuatgpt.org
+- **Environment Variables Updated**: SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_KEY, JWT_SECRET_KEY configured for self-hosted instance
+- **Database URL Format Fixed**: Corrected DATABASE_URL parsing for passwords containing special characters with URL encoding
+- **Code Quality Enhancement**: Fixed 18 LSP diagnostics in user routes, improved variable scope safety and error handling
+- **PostgREST Schema Cache Issue**: Identified PGRST002 schema cache retrying issue in self-hosted setup
+- **DNS Resolution Pending**: Self-hosted domains (db.supabase.mevzuatgpt.org, supabase.mevzuatgpt.org) not yet resolving
+- **Migration Status**: Application configured and ready for self-hosted infrastructure once DNS and PostgREST are operational
+- **Backward Compatibility**: System remains functional with cloud fallback during infrastructure transition
+
 ### Groq AI Response Quality Enhancement (August 16, 2025)
 - **User Request Fulfilled**: Significantly improved Groq response length and creativity for more detailed legal analysis
 - **Model Upgrade**: Switched from `llama3-8b-8192` to `llama3-70b-8192` for enhanced reasoning capabilities  

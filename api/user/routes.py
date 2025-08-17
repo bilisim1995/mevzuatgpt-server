@@ -329,10 +329,11 @@ async def ask_question(
         
         if not is_admin and is_no_info_response and required_credits > 0:
             # Kredi iadesi yap
+            search_log_id = result.get("search_log_id")
             refund_success = await credit_service.refund_credits(
                 user_id=user_id,
                 amount=required_credits,
-                query_id=result.get("search_log_id"),  # Search log ID'yi kullan
+                query_id=search_log_id if search_log_id else "no_info",
                 reason=f"Bilgi bulunamadı: '{ask_request.query[:50]}{'...' if len(ask_request.query) > 50 else ''}'"
             )
             
@@ -344,7 +345,9 @@ async def ask_question(
         
         # 7. Kredi bilgilerini response'a ekle
         if not is_admin:
-            final_balance = current_balance if refund_applied else current_balance - required_credits
+            # current_balance variables'ını güvenli şekilde kullan
+            balance = locals().get('current_balance', 0)
+            final_balance = balance if refund_applied else balance - required_credits
             credits_used = 0 if refund_applied else required_credits
             
             result["credit_info"] = {
@@ -372,17 +375,21 @@ async def ask_question(
         raise
     except AppException as e:
         # İşlem hata aldıysa krediyi iade et (admin değilse ve kredi düşüldüyse)
-        if not is_admin and required_credits > 0:
+        is_admin_local = locals().get('is_admin', True)  # Default True for safety
+        required_credits_local = locals().get('required_credits', 0)
+        user_id_local = locals().get('user_id', str(current_user.id))
+        
+        if not is_admin_local and required_credits_local > 0:
             try:
                 await credit_service.refund_credits(
-                    user_id=user_id,
-                    amount=required_credits,
+                    user_id=user_id_local,
+                    amount=required_credits_local,
                     query_id="failed",
                     reason=f"İşlem hatası: {str(e)}"
                 )
-                logger.info(f"Credits refunded due to error for user {user_id}: {required_credits} credits")
+                logger.info(f"Credits refunded due to error for user {user_id_local}: {required_credits_local} credits")
             except Exception as refund_error:
-                logger.error(f"Credit refund failed for user {user_id}: {refund_error}")
+                logger.error(f"Credit refund failed for user {user_id_local}: {refund_error}")
         
         if e.status_code == 429:  # Rate limit exceeded
             raise HTTPException(
@@ -396,19 +403,25 @@ async def ask_question(
         raise e
     except Exception as e:
         # Diğer hatalar için de kredi iadesi (admin değilse ve kredi düşüldüyse)
-        if not is_admin and required_credits > 0:
+        is_admin_local = locals().get('is_admin', True)  # Default True for safety
+        required_credits_local = locals().get('required_credits', 0)
+        user_id_local = locals().get('user_id', str(current_user.id))
+        
+        if not is_admin_local and required_credits_local > 0:
             try:
                 await credit_service.refund_credits(
-                    user_id=user_id,
-                    amount=required_credits,
+                    user_id=user_id_local,
+                    amount=required_credits_local,
                     query_id="failed",
                     reason=f"Sistem hatası: {str(e)}"
                 )
-                logger.info(f"Credits refunded due to system error for user {user_id}: {required_credits} credits")
+                logger.info(f"Credits refunded due to system error for user {user_id_local}: {required_credits_local} credits")
             except Exception as refund_error:
-                logger.error(f"Credit refund failed for user {user_id}: {refund_error}")
+                logger.error(f"Credit refund failed for user {user_id_local}: {refund_error}")
         
-        logger.error(f"Ask error for user {user_id}: {str(e)}")
+        # Use safe user_id reference  
+        user_id_for_log = locals().get('user_id', str(current_user.id))
+        logger.error(f"Ask error for user {user_id_for_log}: {str(e)}")
         raise AppException(
             message="Failed to process question",
             detail=str(e),
