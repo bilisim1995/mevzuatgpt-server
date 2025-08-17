@@ -16,11 +16,10 @@ SELECT
 FROM auth.users 
 WHERE email = 'admin@mevzuatgpt.com';
 
--- Update auth user to ensure proper configuration
+-- Update auth user to ensure proper configuration (excluding generated columns)
 UPDATE auth.users 
 SET 
     email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
-    confirmed_at = COALESCE(confirmed_at, NOW()),
     raw_app_meta_data = COALESCE(raw_app_meta_data, '{}')::jsonb || '{"provider":"email","providers":["email"]}'::jsonb,
     raw_user_meta_data = COALESCE(raw_user_meta_data, '{}')::jsonb || '{"email_verified":true,"email":"admin@mevzuatgpt.com"}'::jsonb
 WHERE email = 'admin@mevzuatgpt.com';
