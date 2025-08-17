@@ -102,7 +102,8 @@ class SupabaseClient:
                 "success": True,
                 "user": MockUser(auth_user['id'], auth_user['email']),
                 "session": None,
-                "profile": profile  # Add profile data
+                "profile": dict(profile) if profile else {},  # Add profile data as dict
+                "direct_auth": True  # Flag for direct auth
             }
             
         except Exception as e:

@@ -122,13 +122,18 @@ class SupabaseAuthService:
             user_id = str(getattr(user, 'id', ''))
             user_email = getattr(user, 'email', '')
             
-            # Fetch profile data from user_profiles table
-            try:
-                profile_result = self.supabase.service_client.table("user_profiles").select("*").eq("id", user_id).single().execute()
-                profile_data = profile_result.data if profile_result.data else {}
-            except Exception as e:
-                logger.warning(f"Failed to get user profile, using defaults: {e}")
-                profile_data = {}
+            # If direct auth was used, get profile from result
+            if result.get("direct_auth") and result.get("profile"):
+                profile_data = result["profile"]
+                logger.info("Using profile data from direct auth")
+            else:
+                # Fetch profile data from user_profiles table via Supabase REST
+                try:
+                    profile_result = self.supabase.service_client.table("user_profiles").select("*").eq("user_id", user_id).single().execute()
+                    profile_data = profile_result.data if profile_result.data else {}
+                except Exception as e:
+                    logger.warning(f"Failed to get user profile via REST, using defaults: {e}")
+                    profile_data = {}
             
             # Create response from profile data
             user_response = UserResponse(
