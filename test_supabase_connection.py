@@ -150,12 +150,14 @@ class SupabaseConnectionTester:
             return False
         
         try:
+            # Use URL-decoded password for actual connection (@ symbol issue)
+            actual_password = urllib.parse.unquote(self.db_config['password'])
             conn = await asyncpg.connect(
                 host=self.db_config['host'],
                 port=self.db_config['port'],
                 database=self.db_config['database'],
                 user=self.db_config['user'],
-                password=self.db_config['password']
+                password=actual_password
             )
             
             # Test basic query
