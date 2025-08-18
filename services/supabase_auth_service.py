@@ -46,8 +46,23 @@ class SupabaseAuthService:
             
             user_id = str(result["user"].id)
             
-            # Skip user profile creation for now to avoid schema cache issues
-            logger.info(f"User {user_id} registered successfully via Supabase Auth, skipping profile creation")
+            # Create user profile in user_profiles table using correct column name (id, not user_id)
+            profile_data = {
+                "id": user_id,  # Use id column instead of user_id
+                "full_name": user_data.full_name,
+                "role": getattr(user_data, 'role', 'user')
+            }
+            
+            # Insert into user_profiles
+            try:
+                profile_result = self.supabase.service_client.table("user_profiles").insert(profile_data).execute()
+                if profile_result.data:
+                    logger.info(f"User profile created successfully for {user_id}")
+                else:
+                    logger.warning("Profile creation returned no data")
+            except Exception as e:
+                logger.error(f"Failed to create user profile: {e}")
+                # Don't fail registration, just log error
             
             # Create response from user data (just registered)
             user_response = UserResponse(
@@ -111,10 +126,11 @@ class SupabaseAuthService:
                 profile_data = result["profile"]
                 logger.info("Using profile data from direct auth")
             else:
-                # Fetch profile data from user_profiles table via Supabase REST
+                # Fetch profile data from user_profiles table via Supabase REST (using id column, not user_id)
                 try:
-                    profile_result = self.supabase.service_client.table("user_profiles").select("*").eq("user_id", user_id).single().execute()
+                    profile_result = self.supabase.service_client.table("user_profiles").select("*").eq("id", user_id).single().execute()
                     profile_data = profile_result.data if profile_result.data else {}
+                    logger.info(f"Profile data retrieved for user {user_id}: {profile_data}")
                 except Exception as e:
                     logger.warning(f"Failed to get user profile via REST, using defaults: {e}")
                     profile_data = {}
