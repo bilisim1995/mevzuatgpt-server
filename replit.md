@@ -89,10 +89,11 @@ A comprehensive confidence scoring mechanism includes:
 ### User Registration Successfully Fixed (August 18, 2025)
 - **Registration Working**: User registration now fully functional, returns access token and user data correctly
 - **Schema Cache Issue Resolved**: Bypassed problematic `preferences` and `credits` column references that don't exist
-- **Profile Creation Streamlined**: Temporarily disabled user_profiles table insert to avoid schema conflicts  
+- **Profile Creation Streamlined**: User profiles now properly created with all user information (ad, soyad, meslek, calistigi_yer)
 - **Authentication Flow Simplified**: Both registration and login now work without non-existent column dependencies
 - **Production Ready**: Registration endpoint returning HTTP 200 with proper JWT tokens and user responses
 - **Column Mapping Fixed**: All authentication services now use correct `id` column instead of non-existent `user_id` column
+- **Complete Profile Data**: Registration now captures and stores all user profile fields in user_profiles table
 
 ### Admin Credit System Fully Operational (August 18, 2025)
 - **Admin Credit Bypass**: Admin users now have unlimited credits (999999) and bypass all credit deduction processes

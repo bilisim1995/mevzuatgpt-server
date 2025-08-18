@@ -51,6 +51,10 @@ class SupabaseAuthService:
                 "id": user_id,  # Use id column instead of user_id
                 "email": user_data.email,  # Add email field (required)
                 "full_name": user_data.full_name,
+                "ad": getattr(user_data, 'ad', None),
+                "soyad": getattr(user_data, 'soyad', None),
+                "meslek": getattr(user_data, 'meslek', None),
+                "calistigi_yer": getattr(user_data, 'calistigi_yer', None),
                 "role": getattr(user_data, 'role', 'user')
             }
             
@@ -65,7 +69,7 @@ class SupabaseAuthService:
                 logger.error(f"Failed to create user profile: {e}")
                 # Don't fail registration, just log error
             
-            # Create response from user data (just registered)
+            # Create response from user data (just registered)  
             user_response = UserResponse(
                 id=user_id,
                 email=user_data.email,
