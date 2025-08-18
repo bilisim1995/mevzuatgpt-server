@@ -33,14 +33,19 @@ class CreditService:
     async def get_user_balance(self, user_id: str) -> int:
         """
         Kullanıcının mevcut kredi bakiyesini getir
+        Admin kullanıcılar unlimited kredi sahibidir
         
         Args:
             user_id: Kullanıcı UUID'si
             
         Returns:
-            Mevcut kredi bakiyesi
+            Mevcut kredi bakiyesi (admin için 999999)
         """
         try:
+            # Admin kullanıcılar için unlimited kredi
+            if await self.is_admin_user(user_id):
+                return 999999  # Unlimited credits for admin
+            
             response = supabase_client.supabase.table('user_credit_balance') \
                 .select('current_balance') \
                 .eq('user_id', user_id) \
@@ -97,6 +102,7 @@ class CreditService:
                            query_id: Optional[str] = None) -> bool:
         """
         Kullanıcı kredisinden belirli miktarı düş
+        Admin kullanıcılar için kredi düşme işlemi bypass edilir
         
         Args:
             user_id: Kullanıcı UUID'si
@@ -108,6 +114,11 @@ class CreditService:
             True: İşlem başarılı, False: İşlem başarısız
         """
         try:
+            # Admin kullanıcılar için kredi düşme işlemi bypass et
+            if await self.is_admin_user(user_id):
+                logger.info(f"Admin kullanıcı kredi bypass: {user_id} - {description}")
+                return True
+            
             current_balance = await self.get_user_balance(user_id)
             
             if current_balance < amount:
