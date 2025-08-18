@@ -79,7 +79,14 @@ A comprehensive confidence scoring mechanism includes:
 
 ## Recent Changes
 
-### Supabase Auth System Fully Operational (August 18, 2025)
+### Document Upload System Fixed (August 18, 2025)
+- **Authentication Issue Resolved**: Fixed user profile query from `id` to `user_id` field mapping in authentication service
+- **Database Schema Alignment**: Updated Supabase client to use correct `documents` table instead of deprecated `mevzuat_documents`
+- **Column Mapping Fixed**: Aligned document creation with actual database schema (removed non-existent `content_preview` field)
+- **Upload Flow Optimized**: File upload to Bunny.net working, metadata properly mapped to database schema fields
+- **Processing Status**: Document status correctly set as 'active' with 'pending' processing_status for Celery processing
+
+### Supabase Auth System Fully Operational (August 18, 2025) 
 - **Auth System Restoration**: Successfully restored native Supabase Auth functionality after environment configuration updates
 - **Login Endpoint**: Now using native Supabase Auth API (HTTP 200 OK) instead of direct database authentication
 - **Authentication Flow**: Seamless integration with self-hosted Supabase at https://supabase.mevzuatgpt.org/auth/v1/

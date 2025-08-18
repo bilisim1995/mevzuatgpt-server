@@ -20,16 +20,30 @@ class SupabaseClient:
     async def create_document(self, doc_data: dict) -> str:
         """Create a new document record"""
         try:
-            response = self.supabase.table('documents').insert({
+            # Map to actual database schema fields
+            insert_data = {
                 'title': doc_data.get('title'),
-                'filename': doc_data.get('filename'),
+                'filename': doc_data.get('filename'), 
                 'file_url': doc_data.get('file_url'),
                 'file_size': doc_data.get('file_size'),
-                'content_preview': doc_data.get('content_preview', ''),
                 'uploaded_by': doc_data.get('uploaded_by'),
-                'status': 'processing',
+                'status': 'active',  # Use 'active' instead of 'processing'
+                'processing_status': 'pending',
                 'metadata': doc_data.get('metadata', {})
-            }).execute()
+            }
+            
+            # Add optional fields from metadata if provided
+            metadata = doc_data.get('metadata', {})
+            if metadata.get('category'):
+                insert_data['category'] = metadata['category']
+            if metadata.get('source_institution'):
+                insert_data['institution'] = metadata['source_institution']
+            if metadata.get('description'):
+                insert_data['summary'] = metadata['description']  
+            if metadata.get('keywords'):
+                insert_data['keywords'] = metadata['keywords']
+                
+            response = self.supabase.table('documents').insert(insert_data).execute()
             
             return response.data[0]['id']
         except Exception as e:
