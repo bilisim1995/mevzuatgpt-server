@@ -97,10 +97,11 @@ A comprehensive confidence scoring mechanism includes:
 
 ### Admin Credit System Fully Operational (August 18, 2025)
 - **Admin Credit Bypass**: Admin users now have unlimited credits (999999) and bypass all credit deduction processes
-- **Database Field Mapping**: Fixed `user_profiles` query from `id` to `user_id` in credit service admin validation
+- **Database Field Mapping**: Fixed `user_profiles` query from `user_id` to `id` in credit service admin validation
 - **Credit Balance Override**: Admin users receive unlimited credit balance without requiring database records
 - **Deduction Bypass**: Admin credit deduction operations are bypassed with logging for audit trails
 - **Production Ready**: Admin accounts can perform unlimited queries without credit restrictions
+- **Column Consistency**: All services now use correct `id` column for user_profiles table queries
 
 ### Document Upload System Fixed (August 18, 2025)
 - **Authentication Issue Resolved**: Fixed user profile query from `id` to `user_id` field mapping in authentication service

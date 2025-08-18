@@ -278,10 +278,10 @@ class CreditService:
             True: Admin kullanıcı, False: Normal kullanıcı
         """
         try:
-            # user_profiles tablosundan role kontrol et
+            # user_profiles tablosundan role kontrol et (id column kullan, user_id değil)
             response = supabase_client.supabase.table('user_profiles') \
                 .select('role') \
-                .eq('user_id', user_id) \
+                .eq('id', user_id) \
                 .single() \
                 .execute()
             
