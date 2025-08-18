@@ -64,22 +64,52 @@ class SupabaseAuthService:
                 if profile_result.data:
                     logger.info(f"User profile created successfully for {user_id}")
                     
-                    # Add initial credits to new user (sync version)
+                    # Add initial credits to new user (sync version - direct database insert)
                     try:
-                        import asyncio
-                        from services.credit_service import CreditService
-                        credit_service = CreditService()
+                        # Direct credit insertion without async complications
+                        initial_credit_amount = 30
                         
-                        # Run the async function synchronously
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        result = loop.run_until_complete(credit_service.add_initial_credits(user_id))
-                        loop.close()
+                        # Check if user already has credits
+                        existing_credits = self.supabase.service_client.table('user_credits') \
+                            .select('id') \
+                            .eq('user_uuid', user_id) \
+                            .limit(1) \
+                            .execute()
                         
-                        if result:
-                            logger.info(f"Initial credits added for new user {user_id}")
+                        if not existing_credits.data:
+                            # Add initial credit transaction
+                            transaction_data = {
+                                'user_uuid': user_id,
+                                'transaction_type': 'registration_bonus',
+                                'amount': initial_credit_amount,
+                                'balance_after': initial_credit_amount,
+                                'description': 'İlk kayıt kredisi'
+                            }
+                            
+                            credit_result = self.supabase.service_client.table('user_credits') \
+                                .insert(transaction_data) \
+                                .execute()
+                            
+                            if credit_result.data:
+                                # Also update balance table
+                                balance_data = {
+                                    'user_uuid': user_id,
+                                    'current_balance': initial_credit_amount
+                                }
+                                
+                                balance_result = self.supabase.service_client.table('user_credit_balance') \
+                                    .insert(balance_data) \
+                                    .execute()
+                                
+                                if balance_result.data:
+                                    logger.info(f"Initial credits ({initial_credit_amount}) added for new user {user_id}")
+                                else:
+                                    logger.warning(f"Credit transaction saved but balance update failed for {user_id}")
+                            else:
+                                logger.warning(f"Failed to save initial credit transaction for {user_id}")
                         else:
-                            logger.warning(f"Initial credits could not be added for {user_id}")
+                            logger.info(f"User {user_id} already has credits, skipping initial credit")
+                            
                     except Exception as credit_error:
                         logger.error(f"Failed to add initial credits for {user_id}: {credit_error}")
                         # Don't fail registration, just log error
