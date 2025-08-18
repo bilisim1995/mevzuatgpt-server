@@ -92,6 +92,7 @@ A comprehensive confidence scoring mechanism includes:
 - **Profile Creation Streamlined**: Temporarily disabled user_profiles table insert to avoid schema conflicts  
 - **Authentication Flow Simplified**: Both registration and login now work without non-existent column dependencies
 - **Production Ready**: Registration endpoint returning HTTP 200 with proper JWT tokens and user responses
+- **Column Mapping Fixed**: All authentication services now use correct `id` column instead of non-existent `user_id` column
 
 ### Admin Credit System Fully Operational (August 18, 2025)
 - **Admin Credit Bypass**: Admin users now have unlimited credits (999999) and bypass all credit deduction processes

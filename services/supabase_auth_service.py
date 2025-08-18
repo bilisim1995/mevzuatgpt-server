@@ -49,6 +49,7 @@ class SupabaseAuthService:
             # Create user profile in user_profiles table using correct column name (id, not user_id)
             profile_data = {
                 "id": user_id,  # Use id column instead of user_id
+                "email": user_data.email,  # Add email field (required)
                 "full_name": user_data.full_name,
                 "role": getattr(user_data, 'role', 'user')
             }
@@ -190,23 +191,23 @@ class SupabaseAuthService:
     async def get_user_by_id(self, user_id: str) -> Optional[UserResponse]:
         """Get user by ID from user_profiles table"""
         try:
-            # Get profile data from user_profiles table using user_id (not id)
-            profile_result = self.supabase.service_client.table("user_profiles").select("*").eq("user_id", user_id).single().execute()
+            # Get profile data from user_profiles table using id column (not user_id)
+            profile_result = self.supabase.service_client.table("user_profiles").select("*").eq("id", user_id).single().execute()
             
             if not profile_result.data:
-                logger.warning(f"User profile not found for user_id: {user_id}")
+                logger.warning(f"User profile not found for id: {user_id}")
                 return None
             
             profile_data = profile_result.data
             
             return UserResponse(
-                id=profile_data.get("user_id", user_id),  # Use user_id from profile
+                id=profile_data.get("id", user_id),  # Use id from profile
                 email=profile_data.get("email", ""),
                 full_name=profile_data.get("full_name"),
-                ad=profile_data.get("ad"),
-                soyad=profile_data.get("soyad"),
-                meslek=profile_data.get("meslek"),
-                calistigi_yer=profile_data.get("calistigi_yer"),
+                ad=None,  # These fields not in current schema
+                soyad=None,
+                meslek=None,
+                calistigi_yer=None,
                 role=profile_data.get("role", "user"),
                 created_at=datetime.now()
             )
