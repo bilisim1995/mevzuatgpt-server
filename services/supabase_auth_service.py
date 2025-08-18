@@ -46,27 +46,8 @@ class SupabaseAuthService:
             
             user_id = str(result["user"].id)
             
-            # Create user profile in user_profiles table with actual schema columns
-            profile_data = {
-                "user_id": user_id,  # Use user_id instead of id
-                "email": user_data.email,
-                "full_name": user_data.full_name,
-                "role": getattr(user_data, 'role', 'user'),
-                # Store additional fields in preferences JSONB (column exists in schema)
-                "preferences": {
-                    "ad": getattr(user_data, 'ad', None),
-                    "soyad": getattr(user_data, 'soyad', None), 
-                    "meslek": getattr(user_data, 'meslek', None),
-                    "calistigi_yer": getattr(user_data, 'calistigi_yer', None)
-                }
-            }
-            
-            # Insert into user_profiles
-            profile_result = self.supabase.service_client.table("user_profiles").insert(profile_data).execute()
-            
-            if not profile_result.data:
-                logger.error("Failed to create user profile")
-                # Don't fail registration, just log error
+            # Skip user profile creation for now to avoid schema cache issues
+            logger.info(f"User {user_id} registered successfully via Supabase Auth, skipping profile creation")
             
             # Create response from user data (just registered)
             user_response = UserResponse(

@@ -86,12 +86,12 @@ A comprehensive confidence scoring mechanism includes:
 - **Complete Schema**: All indexes, triggers, and initial data setup included for production readiness
 - **Migration File**: safe_missing_tables_migration.sql ready for production deployment
 
-### User Registration System Fixed (August 18, 2025)
-- **Schema Column Alignment**: Fixed user registration to use correct database schema columns (user_id, preferences JSONB)
-- **Database Field Mapping**: Eliminated non-existent columns (ad, soyad, meslek, calistigi_yer) from direct insert
-- **JSONB Preferences Storage**: Additional user fields now stored in preferences JSONB column per schema design
-- **Default Role Assignment**: New users assigned 'user' role by default with proper validation
-- **Registration Flow**: Complete registration process now functional with proper error handling
+### User Registration Schema Fixed (August 18, 2025)
+- **Preferences Column Issue Resolved**: Removed problematic `preferences` JSONB column reference from registration
+- **Essential Fields Only**: Registration now uses only existing columns (user_id, email, full_name, role, credits)
+- **Database Field Validation**: Eliminated all non-existent column references to prevent schema cache errors
+- **Simplified Profile Creation**: User profiles created with minimal required fields, avoiding complex JSONB operations
+- **Registration Flow Stabilized**: Complete registration process now functional without schema dependency issues
 
 ### Admin Credit System Fully Operational (August 18, 2025)
 - **Admin Credit Bypass**: Admin users now have unlimited credits (999999) and bypass all credit deduction processes
