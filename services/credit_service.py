@@ -270,7 +270,7 @@ class CreditService:
             # user_profiles tablosundan role kontrol et
             response = supabase_client.supabase.table('user_profiles') \
                 .select('role') \
-                .eq('id', user_id) \
+                .eq('user_id', user_id) \
                 .single() \
                 .execute()
             
