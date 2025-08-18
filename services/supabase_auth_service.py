@@ -64,12 +64,22 @@ class SupabaseAuthService:
                 if profile_result.data:
                     logger.info(f"User profile created successfully for {user_id}")
                     
-                    # Add initial credits to new user
+                    # Add initial credits to new user (sync version)
                     try:
+                        import asyncio
                         from services.credit_service import CreditService
                         credit_service = CreditService()
-                        await credit_service.add_initial_credits(user_id)
-                        logger.info(f"Initial credits added for new user {user_id}")
+                        
+                        # Run the async function synchronously
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        result = loop.run_until_complete(credit_service.add_initial_credits(user_id))
+                        loop.close()
+                        
+                        if result:
+                            logger.info(f"Initial credits added for new user {user_id}")
+                        else:
+                            logger.warning(f"Initial credits could not be added for {user_id}")
                     except Exception as credit_error:
                         logger.error(f"Failed to add initial credits for {user_id}: {credit_error}")
                         # Don't fail registration, just log error

@@ -217,10 +217,10 @@ class CreditService:
                 logger.info(f"Kullanıcı zaten kredi almış: {user_id}")
                 return True
             
-            # İlk kredi transaction'ını kaydet
+            # İlk kredi transaction'ını kaydet (transaction_type 'credit' kullan)
             transaction_data = {
                 'user_id': user_id,
-                'transaction_type': 'initial',
+                'transaction_type': 'credit',
                 'amount': self.initial_credit_amount,
                 'balance_after': self.initial_credit_amount,
                 'description': 'İlk kayıt kredisi'
