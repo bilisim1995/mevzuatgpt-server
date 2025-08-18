@@ -46,16 +46,19 @@ class SupabaseAuthService:
             
             user_id = str(result["user"].id)
             
-            # Create user profile in user_profiles table
+            # Create user profile in user_profiles table with actual schema columns
             profile_data = {
-                "id": user_id,
+                "user_id": user_id,  # Use user_id instead of id
                 "email": user_data.email,
                 "full_name": user_data.full_name,
-                "ad": user_data.ad,
-                "soyad": user_data.soyad,
-                "meslek": user_data.meslek,
-                "calistigi_yer": user_data.calistigi_yer,
-                "role": getattr(user_data, 'role', 'user')
+                "role": getattr(user_data, 'role', 'user'),
+                # Store additional fields in preferences JSONB (column exists in schema)
+                "preferences": {
+                    "ad": getattr(user_data, 'ad', None),
+                    "soyad": getattr(user_data, 'soyad', None), 
+                    "meslek": getattr(user_data, 'meslek', None),
+                    "calistigi_yer": getattr(user_data, 'calistigi_yer', None)
+                }
             }
             
             # Insert into user_profiles
@@ -65,15 +68,15 @@ class SupabaseAuthService:
                 logger.error("Failed to create user profile")
                 # Don't fail registration, just log error
             
-            # Create response from profile data
+            # Create response from user data (just registered)
             user_response = UserResponse(
                 id=user_id,
                 email=user_data.email,
                 full_name=user_data.full_name,
-                ad=user_data.ad,
-                soyad=user_data.soyad,
-                meslek=user_data.meslek,
-                calistigi_yer=user_data.calistigi_yer,
+                ad=getattr(user_data, 'ad', None),
+                soyad=getattr(user_data, 'soyad', None), 
+                meslek=getattr(user_data, 'meslek', None),
+                calistigi_yer=getattr(user_data, 'calistigi_yer', None),
                 role=getattr(user_data, 'role', 'user'),
                 created_at=datetime.now()
             )
@@ -135,15 +138,16 @@ class SupabaseAuthService:
                     logger.warning(f"Failed to get user profile via REST, using defaults: {e}")
                     profile_data = {}
             
-            # Create response from profile data
+            # Create response from profile data with preferences fallback
+            preferences = profile_data.get("preferences", {}) if isinstance(profile_data.get("preferences"), dict) else {}
             user_response = UserResponse(
                 id=user_id,
                 email=user_email,
                 full_name=profile_data.get("full_name"),
-                ad=profile_data.get("ad"),
-                soyad=profile_data.get("soyad"),
-                meslek=profile_data.get("meslek"),
-                calistigi_yer=profile_data.get("calistigi_yer"),
+                ad=preferences.get("ad"),
+                soyad=preferences.get("soyad"),
+                meslek=preferences.get("meslek"),
+                calistigi_yer=preferences.get("calistigi_yer"),
                 role=profile_data.get("role", "user"),
                 created_at=datetime.now()
             )

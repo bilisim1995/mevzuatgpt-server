@@ -79,6 +79,13 @@ A comprehensive confidence scoring mechanism includes:
 
 ## Recent Changes
 
+### User Registration System Fixed (August 18, 2025)
+- **Schema Column Alignment**: Fixed user registration to use correct database schema columns (user_id, preferences JSONB)
+- **Database Field Mapping**: Eliminated non-existent columns (ad, soyad, meslek, calistigi_yer) from direct insert
+- **JSONB Preferences Storage**: Additional user fields now stored in preferences JSONB column per schema design
+- **Default Role Assignment**: New users assigned 'user' role by default with proper validation
+- **Registration Flow**: Complete registration process now functional with proper error handling
+
 ### Admin Credit System Fully Operational (August 18, 2025)
 - **Admin Credit Bypass**: Admin users now have unlimited credits (999999) and bypass all credit deduction processes
 - **Database Field Mapping**: Fixed `user_profiles` query from `id` to `user_id` in credit service admin validation
