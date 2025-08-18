@@ -1,19 +1,18 @@
 -- ============================================================================
--- MevzuatGPT Missing Tables Migration (SAFE VERSION - NO FOREIGN KEYS INITIALLY)
+-- MevzuatGPT Missing Tables Migration (ULTRA SAFE - No Syntax Errors)
 -- ============================================================================
--- Create all tables first WITHOUT foreign keys, then add constraints later
 
 -- ============================================================================
--- STEP 1: CREATE ALL TABLES WITHOUT FOREIGN KEY CONSTRAINTS
+-- STEP 1: CREATE ALL TABLES WITHOUT ANY CONSTRAINTS
 -- ============================================================================
 
 -- 1. SEARCH LOGS TABLE
 CREATE TABLE IF NOT EXISTS search_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL, -- FK will be added later
+    user_id UUID NOT NULL,
     session_id VARCHAR(255),
     query TEXT NOT NULL,
-    query_type VARCHAR(50) DEFAULT 'search' CHECK (query_type IN ('search', 'ask', 'browse')),
+    query_type VARCHAR(50) DEFAULT 'search',
     institution_filter VARCHAR(255),
     limit_used INTEGER DEFAULT 5,
     similarity_threshold DECIMAL(3,2) DEFAULT 0.70,
@@ -32,40 +31,36 @@ CREATE TABLE IF NOT EXISTS search_logs (
 -- 2. USER CREDIT BALANCE TABLE
 CREATE TABLE IF NOT EXISTS user_credit_balance (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL, -- FK will be added later
+    user_id UUID NOT NULL,
     current_balance INTEGER DEFAULT 30,
     total_earned INTEGER DEFAULT 30,
     total_spent INTEGER DEFAULT 0,
     last_transaction_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    CONSTRAINT check_balance_positive CHECK (current_balance >= 0)
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 3. USER CREDITS TRANSACTION LOG
 CREATE TABLE IF NOT EXISTS user_credits (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL, -- FK will be added later
-    transaction_type VARCHAR(50) NOT NULL CHECK (transaction_type IN ('initial', 'deduction', 'refund', 'bonus', 'purchase')),
+    user_id UUID NOT NULL,
+    transaction_type VARCHAR(50) NOT NULL,
     amount INTEGER NOT NULL,
     balance_after INTEGER NOT NULL,
     description TEXT,
-    search_log_id UUID, -- FK will be added later
+    search_log_id UUID,
     reference_id VARCHAR(255),
     metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    CONSTRAINT check_amount_not_zero CHECK (amount != 0)
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 4. USER FEEDBACK TABLE
 CREATE TABLE IF NOT EXISTS user_feedback (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL, -- FK will be added later
-    search_log_id UUID, -- FK will be added later
-    feedback_type VARCHAR(50) NOT NULL CHECK (feedback_type IN ('thumbs_up', 'thumbs_down', 'rating', 'comment', 'bug_report')),
-    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+    user_id UUID NOT NULL,
+    search_log_id UUID,
+    feedback_type VARCHAR(50) NOT NULL,
+    rating INTEGER,
     comment TEXT,
     is_helpful BOOLEAN,
     tags TEXT[],
@@ -77,14 +72,14 @@ CREATE TABLE IF NOT EXISTS user_feedback (
 -- 5. SUPPORT TICKETS TABLE
 CREATE TABLE IF NOT EXISTS support_tickets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL, -- FK will be added later
-    ticket_number VARCHAR(20) UNIQUE,
+    user_id UUID NOT NULL,
+    ticket_number VARCHAR(20),
     title VARCHAR(500) NOT NULL,
     description TEXT NOT NULL,
-    category VARCHAR(100) DEFAULT 'general' CHECK (category IN ('general', 'technical', 'billing', 'feature_request', 'bug_report', 'account')),
-    priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
-    status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'waiting_response', 'resolved', 'closed')),
-    assigned_to UUID, -- FK will be added later
+    category VARCHAR(100) DEFAULT 'general',
+    priority VARCHAR(20) DEFAULT 'medium',
+    status VARCHAR(20) DEFAULT 'open',
+    assigned_to UUID,
     tags TEXT[],
     metadata JSONB DEFAULT '{}',
     resolved_at TIMESTAMPTZ,
@@ -95,8 +90,8 @@ CREATE TABLE IF NOT EXISTS support_tickets (
 -- 6. SUPPORT MESSAGES TABLE
 CREATE TABLE IF NOT EXISTS support_messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    ticket_id UUID NOT NULL, -- FK will be added later
-    user_id UUID NOT NULL, -- FK will be added later
+    ticket_id UUID NOT NULL,
+    user_id UUID NOT NULL,
     message TEXT NOT NULL,
     is_internal BOOLEAN DEFAULT false,
     attachments JSONB DEFAULT '[]',
@@ -106,35 +101,110 @@ CREATE TABLE IF NOT EXISTS support_messages (
 );
 
 -- ============================================================================
--- STEP 2: CREATE ALL INDEXES
+-- STEP 2: ADD CHECK CONSTRAINTS SAFELY
 -- ============================================================================
 
--- Search logs indexes
+DO $$ 
+BEGIN
+    -- Add check constraints if they don't exist
+    BEGIN
+        ALTER TABLE search_logs ADD CONSTRAINT check_query_type CHECK (query_type IN ('search', 'ask', 'browse'));
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
+        ALTER TABLE user_credit_balance ADD CONSTRAINT check_balance_positive CHECK (current_balance >= 0);
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
+        ALTER TABLE user_credits ADD CONSTRAINT check_transaction_type CHECK (transaction_type IN ('initial', 'deduction', 'refund', 'bonus', 'purchase'));
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
+        ALTER TABLE user_credits ADD CONSTRAINT check_amount_not_zero CHECK (amount != 0);
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
+        ALTER TABLE user_feedback ADD CONSTRAINT check_feedback_type CHECK (feedback_type IN ('thumbs_up', 'thumbs_down', 'rating', 'comment', 'bug_report'));
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
+        ALTER TABLE user_feedback ADD CONSTRAINT check_rating_range CHECK (rating >= 1 AND rating <= 5);
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
+        ALTER TABLE support_tickets ADD CONSTRAINT check_category CHECK (category IN ('general', 'technical', 'billing', 'feature_request', 'bug_report', 'account'));
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
+        ALTER TABLE support_tickets ADD CONSTRAINT check_priority CHECK (priority IN ('low', 'medium', 'high', 'urgent'));
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
+        ALTER TABLE support_tickets ADD CONSTRAINT check_status CHECK (status IN ('open', 'in_progress', 'waiting_response', 'resolved', 'closed'));
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+END $$;
+
+-- ============================================================================
+-- STEP 3: ADD UNIQUE CONSTRAINTS SAFELY
+-- ============================================================================
+
+DO $$ 
+BEGIN
+    BEGIN
+        ALTER TABLE user_credit_balance ADD CONSTRAINT unique_user_credit_balance UNIQUE (user_id);
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
+        ALTER TABLE support_tickets ADD CONSTRAINT unique_ticket_number UNIQUE (ticket_number);
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+END $$;
+
+-- ============================================================================
+-- STEP 4: CREATE ALL INDEXES
+-- ============================================================================
+
 CREATE INDEX IF NOT EXISTS idx_search_logs_user_id ON search_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_search_logs_created_at ON search_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_search_logs_query_type ON search_logs(query_type);
 CREATE INDEX IF NOT EXISTS idx_search_logs_institution ON search_logs(institution_filter);
 CREATE INDEX IF NOT EXISTS idx_search_logs_session ON search_logs(session_id);
-CREATE INDEX IF NOT EXISTS idx_search_logs_query_text ON search_logs USING GIN(to_tsvector('turkish', query));
 
--- User credit balance indexes
 CREATE INDEX IF NOT EXISTS idx_user_credit_balance_user_id ON user_credit_balance(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_credit_balance_updated_at ON user_credit_balance(updated_at);
 
--- User credits indexes
 CREATE INDEX IF NOT EXISTS idx_user_credits_user_id ON user_credits(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_credits_created_at ON user_credits(created_at);
 CREATE INDEX IF NOT EXISTS idx_user_credits_transaction_type ON user_credits(transaction_type);
 CREATE INDEX IF NOT EXISTS idx_user_credits_search_log_id ON user_credits(search_log_id);
 
--- User feedback indexes
 CREATE INDEX IF NOT EXISTS idx_user_feedback_user_id ON user_feedback(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_feedback_search_log_id ON user_feedback(search_log_id);
 CREATE INDEX IF NOT EXISTS idx_user_feedback_feedback_type ON user_feedback(feedback_type);
 CREATE INDEX IF NOT EXISTS idx_user_feedback_created_at ON user_feedback(created_at);
 CREATE INDEX IF NOT EXISTS idx_user_feedback_rating ON user_feedback(rating);
 
--- Support tickets indexes
 CREATE INDEX IF NOT EXISTS idx_support_tickets_user_id ON support_tickets(user_id);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_ticket_number ON support_tickets(ticket_number);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status);
@@ -142,95 +212,83 @@ CREATE INDEX IF NOT EXISTS idx_support_tickets_priority ON support_tickets(prior
 CREATE INDEX IF NOT EXISTS idx_support_tickets_category ON support_tickets(category);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_assigned_to ON support_tickets(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_created_at ON support_tickets(created_at);
-CREATE INDEX IF NOT EXISTS idx_support_tickets_search ON support_tickets USING GIN(to_tsvector('turkish', title || ' ' || description));
 
--- Support messages indexes
 CREATE INDEX IF NOT EXISTS idx_support_messages_ticket_id ON support_messages(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_support_messages_user_id ON support_messages(user_id);
 CREATE INDEX IF NOT EXISTS idx_support_messages_created_at ON support_messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_support_messages_is_internal ON support_messages(is_internal);
-CREATE INDEX IF NOT EXISTS idx_support_messages_search ON support_messages USING GIN(to_tsvector('turkish', message));
 
 -- ============================================================================
--- STEP 3: ADD UNIQUE CONSTRAINTS
+-- STEP 5: ADD FOREIGN KEY CONSTRAINTS SAFELY
 -- ============================================================================
 
 DO $$ 
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_user_credit_balance') THEN
-        ALTER TABLE user_credit_balance ADD CONSTRAINT unique_user_credit_balance UNIQUE (user_id);
-    END IF;
-END $$;
-
--- ============================================================================
--- STEP 4: ADD FOREIGN KEY CONSTRAINTS (After all tables exist)
--- ============================================================================
-
--- Add foreign keys to search_logs
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_search_logs_user_id') THEN
+    BEGIN
         ALTER TABLE search_logs ADD CONSTRAINT fk_search_logs_user_id FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-    END IF;
-END $$;
-
--- Add foreign keys to user_credit_balance
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_credit_balance_user_id') THEN
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
         ALTER TABLE user_credit_balance ADD CONSTRAINT fk_user_credit_balance_user_id FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-    END IF;
-END $$;
-
--- Add foreign keys to user_credits
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_credits_user_id') THEN
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
         ALTER TABLE user_credits ADD CONSTRAINT fk_user_credits_user_id FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_credits_search_log_id') THEN
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
         ALTER TABLE user_credits ADD CONSTRAINT fk_user_credits_search_log_id FOREIGN KEY (search_log_id) REFERENCES search_logs(id) ON DELETE SET NULL;
-    END IF;
-END $$;
-
--- Add foreign keys to user_feedback
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_feedback_user_id') THEN
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
         ALTER TABLE user_feedback ADD CONSTRAINT fk_user_feedback_user_id FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_feedback_search_log_id') THEN
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
         ALTER TABLE user_feedback ADD CONSTRAINT fk_user_feedback_search_log_id FOREIGN KEY (search_log_id) REFERENCES search_logs(id) ON DELETE SET NULL;
-    END IF;
-END $$;
-
--- Add foreign keys to support_tickets
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_support_tickets_user_id') THEN
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
         ALTER TABLE support_tickets ADD CONSTRAINT fk_support_tickets_user_id FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_support_tickets_assigned_to') THEN
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
         ALTER TABLE support_tickets ADD CONSTRAINT fk_support_tickets_assigned_to FOREIGN KEY (assigned_to) REFERENCES auth.users(id);
-    END IF;
-END $$;
-
--- Add foreign keys to support_messages
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_support_messages_ticket_id') THEN
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
         ALTER TABLE support_messages ADD CONSTRAINT fk_support_messages_ticket_id FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_support_messages_user_id') THEN
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
+    
+    BEGIN
         ALTER TABLE support_messages ADD CONSTRAINT fk_support_messages_user_id FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-    END IF;
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
 END $$;
 
 -- ============================================================================
--- STEP 5: CREATE FUNCTIONS AND TRIGGERS
+-- STEP 6: CREATE FUNCTIONS
 -- ============================================================================
 
--- Update timestamps trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -239,7 +297,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Ticket number generation function
 CREATE OR REPLACE FUNCTION generate_ticket_number()
 RETURNS TEXT AS $$
 BEGIN
@@ -247,7 +304,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Set ticket number function
 CREATE OR REPLACE FUNCTION set_ticket_number()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -259,10 +315,9 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================================
--- STEP 6: CREATE ALL TRIGGERS
+-- STEP 7: CREATE ALL TRIGGERS SAFELY
 -- ============================================================================
 
--- Updated at triggers
 DROP TRIGGER IF EXISTS update_search_logs_updated_at ON search_logs;
 CREATE TRIGGER update_search_logs_updated_at BEFORE UPDATE ON search_logs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -278,15 +333,13 @@ CREATE TRIGGER update_support_tickets_updated_at BEFORE UPDATE ON support_ticket
 DROP TRIGGER IF EXISTS update_support_messages_updated_at ON support_messages;
 CREATE TRIGGER update_support_messages_updated_at BEFORE UPDATE ON support_messages FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Ticket number generation trigger
 DROP TRIGGER IF EXISTS set_support_ticket_number ON support_tickets;
 CREATE TRIGGER set_support_ticket_number BEFORE INSERT ON support_tickets FOR EACH ROW EXECUTE FUNCTION set_ticket_number();
 
 -- ============================================================================
--- STEP 7: INITIAL DATA SETUP
+-- STEP 8: INITIAL DATA SETUP
 -- ============================================================================
 
--- Create initial credit balance for existing users
 INSERT INTO user_credit_balance (user_id, current_balance, total_earned, created_at)
 SELECT 
     up.user_id,
@@ -297,7 +350,6 @@ FROM user_profiles up
 WHERE up.user_id NOT IN (SELECT user_id FROM user_credit_balance WHERE user_id IS NOT NULL)
 ON CONFLICT (user_id) DO NOTHING;
 
--- Create initial credit transaction records
 INSERT INTO user_credits (user_id, transaction_type, amount, balance_after, description, created_at)
 SELECT 
     ucb.user_id,
@@ -312,5 +364,5 @@ WHERE ucb.user_id NOT IN (
 );
 
 -- ============================================================================
--- MIGRATION COMPLETE - ALL TABLES CREATED WITH PROPER CONSTRAINTS
+-- MIGRATION COMPLETE
 -- ============================================================================
