@@ -63,6 +63,16 @@ class SupabaseAuthService:
                 profile_result = self.supabase.service_client.table("user_profiles").insert(profile_data).execute()
                 if profile_result.data:
                     logger.info(f"User profile created successfully for {user_id}")
+                    
+                    # Add initial credits to new user
+                    try:
+                        from services.credit_service import CreditService
+                        credit_service = CreditService()
+                        await credit_service.add_initial_credits(user_id)
+                        logger.info(f"Initial credits added for new user {user_id}")
+                    except Exception as credit_error:
+                        logger.error(f"Failed to add initial credits for {user_id}: {credit_error}")
+                        # Don't fail registration, just log error
                 else:
                     logger.warning("Profile creation returned no data")
             except Exception as e:

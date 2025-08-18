@@ -217,7 +217,7 @@ class CreditService:
                 logger.info(f"Kullanıcı zaten kredi almış: {user_id}")
                 return True
             
-            # İlk kredi ver
+            # İlk kredi transaction'ını kaydet
             transaction_data = {
                 'user_id': user_id,
                 'transaction_type': 'initial',
@@ -226,12 +226,30 @@ class CreditService:
                 'description': 'İlk kayıt kredisi'
             }
             
+            # User credits tablosuna transaction kaydet
             response = supabase_client.supabase.table('user_credits') \
                 .insert(transaction_data) \
                 .execute()
             
             if response.data:
-                logger.info(f"Başlangıç kredisi verildi: {user_id} - {self.initial_credit_amount} kredi")
+                # User credit balance tablosuna da bakiye kaydet
+                balance_data = {
+                    'user_id': user_id,
+                    'current_balance': self.initial_credit_amount
+                }
+                
+                try:
+                    balance_response = supabase_client.supabase.table('user_credit_balance') \
+                        .insert(balance_data) \
+                        .execute()
+                    
+                    if balance_response.data:
+                        logger.info(f"Başlangıç kredisi ve bakiye verildi: {user_id} - {self.initial_credit_amount} kredi")
+                    else:
+                        logger.warning(f"Transaction kaydedildi ama balance güncellenemedi: {user_id}")
+                except Exception as balance_error:
+                    logger.error(f"Balance tablosu güncellenirken hata: {user_id} - {balance_error}")
+                
                 return True
             else:
                 logger.error(f"Başlangıç kredisi verilemedi: {user_id}")

@@ -94,6 +94,7 @@ A comprehensive confidence scoring mechanism includes:
 - **Production Ready**: Registration endpoint returning HTTP 200 with proper JWT tokens and user responses
 - **Column Mapping Fixed**: All authentication services now use correct `id` column instead of non-existent `user_id` column
 - **Complete Profile Data**: Registration now captures and stores all user profile fields in user_profiles table
+- **Initial Credits**: New users automatically receive 30 credits upon successful registration
 
 ### Admin Credit System Fully Operational (August 18, 2025)
 - **Admin Credit Bypass**: Admin users now have unlimited credits (999999) and bypass all credit deduction processes
