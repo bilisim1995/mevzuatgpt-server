@@ -48,7 +48,7 @@ class CreditService:
             
             response = supabase_client.supabase.table('user_credit_balance') \
                 .select('current_balance') \
-                .eq('user_uuid', user_id) \
+                .eq('user_id', user_id) \
                 .single() \
                 .execute()
             
@@ -129,7 +129,7 @@ class CreditService:
             
             # Transaction kaydet
             transaction_data = {
-                'user_uuid': user_id,
+                'user_id': user_id,
                 'transaction_type': 'deduction',
                 'amount': -amount,  # Negatif değer (düşüm)
                 'balance_after': new_balance,
@@ -172,7 +172,7 @@ class CreditService:
             
             # İade transaction'ı kaydet
             transaction_data = {
-                'user_uuid': user_id,
+                'user_id': user_id,
                 'transaction_type': 'refund',
                 'amount': amount,  # Pozitif değer (ekleme)
                 'balance_after': new_balance,
@@ -206,10 +206,10 @@ class CreditService:
             True: İşlem başarılı, False: İşlem başarısız
         """
         try:
-            # Daha önce kredi verilmiş mi kontrol et (user_uuid column kullan)
+            # Daha önce kredi verilmiş mi kontrol et (user_id column kullan)
             existing = supabase_client.supabase.table('user_credits') \
                 .select('id') \
-                .eq('user_uuid', user_id) \
+                .eq('user_id', user_id) \
                 .limit(1) \
                 .execute()
             
@@ -217,10 +217,10 @@ class CreditService:
                 logger.info(f"Kullanıcı zaten kredi almış: {user_id}")
                 return True
             
-            # İlk kredi transaction'ını kaydet (user_uuid column kullan)
+            # İlk kredi transaction'ını kaydet (user_id column kullan)
             transaction_data = {
-                'user_uuid': user_id,
-                'transaction_type': 'registration_bonus',
+                'user_id': user_id,
+                'transaction_type': 'credit',
                 'amount': self.initial_credit_amount,
                 'balance_after': self.initial_credit_amount,
                 'description': 'İlk kayıt kredisi'
@@ -232,9 +232,9 @@ class CreditService:
                 .execute()
             
             if response.data:
-                # User credit balance tablosuna da bakiye kaydet (user_uuid column kullan)
+                # User credit balance tablosuna da bakiye kaydet (user_id column kullan)
                 balance_data = {
-                    'user_uuid': user_id,
+                    'user_id': user_id,
                     'current_balance': self.initial_credit_amount
                 }
                 
@@ -273,7 +273,7 @@ class CreditService:
         try:
             response = supabase_client.supabase.table('user_credits') \
                 .select('*') \
-                .eq('user_uuid', user_id) \
+                .eq('user_id', user_id) \
                 .order('created_at', desc=True) \
                 .limit(limit) \
                 .execute()
@@ -332,7 +332,7 @@ class CreditService:
             # İstatistikler
             stats_response = supabase_client.supabase.table('user_credits') \
                 .select('transaction_type, amount') \
-                .eq('user_uuid', user_id) \
+                .eq('user_id', user_id) \
                 .execute()
             
             total_spent = 0

@@ -72,43 +72,34 @@ class SupabaseAuthService:
                         # Check if user already has credits
                         existing_credits = self.supabase.service_client.table('user_credits') \
                             .select('id') \
-                            .eq('user_uuid', user_id) \
+                            .eq('user_id', user_id) \
                             .limit(1) \
                             .execute()
                         
-                        if not existing_credits.data:
-                            # Add initial credit transaction
-                            transaction_data = {
-                                'user_uuid': user_id,
-                                'transaction_type': 'registration_bonus',
-                                'amount': initial_credit_amount,
-                                'balance_after': initial_credit_amount,
-                                'description': 'İlk kayıt kredisi'
+                        # Skip complex transaction recording, just set balance directly
+                        existing_balance = self.supabase.service_client.table('user_credit_balance') \
+                            .select('id') \
+                            .eq('user_id', user_id) \
+                            .limit(1) \
+                            .execute()
+                        
+                        if not existing_balance.data:
+                            # Direct balance insert for initial credits
+                            balance_data = {
+                                'user_id': user_id,
+                                'current_balance': initial_credit_amount
                             }
                             
-                            credit_result = self.supabase.service_client.table('user_credits') \
-                                .insert(transaction_data) \
+                            balance_result = self.supabase.service_client.table('user_credit_balance') \
+                                .insert(balance_data) \
                                 .execute()
                             
-                            if credit_result.data:
-                                # Also update balance table
-                                balance_data = {
-                                    'user_uuid': user_id,
-                                    'current_balance': initial_credit_amount
-                                }
-                                
-                                balance_result = self.supabase.service_client.table('user_credit_balance') \
-                                    .insert(balance_data) \
-                                    .execute()
-                                
-                                if balance_result.data:
-                                    logger.info(f"Initial credits ({initial_credit_amount}) added for new user {user_id}")
-                                else:
-                                    logger.warning(f"Credit transaction saved but balance update failed for {user_id}")
+                            if balance_result.data:
+                                logger.info(f"Initial credits ({initial_credit_amount}) balance set for new user {user_id}")
                             else:
-                                logger.warning(f"Failed to save initial credit transaction for {user_id}")
+                                logger.warning(f"Failed to set initial credit balance for {user_id}")
                         else:
-                            logger.info(f"User {user_id} already has credits, skipping initial credit")
+                            logger.info(f"User {user_id} already has credit balance, skipping initial credit")
                             
                     except Exception as credit_error:
                         logger.error(f"Failed to add initial credits for {user_id}: {credit_error}")
