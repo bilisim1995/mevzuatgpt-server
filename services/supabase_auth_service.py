@@ -119,16 +119,15 @@ class SupabaseAuthService:
                     logger.warning(f"Failed to get user profile via REST, using defaults: {e}")
                     profile_data = {}
             
-            # Create response from profile data with preferences fallback
-            preferences = profile_data.get("preferences", {}) if isinstance(profile_data.get("preferences"), dict) else {}
+            # Create response from profile data (no preferences field)
             user_response = UserResponse(
                 id=user_id,
                 email=user_email,
                 full_name=profile_data.get("full_name"),
-                ad=preferences.get("ad"),
-                soyad=preferences.get("soyad"),
-                meslek=preferences.get("meslek"),
-                calistigi_yer=preferences.get("calistigi_yer"),
+                ad=None,  # These fields not in current schema
+                soyad=None,
+                meslek=None,
+                calistigi_yer=None,
                 role=profile_data.get("role", "user"),
                 created_at=datetime.now()
             )
