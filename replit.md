@@ -79,6 +79,13 @@ A comprehensive confidence scoring mechanism includes:
 
 ## Recent Changes
 
+### Missing Database Tables Migration Created (August 18, 2025)
+- **Safe Migration Strategy**: Created tables without foreign keys first, then added constraints to avoid dependency errors
+- **Legacy Compatibility Tables**: Added search_logs, user_credit_balance, user_credits, user_feedback, support_tickets, support_messages
+- **Foreign Key Management**: Used DO blocks to conditionally add foreign keys only if they don't exist
+- **Complete Schema**: All indexes, triggers, and initial data setup included for production readiness
+- **Migration File**: safe_missing_tables_migration.sql ready for production deployment
+
 ### User Registration System Fixed (August 18, 2025)
 - **Schema Column Alignment**: Fixed user registration to use correct database schema columns (user_id, preferences JSONB)
 - **Database Field Mapping**: Eliminated non-existent columns (ad, soyad, meslek, calistigi_yer) from direct insert
