@@ -190,17 +190,17 @@ class SupabaseAuthService:
     async def get_user_by_id(self, user_id: str) -> Optional[UserResponse]:
         """Get user by ID from user_profiles table"""
         try:
-            # Get profile data from user_profiles table
-            profile_result = self.supabase.service_client.table("user_profiles").select("*").eq("id", user_id).single().execute()
+            # Get profile data from user_profiles table using user_id (not id)
+            profile_result = self.supabase.service_client.table("user_profiles").select("*").eq("user_id", user_id).single().execute()
             
             if not profile_result.data:
-                logger.warning(f"User profile not found: {user_id}")
+                logger.warning(f"User profile not found for user_id: {user_id}")
                 return None
             
             profile_data = profile_result.data
             
             return UserResponse(
-                id=profile_data.get("id", user_id),
+                id=profile_data.get("user_id", user_id),  # Use user_id from profile
                 email=profile_data.get("email", ""),
                 full_name=profile_data.get("full_name"),
                 ad=profile_data.get("ad"),
