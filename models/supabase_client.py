@@ -20,7 +20,7 @@ class SupabaseClient:
     async def create_document(self, doc_data: dict) -> str:
         """Create a new document record"""
         try:
-            response = self.supabase.table('mevzuat_documents').insert({
+            response = self.supabase.table('documents').insert({
                 'title': doc_data.get('title'),
                 'filename': doc_data.get('filename'),
                 'file_url': doc_data.get('file_url'),
@@ -39,7 +39,7 @@ class SupabaseClient:
     async def get_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
         """Get document by ID"""
         try:
-            response = self.supabase.table('mevzuat_documents').select('*').eq('id', doc_id).execute()
+            response = self.supabase.table('documents').select('*').eq('id', doc_id).execute()
             return response.data[0] if response.data else None
         except Exception as e:
             print(f"Get document error: {e}")
@@ -52,7 +52,7 @@ class SupabaseClient:
             if error:
                 update_data['processing_error'] = error
                 
-            response = self.supabase.table('mevzuat_documents').update(update_data).eq('id', doc_id).execute()
+            response = self.supabase.table('documents').update(update_data).eq('id', doc_id).execute()
             return response.data[0] if response.data else None
         except Exception as e:
             print(f"Update document status error: {e}")

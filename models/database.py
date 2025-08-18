@@ -33,7 +33,7 @@ class User(Base):
 
 class Document(Base):
     """Document model for storing PDF metadata and processing status"""
-    __tablename__ = "mevzuat_documents"
+    __tablename__ = "documents"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(Text, nullable=False)
