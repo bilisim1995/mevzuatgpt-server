@@ -1,10 +1,11 @@
 -- ============================================================================
--- MevzuatGPT Missing Tables Migration
+-- MevzuatGPT Missing Tables Migration (FIXED VERSION)
 -- ============================================================================
 -- Adding missing tables from old database schema to ensure compatibility
+-- FIXED: Removed invalid column references
 
 -- ============================================================================
--- 1. SEARCH LOGS TABLE (replaces search_history for better compatibility)
+-- 1. SEARCH LOGS TABLE (replaces search_history for better compatibility)  
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS search_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -120,7 +121,7 @@ CREATE INDEX IF NOT EXISTS idx_user_feedback_rating ON user_feedback(rating);
 CREATE TABLE IF NOT EXISTS support_tickets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    ticket_number VARCHAR(20) UNIQUE NOT NULL,
+    ticket_number VARCHAR(20) UNIQUE NOT NULL DEFAULT '',
     title VARCHAR(500) NOT NULL,
     description TEXT NOT NULL,
     category VARCHAR(100) DEFAULT 'general' CHECK (category IN ('general', 'technical', 'billing', 'feature_request', 'bug_report', 'account')),
@@ -176,7 +177,7 @@ CREATE INDEX IF NOT EXISTS idx_support_messages_search ON support_messages USING
 CREATE OR REPLACE FUNCTION generate_ticket_number()
 RETURNS TEXT AS $$
 BEGIN
-    RETURN 'TK-' || TO_CHAR(NOW(), 'YYYY') || '-' || LPAD(EXTRACT(DOY FROM NOW())::TEXT, 3, '0') || '-' || LPAD(FLOOR(EXTRACT(EPOCH FROM NOW()) % 86400)::TEXT, 5, '0');
+    RETURN 'TK-' || TO_CHAR(NOW(), 'YYYY') || '-' || LPAD(EXTRACT(DOY FROM NOW())::TEXT, 3, '0') || '-' || LPAD((RANDOM() * 99999)::INT::TEXT, 5, '0');
 END;
 $$ LANGUAGE plpgsql;
 
@@ -194,27 +195,37 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply triggers to tables with updated_at columns
+DROP TRIGGER IF EXISTS update_search_logs_updated_at ON search_logs;
 CREATE TRIGGER update_search_logs_updated_at BEFORE UPDATE ON search_logs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_user_credit_balance_updated_at ON user_credit_balance;
 CREATE TRIGGER update_user_credit_balance_updated_at BEFORE UPDATE ON user_credit_balance FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_user_feedback_updated_at ON user_feedback;
 CREATE TRIGGER update_user_feedback_updated_at BEFORE UPDATE ON user_feedback FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_support_tickets_updated_at ON support_tickets;
 CREATE TRIGGER update_support_tickets_updated_at BEFORE UPDATE ON support_tickets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_support_messages_updated_at ON support_messages;
 CREATE TRIGGER update_support_messages_updated_at BEFORE UPDATE ON support_messages FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Auto-generate ticket number trigger
 CREATE OR REPLACE FUNCTION set_ticket_number()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.ticket_number IS NULL THEN
+    IF NEW.ticket_number IS NULL OR NEW.ticket_number = '' THEN
         NEW.ticket_number := generate_ticket_number();
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS set_support_ticket_number ON support_tickets;
 CREATE TRIGGER set_support_ticket_number BEFORE INSERT ON support_tickets FOR EACH ROW EXECUTE FUNCTION set_ticket_number();
 
 -- ============================================================================
--- 9. INITIAL DATA SETUP
+-- 9. INITIAL DATA SETUP (Safe - uses IF EXISTS checks)
 -- ============================================================================
 
 -- Create initial credit balance for existing users (if any)
@@ -225,7 +236,7 @@ SELECT
     COALESCE(up.credits, 30) as total_earned,
     NOW()
 FROM user_profiles up
-WHERE up.user_id NOT IN (SELECT user_id FROM user_credit_balance)
+WHERE up.user_id NOT IN (SELECT user_id FROM user_credit_balance WHERE user_id IS NOT NULL)
 ON CONFLICT (user_id) DO NOTHING;
 
 -- Create initial credit transaction records for existing balances
@@ -239,7 +250,7 @@ SELECT
     ucb.created_at
 FROM user_credit_balance ucb
 WHERE ucb.user_id NOT IN (
-    SELECT DISTINCT user_id FROM user_credits WHERE transaction_type = 'initial'
+    SELECT DISTINCT user_id FROM user_credits WHERE transaction_type = 'initial' AND user_id IS NOT NULL
 );
 
 -- ============================================================================
@@ -248,7 +259,7 @@ WHERE ucb.user_id NOT IN (
 
 -- Verification queries (commented out for production)
 -- SELECT 'search_logs' as table_name, count(*) as row_count FROM search_logs
--- UNION ALL SELECT 'user_credit_balance', count(*) FROM user_credit_balance
+-- UNION ALL SELECT 'user_credit_balance', count(*) FROM user_credit_balance  
 -- UNION ALL SELECT 'user_credits', count(*) FROM user_credits
 -- UNION ALL SELECT 'user_feedback', count(*) FROM user_feedback
 -- UNION ALL SELECT 'support_tickets', count(*) FROM support_tickets
