@@ -133,6 +133,7 @@ class QueryService:
                 
                 search_results = await self.search_service.semantic_search(
                     query=query,
+                    query_embedding=query_embedding,
                     limit=limit,
                     similarity_threshold=similarity_threshold,
                     category_filter=None,

@@ -86,6 +86,16 @@ A comprehensive confidence scoring mechanism includes:
 - **Complete Schema**: All indexes, triggers, and initial data setup included for production readiness
 - **Migration File**: safe_missing_tables_migration.sql ready for production deployment
 
+### Advanced Query Filtering System Implemented (August 19, 2025)
+- **ENHANCED ASK ENDPOINT**: `/ask` endpoint now supports comprehensive filtering parameters for precise search control
+- **Filter Parameters**: institution_filter, limit (1-20), similarity_threshold (0.3-1.0), use_cache (true/false)
+- **Dynamic Limiting**: Configurable result limits from 1-20 documents per query for performance optimization
+- **Similarity Control**: Adjustable similarity thresholds (0.3-1.0) for precision vs recall balance
+- **Cache Management**: Optional cache bypass for fresh results or cache utilization for performance
+- **Institution Filtering**: Pre-filtering by institution name for targeted document searches
+- **Backward Compatibility**: All filters optional - works with simple query-only requests
+- **Production Tested**: Verified with cache_used:false, total_chunks_found variations, and reliability scoring integration
+
 ### Reliability Scoring System Fully Operational (August 19, 2025)
 - **BREAKTHROUGH**: Comprehensive reliability scoring system now fully functional with detailed confidence analysis
 - **4-Criteria Scoring**: Source reliability (30%), content consistency (25%), technical accuracy (25%), currency (20%)
