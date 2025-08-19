@@ -1,7 +1,7 @@
 # MevzuatGPT
 
 ## Overview
-MevzuatGPT is a production-ready RAG (Retrieval-Augmented Generation) system designed for legal document processing and semantic search. It allows admin users to upload legal PDF documents, which are then processed, vectorized, and made searchable through AI-powered queries. The system provides comprehensive document management with role-based access control, supporting both document search and intelligent question-answering capabilities. It functions as a legal research assistant, enabling users to query complex legal documents in natural language and receive contextually relevant answers with source attribution and confidence scoring.
+MevzuatGPT is a production-ready RAG (Retrieval-Augmented Generation) system for legal document processing and semantic search. It allows admin users to upload legal PDF documents, which are then processed, vectorized, and made searchable through AI-powered queries. The system provides comprehensive document management with role-based access control, supporting both document search and intelligent question-answering capabilities. It functions as a legal research assistant, enabling users to query complex legal documents in natural language and receive contextually relevant answers with source attribution and confidence scoring.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -48,6 +48,9 @@ A comprehensive confidence scoring mechanism includes:
 -   Technical Accuracy Assessment.
 -   Currency Evaluation.
 
+### UI/UX Decisions
+The system supports a support ticket system, user credit management, and advanced query filtering. AI responses are enhanced for length and creativity, with a focus on detailed legal analysis. PDF URL source attribution is integrated for direct document access.
+
 ## External Dependencies
 
 ### AI and Machine Learning Services
@@ -64,7 +67,6 @@ A comprehensive confidence scoring mechanism includes:
 
 ### Background Processing
 -   **Celery**: Distributed task queue for document processing workflows.
--   **Redis**: Message broker and result backend for Celery workers.
 
 ### Document Processing Libraries
 -   **pdfplumber**: Primary PDF text extraction library.
@@ -76,100 +78,3 @@ A comprehensive confidence scoring mechanism includes:
 -   **SQLAlchemy**: Async ORM for database operations.
 -   **Pydantic**: Data validation and serialization.
 -   **asyncpg**: High-performance PostgreSQL driver.
-
-## Recent Changes
-
-### Missing Database Tables Migration Created (August 18, 2025)
-- **Safe Migration Strategy**: Created tables without foreign keys first, then added constraints to avoid dependency errors
-- **Legacy Compatibility Tables**: Added search_logs, user_credit_balance, user_credits, user_feedback, support_tickets, support_messages
-- **Foreign Key Management**: Used DO blocks to conditionally add foreign keys only if they don't exist
-- **Complete Schema**: All indexes, triggers, and initial data setup included for production readiness
-- **Migration File**: safe_missing_tables_migration.sql ready for production deployment
-
-### Advanced Query Filtering System Implemented (August 19, 2025)
-- **ENHANCED ASK ENDPOINT**: `/ask` endpoint now supports comprehensive filtering parameters for precise search control
-- **Filter Parameters**: institution_filter, limit (1-20), similarity_threshold (0.3-1.0), use_cache (true/false)
-- **Dynamic Limiting**: Configurable result limits from 1-20 documents per query for performance optimization
-- **Similarity Control**: Adjustable similarity thresholds (0.3-1.0) for precision vs recall balance
-- **Cache Management**: Optional cache bypass for fresh results or cache utilization for performance
-- **Institution Filtering**: Pre-filtering by institution name for targeted document searches
-- **Backward Compatibility**: All filters optional - works with simple query-only requests
-- **Production Tested**: Verified with cache_used:false, total_chunks_found variations, and reliability scoring integration
-
-### Reliability Scoring System Fully Operational (August 19, 2025)
-- **BREAKTHROUGH**: Comprehensive reliability scoring system now fully functional with detailed confidence analysis
-- **4-Criteria Scoring**: Source reliability (30%), content consistency (25%), technical accuracy (25%), currency (20%)
-- **Parallel Processing**: Async scoring calculation with ThreadPoolExecutor for optimal performance
-- **Detailed Breakdowns**: Each criterion provides score, weight, description, and detailed explanations in Turkish
-- **Frontend Integration**: Complete `reliabilityData` JSON response with overall_score, explanation, criteria, and score_ranges
-- **Dynamic Scoring**: Adapts to different query types (high scores for document-rich queries, low for no-result queries)
-- **Performance Tracking**: Reliability calculation time tracked and reported in search_stats
-- **Exception Handling**: Robust fallback system ensures system stability even if individual scorers fail
-- **Production Tested**: Multiple query scenarios tested with scores ranging from 32/100 to 77/100 based on content quality
-
-### Complete Credit System Successfully Operational (August 19, 2025)
-- **BREAKTHROUGH**: Full credit system now completely functional with automatic allocation and proper deduction
-- **Automatic 30-Credit Registration**: New users automatically receive 30 credits upon successful registration
-- **Credit Deduction System Fixed**: Normal users now have 2 credits properly deducted per query (constraint bypass implemented)
-- **Admin Unlimited Access**: Admin users bypass all credit restrictions with unlimited credit access
-- **Database Constraint Resolution**: Overcame transaction_type constraints by implementing direct balance update approach
-- **Production Tested**: Multiple user scenarios tested and confirmed working (registration, queries, admin access)
-- **Registration Working**: User registration fully functional, returns access token and user data correctly
-- **Profile Creation Streamlined**: User profiles properly created with all user information (ad, soyad, meslek, calistigi_yer)
-- **Authentication Flow Simplified**: Both registration and login work without non-existent column dependencies
-- **Column Mapping Fixed**: All authentication services use correct `id` column instead of non-existent `user_id` column
-- **Complete Profile Data**: Registration captures and stores all user profile fields in user_profiles table
-- **Credit Balance Tracking**: Real-time credit balance updates working correctly for all user types
-
-### Admin Credit System Fully Operational (August 18, 2025)
-- **Admin Credit Bypass**: Admin users now have unlimited credits (999999) and bypass all credit deduction processes
-- **Database Field Mapping**: Fixed `user_profiles` query from `user_id` to `id` in credit service admin validation
-- **Credit Balance Override**: Admin users receive unlimited credit balance without requiring database records
-- **Deduction Bypass**: Admin credit deduction operations are bypassed with logging for audit trails
-- **Production Ready**: Admin accounts can perform unlimited queries without credit restrictions
-- **Column Consistency**: All services now use correct `id` column for user_profiles table queries
-
-### Document Upload System Fixed (August 18, 2025)
-- **Authentication Issue Resolved**: Fixed user profile query from `id` to `user_id` field mapping in authentication service
-- **Database Schema Alignment**: Updated Supabase client to use correct `documents` table instead of deprecated `mevzuat_documents`
-- **Column Mapping Fixed**: Aligned document creation with actual database schema (removed non-existent `content_preview` field)
-- **Upload Flow Optimized**: File upload to Bunny.net working, metadata properly mapped to database schema fields
-- **Processing Status**: Document status correctly set as 'active' with 'pending' processing_status for Celery processing
-
-### Supabase Auth System Fully Operational (August 18, 2025) 
-- **Auth System Restoration**: Successfully restored native Supabase Auth functionality after environment configuration updates
-- **Login Endpoint**: Now using native Supabase Auth API (HTTP 200 OK) instead of direct database authentication
-- **Authentication Flow**: Seamless integration with self-hosted Supabase at https://supabase.mevzuatgpt.org/auth/v1/
-- **Admin Access**: Full admin authentication working with admin@mevzuatgpt.com credentials
-- **Direct Database Fallback**: Maintained as backup system but no longer needed for primary authentication
-- **Production Status**: Native Supabase Auth fully operational and production-ready
-
-### Self-hosted Supabase Migration Complete (August 17, 2025)
-- **Infrastructure Migration**: Successfully migrated to self-hosted Supabase at https://supabase.mevzuatgpt.org
-- **Database Schema**: Deployed complete Elasticsearch-optimized schema with 12 tables
-- **Connection Testing**: All 5 infrastructure tests passing (Database, REST API, Auth API, Storage API, Elasticsearch)
-- **Auth System**: Fixed role-based authentication with admin user (admin@mevzuatgpt.com) properly configured
-- **Database URL**: Working connection string `postgresql://postgres.5556795:ObMevzuat2025Pas@supabase.mevzuatgpt.org:5432/postgres`
-- **Tables Deployed**: user_profiles, documents, search_history, elasticsearch_sync_log, support_tickets, support_messages, user_credits, user_credit_balance, user_feedback, maintenance_mode + monitoring views
-- **Elasticsearch Integration**: Vector operations ready at https://elastic.mevzuatgpt.org (Version 8.19.2)
-- **Production Ready**: Complete infrastructure operational with PostgreSQL for metadata and Elasticsearch for vector operations
-
-### Groq AI Response Quality Enhancement (August 16, 2025)
-- **User Request Fulfilled**: Significantly improved Groq response length and creativity for more detailed legal analysis
-- **Model Upgrade**: Switched from `llama3-8b-8192` to `llama3-70b-8192` for enhanced reasoning capabilities  
-- **Response Length Optimization**: Increased max_tokens from 1024 to 2048 tokens for comprehensive answers
-- **Creativity Parameters**: Enhanced temperature (0.1→0.3), top_p (0.85→0.9), and presence_penalty (0.3→0.6)
-- **Prompt Engineering**: Redesigned system prompt to require 200-300 word minimum responses with analytical depth
-- **Legal Analysis Focus**: Added requirements for explaining legal terms, providing context, and connecting related articles
-- **Test Results**: Achieved 214-word responses (4x improvement) with 1,751 characters of detailed legal analysis
-- **Production Ready**: Users now receive comprehensive, expert-level legal document analysis instead of brief summaries
-
-### PDF URL Source Attribution System Fixed (August 16, 2025)
-- **Critical Issue Resolved**: PDF URL null problem in search responses completely fixed 
-- **Root Cause Identified**: Enhancement service batch fetch was failing, causing all PDF URLs to return null
-- **Database Schema Fix**: Corrected database query to use `file_url` column instead of non-existent `pdf_url` column
-- **Fallback Mechanism**: Implemented robust fallback to direct database queries when batch fetch fails
-- **Enhancement Service Optimization**: Streamlined PDF URL retrieval with proper error handling and fallback paths
-- **Production Testing**: Manual tests confirm PDF URLs now correctly return: `https://cdn.mevzuatgpt.org/documents/[file-id].pdf`
-- **Search Response Quality**: All search results now include proper PDF download links for source document access
-- **Debug Cleanup**: Removed verbose logging while maintaining essential error tracking and fallback functionality

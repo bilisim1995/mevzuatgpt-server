@@ -11,35 +11,36 @@ from enum import Enum
 
 class TicketCategory(str, Enum):
     """Ticket kategorileri"""
-    TEKNIK_SORUN = "teknik_sorun"
-    HESAP_SORUNU = "hesap_sorunu"
-    OZELLIK_TALEBI = "ozellik_talebi"
-    GUVENLIK = "guvenlik"
-    FATURALANDIRMA = "faturalandirma"
-    GENEL_SORU = "genel_soru"
-    DIGER = "diger"
+    GENERAL = "general"
+    TECHNICAL = "technical"
+    BILLING = "billing"
+    FEATURE_REQUEST = "feature_request"
+    BUG_REPORT = "bug_report"
+    ACCOUNT = "account"
 
 
 class TicketPriority(str, Enum):
     """Ticket öncelik seviyeleri"""
-    DUSUK = "dusuk"
-    ORTA = "orta"
-    YUKSEK = "yuksek"
-    ACIL = "acil"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    URGENT = "urgent"
 
 
 class TicketStatus(str, Enum):
     """Ticket durum seviyeleri"""
-    ACIK = "acik"
-    CEVAPLANDI = "cevaplandi"
-    KAPATILDI = "kapatildi"
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    WAITING_RESPONSE = "waiting_response"
+    RESOLVED = "resolved"
+    CLOSED = "closed"
 
 
 class TicketCreateRequest(BaseModel):
     """Yeni ticket oluşturma isteği"""
     subject: str = Field(..., min_length=5, max_length=200, description="Ticket konusu")
     category: TicketCategory = Field(..., description="Ticket kategorisi")
-    priority: TicketPriority = Field(default=TicketPriority.ORTA, description="Ticket önceliği")
+    priority: TicketPriority = Field(default=TicketPriority.MEDIUM, description="Ticket önceliği")
     message: str = Field(..., min_length=10, description="İlk mesaj içeriği")
     
     @validator('subject')
@@ -196,19 +197,18 @@ class UnauthorizedResponse(BaseModel):
 
 # Kategori açıklamaları (UI için)
 CATEGORY_DESCRIPTIONS = {
-    TicketCategory.TEKNIK_SORUN: "PDF yükleme, sistem hataları, performans sorunları",
-    TicketCategory.HESAP_SORUNU: "Login sorunları, kredi sorunları, profil ayarları", 
-    TicketCategory.OZELLIK_TALEBI: "Yeni özellik istekleri, geliştirme önerileri",
-    TicketCategory.GUVENLIK: "Güvenlik endişeleri, şüpheli aktiviteler",
-    TicketCategory.FATURALANDIRMA: "Ödeme sorunları, fatura soruları",
-    TicketCategory.GENEL_SORU: "Genel kullanım soruları, rehberlik",
-    TicketCategory.DIGER: "Diğer konular"
+    TicketCategory.GENERAL: "Genel kullanım soruları, rehberlik",
+    TicketCategory.TECHNICAL: "PDF yükleme, sistem hataları, performans sorunları",
+    TicketCategory.BILLING: "Ödeme sorunları, fatura soruları",
+    TicketCategory.FEATURE_REQUEST: "Yeni özellik istekleri, geliştirme önerileri",
+    TicketCategory.BUG_REPORT: "Hata bildirimleri, sistem aksaklıkları",
+    TicketCategory.ACCOUNT: "Login sorunları, kredi sorunları, profil ayarları"
 }
 
 # Öncelik açıklamaları (UI için)
 PRIORITY_DESCRIPTIONS = {
-    TicketPriority.DUSUK: "Genel sorular, özellik talepleri",
-    TicketPriority.ORTA: "Standart teknik sorunlar", 
-    TicketPriority.YUKSEK: "Kritik işlevsellik sorunları",
-    TicketPriority.ACIL: "Güvenlik sorunları, sistem erişim sorunları"
+    TicketPriority.LOW: "Genel sorular, özellik talepleri",
+    TicketPriority.MEDIUM: "Standart teknik sorunlar", 
+    TicketPriority.HIGH: "Kritik işlevsellik sorunları",
+    TicketPriority.URGENT: "Güvenlik sorunları, sistem erişim sorunları"
 }

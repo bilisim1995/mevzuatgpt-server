@@ -34,13 +34,18 @@ class SupportService:
     ) -> Dict[str, Any]:
         """Yeni destek ticket'ı oluştur"""
         try:
-            # 1. Ticket oluştur
+            # 1. Ticket numarası oluştur
+            import time
+            ticket_number = f"TK{int(time.time())}{str(user_id)[:8]}"
+            
+            # 2. Ticket oluştur
             ticket_data = {
                 'user_id': str(user_id),  # UUID'yi string'e çevir
+                'ticket_number': ticket_number,
                 'subject': subject,
                 'category': category.value if isinstance(category, TicketCategory) else category,
                 'priority': priority.value if isinstance(priority, TicketPriority) else priority,
-                'status': 'acik'
+                'status': 'open'
             }
             
             ticket_response = self.supabase.table('support_tickets') \
@@ -298,7 +303,7 @@ class SupportService:
             ticket = ticket_response.data[0]
             
             # Kapalı ticket'a mesaj engellemesi
-            if ticket['status'] == 'kapatildi':
+            if ticket['status'] == 'closed':
                 return {
                     'success': False,
                     'error': 'Kapalı ticketlara mesaj eklenemez'
@@ -322,7 +327,7 @@ class SupportService:
                 }
             
             # Ticket durumunu güncelle
-            new_status = 'cevaplandi' if is_admin else 'acik'
+            new_status = 'in_progress' if is_admin else 'open'
             self.supabase.table('support_tickets') \
                 .update({'status': new_status, 'updated_at': 'now()'}) \
                 .eq('id', str(ticket_id)) \
@@ -529,9 +534,9 @@ class SupportService:
             total_tickets = len(tickets)
             
             # Durum istatistikleri
-            open_tickets = len([t for t in tickets if t['status'] == 'acik'])
-            answered_tickets = len([t for t in tickets if t['status'] == 'cevaplandi'])
-            closed_tickets = len([t for t in tickets if t['status'] == 'kapatildi'])
+            open_tickets = len([t for t in tickets if t['status'] == 'open'])
+            answered_tickets = len([t for t in tickets if t['status'] == 'in_progress'])
+            closed_tickets = len([t for t in tickets if t['status'] == 'closed'])
             
             # Kategori istatistikleri
             by_category = {}
