@@ -43,6 +43,31 @@ class TicketCreateRequest(BaseModel):
     priority: TicketPriority = Field(default=TicketPriority.MEDIUM, description="Ticket önceliği")
     message: str = Field(..., min_length=10, description="İlk mesaj içeriği")
     
+    @validator('category', pre=True)
+    def validate_category(cls, v):
+        # Türkçe -> İngilizce mapping (backward compatibility)
+        turkish_to_english = {
+            'teknik_sorun': 'technical',
+            'hesap_sorunu': 'general',  # account yerine general kullan 
+            'ozellik_talebi': 'feature_request',
+            'guvenlik': 'bug_report',
+            'faturalandirma': 'billing',
+            'genel_soru': 'general',
+            'diger': 'general'
+        }
+        return turkish_to_english.get(v, v)
+    
+    @validator('priority', pre=True)
+    def validate_priority(cls, v):
+        # Türkçe -> İngilizce mapping (backward compatibility)
+        turkish_to_english = {
+            'dusuk': 'low',
+            'orta': 'medium',
+            'yuksek': 'high',
+            'acil': 'urgent'
+        }
+        return turkish_to_english.get(v, v)
+
     @validator('subject')
     def validate_subject(cls, v):
         if not v or v.strip() == '':
