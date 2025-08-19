@@ -192,10 +192,19 @@ class QueryService:
             
             ai_time = int((time.time() - ai_start) * 1000)
             
-            # 6. Calculate confidence score based on search results
+            # 6. Calculate comprehensive confidence score with detailed breakdown
             reliability_start = time.time()
-            enhanced_confidence = self._calculate_simple_confidence(search_results, llm_response.get("answer", ""))
-            confidence_breakdown = None
+            try:
+                reliability_data = await self.reliability_service.calculate_comprehensive_confidence(
+                    search_results, llm_response.get("answer", "")
+                )
+                enhanced_confidence = reliability_data.get("confidence_score", 0.5)
+                confidence_breakdown = reliability_data.get("confidence_breakdown")
+                logger.info(f"Reliability data calculated successfully: {enhanced_confidence}")
+            except Exception as e:
+                logger.error(f"Reliability calculation failed: {e}")
+                enhanced_confidence = self._calculate_simple_confidence(search_results, llm_response.get("answer", ""))
+                confidence_breakdown = None
             reliability_time = int((time.time() - reliability_start) * 1000)
             
             # 8. Update user history and analytics
@@ -249,9 +258,9 @@ class QueryService:
                 }
             }
             
-            # Add confidence breakdown if available
+            # Add reliability data for frontend (confidence breakdown)
             if confidence_breakdown:
-                response["confidence_breakdown"] = confidence_breakdown
+                response["reliabilityData"] = confidence_breakdown
             
             logger.info(f"Ask query processed: '{query[:50]}' - {len(search_results)} sources, {pipeline_time}ms")
             

@@ -51,6 +51,8 @@ class ReliabilityService:
             Dict containing confidence score and detailed breakdown
         """
         try:
+            logger.info(f"Starting reliability calculation with {len(search_results)} results")
+            
             if use_parallel:
                 # Calculate all scores in parallel
                 scores = await self._calculate_parallel_scores(search_results, ai_answer)
@@ -58,8 +60,11 @@ class ReliabilityService:
                 # Calculate scores sequentially
                 scores = await self._calculate_sequential_scores(search_results, ai_answer)
             
+            logger.info(f"Individual scores calculated: {scores}")
+            
             # Calculate overall score
             overall_score = self._calculate_overall_score(scores)
+            logger.info(f"Overall score calculated: {overall_score}")
             
             # Generate comprehensive response
             return {
