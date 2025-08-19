@@ -6,6 +6,7 @@ Handles user registration, login, and role-based access control
 import logging
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
+from uuid import UUID
 from fastapi import HTTPException, status
 from core.supabase_client import supabase_client
 from core.security import SecurityManager
@@ -19,6 +20,20 @@ class SupabaseAuthService:
     def __init__(self):
         self.supabase = supabase_client
         self.security = SecurityManager()
+    
+    def _parse_datetime(self, date_str: Optional[str]) -> Optional[datetime]:
+        """Parse datetime string safely"""
+        if not date_str:
+            return None
+        try:
+            # Handle timezone info if present
+            if date_str.endswith('Z'):
+                date_str = date_str[:-1] + '+00:00'
+            elif '+' not in date_str and 'T' in date_str:
+                date_str = date_str + '+00:00'
+            return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        except Exception:
+            return datetime.now()
     
     async def register_user(self, user_data: UserCreate) -> Dict[str, Any]:
         """Register a new user with Supabase Auth"""
@@ -186,12 +201,13 @@ class SupabaseAuthService:
                 id=user_id,
                 email=user_email,
                 full_name=profile_data.get("full_name"),
-                ad=None,  # These fields not in current schema
-                soyad=None,
-                meslek=None,
-                calistigi_yer=None,
+                ad=profile_data.get("ad"),  # Get from database
+                soyad=profile_data.get("soyad"),
+                meslek=profile_data.get("meslek"),
+                calistigi_yer=profile_data.get("calistigi_yer"),
                 role=profile_data.get("role", "user"),
-                created_at=datetime.now()
+                created_at=self._parse_datetime(profile_data.get("created_at")) or datetime.now(),
+                updated_at=self._parse_datetime(profile_data.get("updated_at"))
             )
             
             # Generate JWT token
@@ -249,12 +265,13 @@ class SupabaseAuthService:
                 id=profile_data.get("id", user_id),  # Use id from profile
                 email=profile_data.get("email", ""),
                 full_name=profile_data.get("full_name"),
-                ad=None,  # These fields not in current schema
-                soyad=None,
-                meslek=None,
-                calistigi_yer=None,
+                ad=profile_data.get("ad"),  # Get from database
+                soyad=profile_data.get("soyad"),
+                meslek=profile_data.get("meslek"),
+                calistigi_yer=profile_data.get("calistigi_yer"),
                 role=profile_data.get("role", "user"),
-                created_at=datetime.now()
+                created_at=self._parse_datetime(profile_data.get("created_at")) or datetime.now(),
+                updated_at=self._parse_datetime(profile_data.get("updated_at"))
             )
             
         except Exception as e:
