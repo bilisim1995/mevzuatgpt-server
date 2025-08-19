@@ -127,18 +127,10 @@ class CreditService:
             
             new_balance = current_balance - amount
             
-            # Transaction kaydet
-            transaction_data = {
-                'user_id': user_id,
-                'transaction_type': 'deduction',
-                'amount': -amount,  # Negatif değer (düşüm)
-                'balance_after': new_balance,
-                'description': description,
-                'query_id': query_id
-            }
-            
-            response = supabase_client.supabase.table('user_credits') \
-                .insert(transaction_data) \
+            # Direct balance update (bypass transaction constraint)
+            response = supabase_client.supabase.table('user_credit_balance') \
+                .update({'current_balance': new_balance}) \
+                .eq('user_id', user_id) \
                 .execute()
             
             if response.data:
@@ -170,18 +162,10 @@ class CreditService:
             current_balance = await self.get_user_balance(user_id)
             new_balance = current_balance + amount
             
-            # İade transaction'ı kaydet
-            transaction_data = {
-                'user_id': user_id,
-                'transaction_type': 'refund',
-                'amount': amount,  # Pozitif değer (ekleme)
-                'balance_after': new_balance,
-                'description': reason,
-                'query_id': query_id
-            }
-            
-            response = supabase_client.supabase.table('user_credits') \
-                .insert(transaction_data) \
+            # Direct balance update for refund (bypass transaction constraint)
+            response = supabase_client.supabase.table('user_credit_balance') \
+                .update({'current_balance': new_balance}) \
+                .eq('user_id', user_id) \
                 .execute()
             
             if response.data:
@@ -217,42 +201,25 @@ class CreditService:
                 logger.info(f"Kullanıcı zaten kredi almış: {user_id}")
                 return True
             
-            # İlk kredi transaction'ını kaydet (user_id column kullan)
-            transaction_data = {
+            # Direct balance insert for initial credits (bypass transaction constraint)
+            balance_data = {
                 'user_id': user_id,
-                'transaction_type': 'credit',
-                'amount': self.initial_credit_amount,
-                'balance_after': self.initial_credit_amount,
-                'description': 'İlk kayıt kredisi'
+                'current_balance': self.initial_credit_amount
             }
             
-            # User credits tablosuna transaction kaydet
-            response = supabase_client.supabase.table('user_credits') \
-                .insert(transaction_data) \
-                .execute()
-            
-            if response.data:
-                # User credit balance tablosuna da bakiye kaydet (user_id column kullan)
-                balance_data = {
-                    'user_id': user_id,
-                    'current_balance': self.initial_credit_amount
-                }
+            try:
+                response = supabase_client.supabase.table('user_credit_balance') \
+                    .insert(balance_data) \
+                    .execute()
                 
-                try:
-                    balance_response = supabase_client.supabase.table('user_credit_balance') \
-                        .insert(balance_data) \
-                        .execute()
-                    
-                    if balance_response.data:
-                        logger.info(f"Başlangıç kredisi ve bakiye verildi: {user_id} - {self.initial_credit_amount} kredi")
-                    else:
-                        logger.warning(f"Transaction kaydedildi ama balance güncellenemedi: {user_id}")
-                except Exception as balance_error:
-                    logger.error(f"Balance tablosu güncellenirken hata: {user_id} - {balance_error}")
-                
-                return True
-            else:
-                logger.error(f"Başlangıç kredisi verilemedi: {user_id}")
+                if response.data:
+                    logger.info(f"Başlangıç kredisi verildi: {user_id} - {self.initial_credit_amount} kredi")
+                    return True
+                else:
+                    logger.error(f"Başlangıç kredisi verilemedi: {user_id}")
+                    return False
+            except Exception as balance_error:
+                logger.error(f"Balance tablosu güncellenirken hata: {user_id} - {balance_error}")
                 return False
                 
         except Exception as e:

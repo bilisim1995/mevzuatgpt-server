@@ -86,19 +86,19 @@ A comprehensive confidence scoring mechanism includes:
 - **Complete Schema**: All indexes, triggers, and initial data setup included for production readiness
 - **Migration File**: safe_missing_tables_migration.sql ready for production deployment
 
-### Automatic 30-Credit Registration System Successfully Implemented (August 18, 2025)
-- **BREAKTHROUGH**: Registration credit system now fully operational - new users automatically receive 30 credits
-- **Complex Constraint Resolution**: Overcame database transaction_type constraints by implementing direct balance insertion approach
-- **Database Schema Synchronization**: All column mappings aligned with actual database schema (user_id, not user_uuid)
-- **Simplified Credit Allocation**: Bypassed problematic user_credits transaction recording, using direct user_credit_balance insertion
-- **Cache & Event Loop Issues Resolved**: Eliminated async/sync conflicts and cache-related deployment issues
-- **Production Verified**: Multiple test registrations confirm 30 credits automatically allocated to new users
+### Complete Credit System Successfully Operational (August 19, 2025)
+- **BREAKTHROUGH**: Full credit system now completely functional with automatic allocation and proper deduction
+- **Automatic 30-Credit Registration**: New users automatically receive 30 credits upon successful registration
+- **Credit Deduction System Fixed**: Normal users now have 2 credits properly deducted per query (constraint bypass implemented)
+- **Admin Unlimited Access**: Admin users bypass all credit restrictions with unlimited credit access
+- **Database Constraint Resolution**: Overcame transaction_type constraints by implementing direct balance update approach
+- **Production Tested**: Multiple user scenarios tested and confirmed working (registration, queries, admin access)
 - **Registration Working**: User registration fully functional, returns access token and user data correctly
 - **Profile Creation Streamlined**: User profiles properly created with all user information (ad, soyad, meslek, calistigi_yer)
 - **Authentication Flow Simplified**: Both registration and login work without non-existent column dependencies
 - **Column Mapping Fixed**: All authentication services use correct `id` column instead of non-existent `user_id` column
 - **Complete Profile Data**: Registration captures and stores all user profile fields in user_profiles table
-- **Credit System Integration**: Credit checking and balance retrieval working with proper 30-credit initialization
+- **Credit Balance Tracking**: Real-time credit balance updates working correctly for all user types
 
 ### Admin Credit System Fully Operational (August 18, 2025)
 - **Admin Credit Bypass**: Admin users now have unlimited credits (999999) and bypass all credit deduction processes
