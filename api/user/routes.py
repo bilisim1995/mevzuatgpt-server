@@ -308,10 +308,6 @@ async def ask_question(
             similarity_threshold=ask_request.similarity_threshold,
             use_cache=ask_request.use_cache
         )
-            limit=ask_request.limit,
-            similarity_threshold=ask_request.similarity_threshold,
-            use_cache=ask_request.use_cache
-        )
         
         # 6. AI cevabını kontrol et - bilgi bulunamadıysa kredi iade et
         ai_answer = result.get("answer", "")
