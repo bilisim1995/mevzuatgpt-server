@@ -26,7 +26,7 @@ class EmailService:
         self, 
         to_email: str, 
         reset_token: str, 
-        user_name: str = None
+        user_name: Optional[str] = None
     ) -> bool:
         """
         Send password reset email with reset link
@@ -140,7 +140,7 @@ class EmailService:
     async def send_password_changed_notification(
         self, 
         to_email: str, 
-        user_name: str = None
+        user_name: Optional[str] = None
     ) -> bool:
         """
         Send notification when password is successfully changed
