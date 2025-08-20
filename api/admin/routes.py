@@ -96,6 +96,8 @@ async def upload_document(
             'content_preview': f"{title} - {description or ''}"[:500],
             'uploaded_by': str(current_user.id),
             'status': 'processing',
+            'institution': source_institution or 'Belirtilmemiş',
+            'document_type': category or 'Genel',
             'metadata': {
                 'category': category,
                 'description': description,
