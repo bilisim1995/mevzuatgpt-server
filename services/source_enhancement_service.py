@@ -402,11 +402,20 @@ class SourceEnhancementService:
                     "category": result.get("category", "")
                 }
                 
+                # Handle PDF URL - try to generate from filename if null
+                if source.get("pdf_url") is None:
+                    document_title = source.get('document_title', 'Unknown')
+                    if document_title and document_title != 'Unknown' and '.' in document_title:
+                        # Generate CDN URL from document title (which is filename)
+                        generated_url = f"https://cdn.mevzuatgpt.org/documents/{document_title}"
+                        source["pdf_url"] = generated_url
+                        logger.info(f"🔧 Final fallback: Generated CDN URL for {document_title}: {generated_url}")
+                
                 # Keep PDF URL even if None for debugging, but remove other nulls
                 filtered_source = {}
                 for k, v in source.items():
                     if k == "pdf_url":
-                        filtered_source[k] = v  # Always include pdf_url, even if None
+                        filtered_source[k] = v  # Always include pdf_url
                         if v is None:
                             logger.warning(f"PDF URL is null for source: {source.get('document_title', 'Unknown')}")
                     elif v is not None:
