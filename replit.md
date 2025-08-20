@@ -21,7 +21,7 @@ The system uses a multi-tiered storage approach:
 #### Complete Database Schema (Updated August 20, 2025)
 All required tables are now present and functional in Supabase:
 - `user_profiles` - User authentication and role management
-- `mevzuat_documents` - PDF document metadata with filename/file_url support  
+- `mevzuat_documents` - PDF document metadata with filename/file_url/category support  
 - `search_logs` - Query history and analytics
 - `ai_prompts` - Dynamic AI prompt management for runtime updates
 - `support_tickets` - User support ticket system
@@ -29,6 +29,13 @@ All required tables are now present and functional in Supabase:
 - `credit_transactions` - Credit transaction history
 
 Note: Vector embeddings are stored in Elasticsearch, NOT in Supabase database.
+
+#### PDF Upload System (Fixed August 20, 2025)
+Document upload workflow fully operational:
+- File upload to Bunny.net CDN with automatic URL generation
+- Metadata storage in Supabase with proper column mapping
+- Background processing via Celery for text extraction and vectorization
+- Elasticsearch indexing for semantic search capabilities
 
 ### Authentication and Authorization
 Role-based access control (RBAC) is implemented via Supabase Auth. Roles include:
