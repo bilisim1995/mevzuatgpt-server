@@ -445,12 +445,13 @@ class SourceEnhancementService:
     def _convert_to_public_cdn_url(self, file_url: Optional[str]) -> Optional[str]:
         """
         Convert database file_url to public CDN URL with cdn.mevzuatgpt.org format
+        Format: https://cdn.mevzuatgpt.org/documents/{document_id}.pdf
         
         Args:
             file_url: Original file URL from database
             
         Returns:
-            Public CDN URL starting with cdn.mevzuatgpt.org
+            Public CDN URL starting with cdn.mevzuatgpt.org/documents/
         """
         if not file_url:
             return None
@@ -465,7 +466,7 @@ class SourceEnhancementService:
             if 'b-cdn.net' in file_url or 'bunny' in file_url.lower():
                 # Extract filename from the URL
                 filename = file_url.split('/')[-1]
-                public_url = f"https://cdn.mevzuatgpt.org/{filename}"
+                public_url = f"https://cdn.mevzuatgpt.org/documents/{filename}"
                 logger.info(f"🔄 Converted Bunny URL to public CDN: {file_url[:30]} → {public_url[:50]}")
                 return public_url
             
@@ -473,6 +474,9 @@ class SourceEnhancementService:
             if not file_url.startswith('http'):
                 # Remove leading slash if present
                 clean_path = file_url.lstrip('/')
+                # If path doesn't include 'documents/', add it
+                if not clean_path.startswith('documents/'):
+                    clean_path = f"documents/{clean_path}"
                 public_url = f"https://cdn.mevzuatgpt.org/{clean_path}"
                 logger.info(f"🔄 Constructed CDN URL from path: {file_url} → {public_url}")
                 return public_url
@@ -481,7 +485,7 @@ class SourceEnhancementService:
             if '/' in file_url:
                 filename = file_url.split('/')[-1]
                 if filename and '.' in filename:  # Make sure it's a valid filename
-                    public_url = f"https://cdn.mevzuatgpt.org/{filename}"
+                    public_url = f"https://cdn.mevzuatgpt.org/documents/{filename}"
                     logger.info(f"🔄 Extracted filename for CDN URL: {filename} → {public_url}")
                     return public_url
             
