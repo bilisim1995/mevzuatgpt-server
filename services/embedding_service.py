@@ -22,8 +22,13 @@ class EmbeddingService:
         self.settings = get_settings()
         self.openai_client = openai.OpenAI(api_key=self.settings.OPENAI_API_KEY)
         self.elasticsearch_service = ElasticsearchService()
-        
+    
         logger.info("EmbeddingService initialized with Elasticsearch backend")
+    
+    async def cleanup(self):
+        """Cleanup resources to prevent memory leaks"""
+        if hasattr(self, 'elasticsearch_service'):
+            await self.elasticsearch_service.close_session()
     
     async def generate_embedding(self, text: str) -> List[float]:
         """

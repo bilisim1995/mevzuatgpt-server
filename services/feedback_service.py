@@ -56,9 +56,25 @@ class FeedbackService:
             }
             
             # UPSERT: Mevcut feedback varsa güncelle, yoksa ekle
-            response = self.supabase.table('user_feedback') \
-                .upsert(feedback_data, on_conflict='user_id,search_log_id') \
+            # Önce mevcut feedback'i kontrol et
+            existing = self.supabase.table('user_feedback') \
+                .select('*') \
+                .eq('user_id', user_id) \
+                .eq('search_log_id', search_log_id) \
                 .execute()
+            
+            if existing.data:
+                # Güncelle
+                response = self.supabase.table('user_feedback') \
+                    .update(feedback_data) \
+                    .eq('user_id', user_id) \
+                    .eq('search_log_id', search_log_id) \
+                    .execute()
+            else:
+                # Yeni ekle
+                response = self.supabase.table('user_feedback') \
+                    .insert(feedback_data) \
+                    .execute()
             
             if response.data:
                 logger.info(f"Feedback kaydedildi: {user_id} - {search_log_id} - {feedback_type}")

@@ -32,6 +32,20 @@ class ElasticsearchService:
             )
         return self.session
     
+    async def close_session(self):
+        """Cleanup session to prevent memory leaks"""
+        if self.session and not self.session.closed:
+            await self.session.close()
+            self.session = None
+    
+    async def __aenter__(self):
+        """Async context manager entry"""
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit - cleanup sessions"""
+        await self.close_session()
+    
     async def health_check(self) -> Dict[str, Any]:
         """Check Elasticsearch cluster health"""
         try:
