@@ -1,0 +1,42 @@
+ Bulk create completed: 45 total embeddings created
+[2025-08-20 17:19:11,288: INFO/ForkPoolWorker-1] Stored 45 embeddings in Elasticsearch for document d304096b-5451-4cdf-9bef-d17f9e3a81cb
+[2025-08-20 17:19:11,617: INFO/ForkPoolWorker-1] HTTP Request: PATCH https://supabase.mevzuatgpt.org/rest/v1/mevzuat_documents?id=eq.d304096b-5451-4cdf-9bef-d17f9e3a81cb "HTTP/1.1 400 Bad Request"
+[2025-08-20 17:19:11,618: WARNING/ForkPoolWorker-1] Update document status error: {'message': 'new row for relation "mevzuat_documents" violates check constraint "documents_status_check"', 'code': '23514', 'hint': None, 'details': 'Failing row contains (d304096b-5451-4cdf-9bef-d17f9e3a81cb, Kısa Vadeli Sigorta Mevzuat, genelge-1.pdf, https://cdn.mevzuatgpt.org/documents/db77b7eb-bd57-4c34-be96-682..., 665971, Sosyal Güvenlik Kurumu, mevzuat, completed, a99ffd5c-cbac-4585-bc30-40dbf03fbe89, pending, {"category": "mevzuat", "keywords": ["kısa vadeli sigorta", "ba..., 2025-08-20 17:18:45.759848+00, 2025-08-20 17:19:11.5572+00, Kısa Vadeli Sigorta mevzuatıdır., 2025-08-20 17:18:45.759848+00, null).'}
+[2025-08-20 17:19:11,618: ERROR/ForkPoolWorker-1] Document processing failed: {'message': 'new row for relation "mevzuat_documents" violates check constraint "documents_status_check"', 'code': '23514', 'hint': None, 'details': 'Failing row contains (d304096b-5451-4cdf-9bef-d17f9e3a81cb, Kısa Vadeli Sigorta Mevzuat, genelge-1.pdf, https://cdn.mevzuatgpt.org/documents/db77b7eb-bd57-4c34-be96-682..., 665971, Sosyal Güvenlik Kurumu, mevzuat, completed, a99ffd5c-cbac-4585-bc30-40dbf03fbe89, pending, {"category": "mevzuat", "keywords": ["kısa vadeli sigorta", "ba..., 2025-08-20 17:18:45.759848+00, 2025-08-20 17:19:11.5572+00, Kısa Vadeli Sigorta mevzuatıdır., 2025-08-20 17:18:45.759848+00, null).'}
+[2025-08-20 17:19:11,619: ERROR/ForkPoolWorker-1] Exception in callback <TaskStepMethWrapper object at 0x7f5dcd97f700>()
+handle: <Handle <TaskStepMethWrapper object at 0x7f5dcd97f700>()>
+Traceback (most recent call last):
+  File "/home/runner/workspace/tasks/document_processor.py", line 53, in process_document_task
+    result = loop.run_until_complete(_process_document_async(document_id))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/7d088dip86hlzri9sk0h78b63yfmx0a0-python3-3.11.13/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/tasks/document_processor.py", line 184, in _process_document_async
+    await supabase_client.update_document_status(document_id, "completed")
+  File "/home/runner/workspace/models/supabase_client.py", line 67, in update_document_status
+    response = self.supabase.table('mevzuat_documents').update(update_data).eq('id', doc_id).execute()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/postgrest/_sync/request_builder.py", line 78, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': 'new row for relation "mevzuat_documents" violates check constraint "documents_status_check"', 'code': '23514', 'hint': None, 'details': 'Failing row contains (d304096b-5451-4cdf-9bef-d17f9e3a81cb, Kısa Vadeli Sigorta Mevzuat, genelge-1.pdf, https://cdn.mevzuatgpt.org/documents/db77b7eb-bd57-4c34-be96-682..., 665971, Sosyal Güvenlik Kurumu, mevzuat, completed, a99ffd5c-cbac-4585-bc30-40dbf03fbe89, pending, {"category": "mevzuat", "keywords": ["kısa vadeli sigorta", "ba..., 2025-08-20 17:18:45.759848+00, 2025-08-20 17:19:11.5572+00, Kısa Vadeli Sigorta mevzuatıdır., 2025-08-20 17:18:45.759848+00, null).'}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/nix/store/7d088dip86hlzri9sk0h78b63yfmx0a0-python3-3.11.13/lib/python3.11/asyncio/events.py", line 84, in _run
+    self._context.run(self._callback, *self._args)
+  File "/nix/store/7d088dip86hlzri9sk0h78b63yfmx0a0-python3-3.11.13/lib/python3.11/asyncio/tasks.py", line 718, in cancel
+    if child.cancel(msg=msg):
+       ^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/7d088dip86hlzri9sk0h78b63yfmx0a0-python3-3.11.13/lib/python3.11/asyncio/tasks.py", line 718, in cancel
+    if child.cancel(msg=msg):
+       ^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/7d088dip86hlzri9sk0h78b63yfmx0a0-python3-3.11.13/lib/python3.11/asyncio/tasks.py", line 718, in cancel
+    if child.cancel(msg=msg):
+       ^^^^^^^^^^^^^^^^^^^^^
+  [Previous line repeated 475 more times]
+  File "/nix/store/7d088dip86hlzri9sk0h78b63yfmx0a0-python3-3.11.13/lib/python3.11/asyncio/tasks.py", line 714, in cancel
+    if self.done():
+       ^^^^^^^^^^^
+RecursionError: maximum recursion depth exceeded while calling a Python object
