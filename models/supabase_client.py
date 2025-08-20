@@ -32,14 +32,14 @@ class SupabaseClient:
                 'metadata': doc_data.get('metadata', {})
             }
             
-            # Add optional fields from metadata if provided - map to existing columns
+            # Add optional fields from metadata if provided - use category column only
             metadata = doc_data.get('metadata', {})
             if metadata.get('category'):
-                insert_data['document_type'] = metadata['category']  # Use existing document_type column
+                insert_data['category'] = metadata['category']  # Use category column instead of document_type
             if metadata.get('source_institution'):
                 insert_data['institution'] = metadata['source_institution']
             if metadata.get('description'):
-                insert_data['content_preview'] = metadata['description'][:500]  # Use existing content_preview column
+                insert_data['content_preview'] = metadata['description'][:500]
                 
             response = self.supabase.table('mevzuat_documents').insert(insert_data).execute()
             
