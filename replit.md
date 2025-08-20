@@ -34,9 +34,11 @@ An asynchronous processing pipeline handles documents:
 6.  **Background Processing**: Celery workers manage long-running tasks with Redis queue.
 
 ### AI and Search Architecture
-The query processing system supports multiple AI providers:
+The query processing system supports multiple AI providers with dynamic prompt management:
 -   **Primary**: Groq API for fast, cost-effective inference using Llama models.
 -   **Fallback**: OpenAI GPT-4o for complex reasoning tasks.
+-   **Dynamic Prompts**: AI prompts are stored in Supabase `ai_prompts` table and loaded dynamically at runtime.
+-   **Prompt Management**: Admin panel for updating AI behavior without server restart.
 -   **Search**: `pgvector`-powered semantic search with configurable similarity thresholds.
 -   **Institution Filtering**: Document-level pre-filtering by institution before vector search for performance.
 -   **Smart Credit Refund**: Automatic credit refund for "no information found" responses.
@@ -61,6 +63,15 @@ A comprehensive password reset system has been implemented with enterprise-grade
   - `POST /api/auth/forgot-password`: Request password reset
   - `POST /api/auth/reset-password`: Confirm password reset with token
   - `POST /api/auth/verify-reset-token`: Validate reset token
+
+### Dynamic AI Prompt System
+Real-time AI behavior management without server restarts:
+- **Database-Driven Prompts**: AI prompts stored in Supabase `ai_prompts` table
+- **Cached Performance**: 5-minute cache for optimal performance with manual refresh capability
+- **Version Control**: Prompt versioning and history tracking for rollback support
+- **Admin Management**: Full CRUD operations via `/api/admin/prompts/*` endpoints
+- **Fallback Protection**: Default prompts ensure system stability if database unavailable
+- **Multi-Provider Support**: Separate prompts for Groq, OpenAI, and future AI providers
 
 ## External Dependencies
 
