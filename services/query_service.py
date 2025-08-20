@@ -156,10 +156,13 @@ class QueryService:
             
             if search_results:
                 try:
+                    logger.info(f"🔧 About to enhance {len(search_results)} search results")
                     search_results = self.source_enhancement_service.enhance_search_results(search_results)
                     logger.info(f"✅ Enhanced {len(search_results)} search results with source information")
                 except Exception as e:
                     logger.error(f"Enhancement service failed: {e}")
+                    import traceback
+                    logger.error(f"Enhancement traceback: {traceback.format_exc()}")
                     # Continue with unenhanced results
             
             # 5. Generate AI response using configured provider
