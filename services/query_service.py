@@ -68,6 +68,9 @@ class QueryService:
         try:
             pipeline_start = time.time()
             
+            # Debug log for limit parameter
+            logger.info(f"🔢 Processing query with limit={limit}, similarity_threshold={similarity_threshold}")
+            
             # 1. Rate limiting check
             is_allowed, remaining = await redis_service.check_rate_limit(
                 user_id=user_id,
@@ -133,6 +136,7 @@ class QueryService:
                         logger.error(f"Pre-filtering failed: {e}")
                         document_ids_filter = None
                 
+                logger.info(f"🔍 Calling semantic_search with limit={limit}")
                 search_results = await self.search_service.semantic_search(
                     query=query,
                     limit=limit,

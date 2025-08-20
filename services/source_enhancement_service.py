@@ -190,25 +190,25 @@ class SourceEnhancementService:
             
             logger.debug(f"🔍 Fetching PDF URL from DB for document_id: {document_id}")
             
-            # Query document table for file_url and file_name for debugging
+            # Query document table for file_url and filename for debugging
             result = supabase_client.supabase.table('mevzuat_documents') \
-                .select('file_url, file_name, title') \
+                .select('file_url, filename, title') \
                 .eq('id', document_id) \
                 .single() \
                 .execute()
             
             if result.data:
                 file_url = result.data.get('file_url')
-                file_name = result.data.get('file_name')
+                filename = result.data.get('filename')
                 title = result.data.get('title')
                 
-                logger.debug(f"📁 Document found - Name: {file_name}, Title: {title}")
+                logger.debug(f"📁 Document found - Name: {filename}, Title: {title}")
                 
                 if file_url:
                     logger.info(f"✅ PDF URL found in DB for {document_id}: {file_url[:50] if len(file_url) > 50 else file_url}")
                     return file_url
                 else:
-                    logger.warning(f"❌ PDF file_url is NULL in database for document {document_id} ({file_name})")
+                    logger.warning(f"❌ PDF file_url is NULL in database for document {document_id} ({filename})")
                     return None
             else:
                 logger.warning(f"❌ Document {document_id} not found in database")
