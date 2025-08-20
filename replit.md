@@ -13,21 +13,22 @@ The application is built on FastAPI, chosen for its high-performance asynchronou
 
 ### Database and Storage
 The system uses a multi-tiered storage approach:
-- **Primary Database**: Self-hosted Supabase PostgreSQL at https://supabase.mevzuatgpt.org with complete table structure including `pgvector` extension for vector similarity search and Row Level Security (RLS) policies.
-- **Vector Storage**: Legal document embeddings (1536-dimensional, from OpenAI's `text-embedding-3-small` model) are stored in `mevzuat_embeddings` table with pgvector for semantic search.
+- **Primary Database**: Self-hosted Supabase PostgreSQL at https://supabase.mevzuatgpt.org for authentication/user management/document metadata with Row Level Security (RLS) policies.
+- **Vector Storage**: Elasticsearch at https://elastic.mevzuatgpt.org/ for ALL vector operations and similarity search with 1536-dimensional embeddings from OpenAI's `text-embedding-3-small` model.
 - **File Storage**: PDF documents are stored on Bunny.net CDN with automatic URL generation to https://cdn.mevzuatgpt.org/documents/ format.
 - **Cache Layer**: Redis Cloud provides caching for search results, rate limiting, and session management.
 
 #### Complete Database Schema (Updated August 20, 2025)
-All required tables are now present and functional:
+All required tables are now present and functional in Supabase:
 - `user_profiles` - User authentication and role management
 - `mevzuat_documents` - PDF document metadata with filename/file_url support  
-- `mevzuat_embeddings` - Vector embeddings with pgvector(1536) dimensions
 - `search_logs` - Query history and analytics
 - `ai_prompts` - Dynamic AI prompt management for runtime updates
 - `support_tickets` - User support ticket system
 - `user_credits` - Credit balance management
 - `credit_transactions` - Credit transaction history
+
+Note: Vector embeddings are stored in Elasticsearch, NOT in Supabase database.
 
 ### Authentication and Authorization
 Role-based access control (RBAC) is implemented via Supabase Auth. Roles include:
@@ -41,7 +42,7 @@ An asynchronous processing pipeline handles documents:
 2.  **Text Extraction**: Multi-method PDF parsing using `pdfplumber` with fallbacks.
 3.  **Text Chunking**: Intelligent text splitting with overlap preservation using LangChain.
 4.  **Vectorization**: Batch embedding generation via OpenAI API with 1536-dimensional vectors.
-5.  **Storage**: Vector embeddings stored in `mevzuat_embeddings` table with pgvector similarity search.
+5.  **Storage**: Vector embeddings stored in Elasticsearch for semantic search and similarity matching.
 6.  **Background Processing**: Celery workers manage long-running tasks with Redis queue.
 
 #### PDF URL Resolution System (Fixed August 20, 2025)
