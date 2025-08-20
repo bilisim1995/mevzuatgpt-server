@@ -1,0 +1,218 @@
+{
+    "success": true,
+    "timestamp": "2025-08-20T02:57:20.459221",
+    "data": {
+        "query": "Sigortalılık şartları nelerdir ?",
+        "answer": "## Sigortalılık Şartları\n\nSigortalılık şartları, bir kişinin sosyal güvenlik sistemine dahil olabilmesi için yerine getirilmesi gereken koşullardır. Bu şartlar, 2013/11 sayılı Genelge'de ayrıntılı olarak belirtilmiştir. ### Genel Şartlar\n\nSigortalılık şartları, Kanunun 4 üncü maddesinin birinci fıkrasının (a), (b) ve (c) bentleri ile 506 sayılı Kanun'un geçici 20 nci maddesi ve 2925 sayılı Kanun kapsamında çalışmamak, isteğe bağlı sigortalı veya isteğe bağlı iştirakçi olmamak, Kurumumuzdan ve 506 sayılı Kanun'un geçici 20 nci maddesi kapsamındaki sandıklardan kendi sigortalılıklarından dolayı gelir veya aylık almamak, 18 yaşını doldurmuş olmak şeklinde sıralanabilir. ### Özel Şartlar\n\nSigortalılık şartları, ayrıca, Kanunun ek 5 inci maddesi kapsamında sigortalı olmak için müracaat edenler hakkında üniterce öncelikle Kanunun 4 üncü maddesinin birinci fıkrasının (b) bendinin (4) numaralı alt bendi kapsamında sigortalılığının bulunup bulunmadığı araştırılacak, SGK Tescil ve Hizmet Dökümü programından hizmet dökümü alınarak, ek 5 inci maddeye müracaat edilecek. ### Ticari Taksi, Dolmuş ve Benzeri Nitelikteki Şehir İçi Toplu Taşıma Araçlarında Çalışanlar\n\nSigortalılık şartları, ayrıca, 6111 sayılı Kanunla Kanuna eklenen ek 6 ncı madde ile 1/3/2011 tarihinden itibaren ticari taksi, dolmuş ve benzeri nitelikteki şehir içi toplu taşıma araçlarında çalışanlar ile Kültür ve Turizm Bakanlığınca belirlenecek alanlarda kısmi süreli iş sözleşmesiyle bir veya birden fazla kişi tarafından çalıştırılanlardan ay içerisinde çalışma saati süresine göre hesaplanan çalışma gün sayısı on günden az olanların kendileri tarafından tahsil edilmeyerek yeni bir istek ve tescil belgesi alınmadan 2000 yılını izleyen yıllar için ödediği primleri hizmetten sayılacaktır. ### Sosyal Güvenlik Destek Primi\n\nSigortalılık şartları, ayrıca, 1/10/2008 tarihi itibariyle Kanunun 4 üncü maddesinin birinci fıkrasının (b) bendi kapsamında çalışması bulunanların 1/10/2008 tarihi itibariyle, bu tarihten sonra aylık bağlananların ise (b) bendi kapsamında çalışmaya başladıkları tarihten itibaren sandıklarca 1/10/2008-31/12/2008 süresinde % 12, 2009 yılı için % 13, 2010 yılı için % 14, 2011 yılından itibaren % 15 oranında sosyal güvenlik destek primi kesilerek Kuruma bildirilecektir. ### Sonuç\n\nSigortalılık şartları, sosyal güvenlik sistemine dahil olabilmesi için yerine getirilmesi gereken koşullardır. Bu şartlar, genel şartlar, özel şartlar, ticari taksi, dolmuş ve benzeri nitelikteki şehir içi toplu taşıma araçlarında çalışanlar ve sosyal güvenlik destek primi olmak üzere dört ana başlık altında toplanabilir. Bu şartlar, sigortalılığın sona ermesi, malullük ve yaşlılık aylığı almakta iken bu aylıkları kesilen ya da toptan ödeme yapılan sigortalılar hakkında da aynı şekilde işlem yapılacaktır.",
+        "confidence_score": 0.77,
+        "search_log_id": "5a0195dc-8d65-4795-9f2b-077ce239ba3f",
+        "sources": [
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 5,
+                "line_start": 146,
+                "line_end": 151,
+                "citation": "82660-111-136.pdf, s. 5, satır 146-151",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE - Kanunun 4 üncü maddesinin birinci fıkrasının (a), (b) ve (c) bentleri ile 506 sayılı Kanunun geçici 20 nci...",
+                "similarity_score": 0.644,
+                "chunk_index": 29,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 16,
+                "line_start": 576,
+                "line_end": 581,
+                "citation": "82660-111-136.pdf, s. 16, satır 576-581",
+                "content_preview": "sigortalı olmamak, - İsteğe bağlı sigortalı olmamak, - 506 sayılı Kanunun geçici 20 nci maddesi kapsamında sigortalı olmamak, - Kendi...",
+                "similarity_score": 0.597,
+                "chunk_index": 115,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 10,
+                "line_start": 351,
+                "line_end": 356,
+                "citation": "82660-111-136.pdf, s. 10, satır 351-356",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE Sürekli iş göremezlik geliri almakta iken sürekli iş göremezlik derecesi kontrol muayene sonucu % 10’un altına...",
+                "similarity_score": 0.5878,
+                "chunk_index": 70,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 25,
+                "line_start": 931,
+                "line_end": 936,
+                "citation": "82660-111-136.pdf, s. 25, satır 931-936",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE 1/10/2008 tarihi itibariyle Kanunun 4 üncü maddesinin birinci fıkrasının (b) bendi kapsamında çalışması...",
+                "similarity_score": 0.5724,
+                "chunk_index": 186,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 8,
+                "line_start": 276,
+                "line_end": 281,
+                "citation": "82660-111-136.pdf, s. 8, satır 276-281",
+                "content_preview": "sigortalı oldukları sonradan tespit (Değişik, 19/6/2020 tarihli ve 2020/21 sayılı Genelge) edilenler (Ek, 11/12/2014 tarihli ve 2014/32 sayılı...",
+                "similarity_score": 0.5697,
+                "chunk_index": 55,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 16,
+                "line_start": 566,
+                "line_end": 571,
+                "citation": "82660-111-136.pdf, s. 16, satır 566-571",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE 1- Sigortalı sayılanlar 6111 sayılı Kanunla Kanuna eklenen ek 6 ncı madde ile 1/3/2011 tarihinden itibaren...",
+                "similarity_score": 0.5687,
+                "chunk_index": 113,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 3,
+                "line_start": 71,
+                "line_end": 76,
+                "citation": "82660-111-136.pdf, s. 3, satır 71-76",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE tahsil edilmeyerek yeni bir istek ve tescil belgesi alınmadan 2000 yılını izleyen yıllar için ödediği primleri...",
+                "similarity_score": 0.5679,
+                "chunk_index": 14,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 17,
+                "line_start": 601,
+                "line_end": 606,
+                "citation": "82660-111-136.pdf, s. 17, satır 601-606",
+                "content_preview": "Sigortalılık İşlemleri 2013/11 GENELGE Kanuna 1/3/2011 tarihinden itibaren eklenen ek 6 ncı madde ile hizmet akdine tabi şehir içinde çalıştıkları...",
+                "similarity_score": 0.5678,
+                "chunk_index": 120,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 23,
+                "line_start": 856,
+                "line_end": 861,
+                "citation": "82660-111-136.pdf, s. 23, satır 856-861",
+                "content_preview": "20’si malullük, yaşlılık ve ölüm sigortaları, % 12,5’i genel sağlık sigortası primidir. Bu sigortalılardan 4447 sayılı Kanuna tabi olmak isteyenler %...",
+                "similarity_score": 0.5594,
+                "chunk_index": 171,
+                "category": ""
+            },
+            {
+                "document_title": "82660-111-136.pdf",
+                "pdf_url": null,
+                "page_number": 13,
+                "line_start": 476,
+                "line_end": 481,
+                "citation": "82660-111-136.pdf, s. 13, satır 476-481",
+                "content_preview": "belirlenen günlük kazancın otuz katının % 34,5’i oranında prim ödeyeceklerdir. Bu primin % 20’si malullük, yaşlılık ve ölüm sigortaları, % 12,5’i...",
+                "similarity_score": 0.5591,
+                "chunk_index": 95,
+                "category": ""
+            }
+        ],
+        "institution_filter": null,
+        "search_stats": {
+            "total_chunks_found": 10,
+            "embedding_time_ms": 199,
+            "search_time_ms": 2185,
+            "generation_time_ms": 3277,
+            "reliability_time_ms": 6,
+            "total_pipeline_time_ms": 8713,
+            "cache_used": false,
+            "rate_limit_remaining": 29
+        },
+        "llm_stats": {
+            "model_used": "llama3-8b-8192",
+            "prompt_tokens": 0,
+            "response_tokens": 0
+        },
+        "reliabilityData": {
+            "overall_score": 77,
+            "explanation": "Bu skor, cevabın güvenilirliğini farklı kriterlere göre değerlendirerek oluşturulmuştur.",
+            "criteria": {
+                "source_reliability": {
+                    "score": 68,
+                    "weight": 30,
+                    "description": "Resmi kaynaklar, mevzuat metinleri ve güvenilir referansların kullanımı",
+                    "details": [
+                        "10 farklı kaynaktan bilgi",
+                        "Düşük benzerlik skorları",
+                        "Tek belgeden referans"
+                    ]
+                },
+                "content_consistency": {
+                    "score": 92,
+                    "weight": 25,
+                    "description": "Yanıtın iç tutarlılığı ve mantıksal bütünlüğü",
+                    "details": [
+                        "Kaynaklara uygun içerik",
+                        "Kapsamlı ve detaylı yanıt",
+                        "Mantıksal bütünlük mevcut"
+                    ]
+                },
+                "technical_accuracy": {
+                    "score": 84,
+                    "weight": 25,
+                    "description": "Hukuki terminoloji ve teknik detayların doğruluğu",
+                    "details": [
+                        "Zengin hukuki terminoloji",
+                        "Detaylı madde referansları",
+                        "Formal ifade tarzı"
+                    ]
+                },
+                "currency": {
+                    "score": 67,
+                    "weight": 20,
+                    "description": "Bilgilerin güncel mevzuata uygunluğu",
+                    "details": [
+                        "Görece güncel mevzuat",
+                        "Genel olarak güncel içerik",
+                        "Yürürlükteki düzenlemeler referans alınmış"
+                    ]
+                }
+            },
+            "score_ranges": {
+                "high": {
+                    "min": 80,
+                    "max": 100,
+                    "desc": "Tüm kaynaklar doğrulanmış, içerik tam ve güvenilir"
+                },
+                "medium": {
+                    "min": 60,
+                    "max": 79,
+                    "desc": "Çoğu kaynak doğrulanmış, içerik güvenilir"
+                },
+                "low": {
+                    "min": 0,
+                    "max": 59,
+                    "desc": "Az sayıda kaynak doğrulanmış, içerik kontrol edilmeli"
+                }
+            }
+        },
+        "credit_info": {
+            "credits_used": 0,
+            "remaining_balance": "unlimited",
+            "admin_user": true,
+            "refund_would_apply": false,
+            "no_info_detected": false
+        }
+    }
+}
