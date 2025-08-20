@@ -90,6 +90,11 @@ class SourceEnhancementService:
             if not enhanced.get("pdf_url") and document_id:
                 pdf_url = self._get_pdf_url_from_db(document_id)
                 enhanced["pdf_url"] = pdf_url
+                logger.debug(f"Fetched PDF URL for doc {document_id}: {pdf_url is not None}")
+            elif enhanced.get("pdf_url"):
+                logger.debug(f"PDF URL found in cache for doc {document_id}: ✓")
+            else:
+                logger.warning(f"No PDF URL available for doc {document_id}")
             
             # Use direct column values first, fallback to extraction methods
             page_number = result.get("page_number") or self._extract_page_number(result)
@@ -366,6 +371,8 @@ class SourceEnhancementService:
                 for k, v in source.items():
                     if k == "pdf_url":
                         filtered_source[k] = v  # Always include pdf_url, even if None
+                        if v is None:
+                            logger.warning(f"PDF URL is null for source: {source.get('document_title', 'Unknown')}")
                     elif v is not None:
                         filtered_source[k] = v
                 

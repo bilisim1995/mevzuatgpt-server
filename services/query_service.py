@@ -177,7 +177,7 @@ class QueryService:
                 llm_response = {
                     "answer": ai_result["response"],
                     "confidence_score": ai_result["confidence_score"],
-                    "sources": self._format_sources_safe(search_results),  # Format sources properly with error handling
+                    "sources": self.source_enhancement_service.format_sources_for_response(search_results),  # Use enhanced source formatting
                     "ai_model": ai_result["model_used"],
                     "processing_time": ai_result["processing_time"],
                     "token_usage": ai_result.get("token_usage", {})
