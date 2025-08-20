@@ -114,6 +114,8 @@ class QueryService:
             if cached_results:
                 search_results = cached_results
                 logger.info(f"Using cached search results for: {query[:50]}")
+                # IMPORTANT: Cached results also need enhancement for PDF URLs
+                logger.info(f"🔄 Cached results found, but will still enhance for PDF URLs")
             else:
                 # Pre-filter documents by institution for optimization
                 document_ids_filter = None
