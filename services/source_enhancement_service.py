@@ -76,8 +76,8 @@ class SourceEnhancementService:
                 document_metadata = document_data.get('metadata', {})
                 
                 if document_id and document_id in document_urls:
-                    pdf_url = document_urls[document_id]
-                    enhanced["pdf_url"] = pdf_url
+                    file_url = document_urls[document_id]
+                    enhanced["pdf_url"] = self._convert_to_public_cdn_url(file_url)
                 
                 # Add metadata information
                 if document_id and document_id in document_metadata:
@@ -90,9 +90,11 @@ class SourceEnhancementService:
             # Fallback: If no PDF URL found, try direct DB query
             if not enhanced.get("pdf_url") and document_id:
                 pdf_url = self._get_pdf_url_from_db(document_id)
-                enhanced["pdf_url"] = pdf_url
+                enhanced["pdf_url"] = self._convert_to_public_cdn_url(pdf_url)
                 logger.debug(f"Fetched PDF URL for doc {document_id}: {pdf_url is not None}")
             elif enhanced.get("pdf_url"):
+                # Ensure existing URL is in public CDN format
+                enhanced["pdf_url"] = self._convert_to_public_cdn_url(enhanced["pdf_url"])
                 logger.debug(f"PDF URL found in cache for doc {document_id}: ✓")
             else:
                 logger.warning(f"No PDF URL available for doc {document_id}")
@@ -439,3 +441,53 @@ class SourceEnhancementService:
         except Exception as e:
             logger.error(f"Failed to generate source statistics: {e}")
             return {"total_sources": len(sources) if sources else 0}
+    
+    def _convert_to_public_cdn_url(self, file_url: Optional[str]) -> Optional[str]:
+        """
+        Convert database file_url to public CDN URL with cdn.mevzuatgpt.org format
+        
+        Args:
+            file_url: Original file URL from database
+            
+        Returns:
+            Public CDN URL starting with cdn.mevzuatgpt.org
+        """
+        if not file_url:
+            return None
+            
+        try:
+            # If already a public CDN URL, return as is
+            if file_url.startswith('https://cdn.mevzuatgpt.org'):
+                logger.debug(f"✅ Already public CDN URL: {file_url[:50]}")
+                return file_url
+            
+            # If it's a Bunny.net storage URL, convert to public CDN
+            if 'b-cdn.net' in file_url or 'bunny' in file_url.lower():
+                # Extract filename from the URL
+                filename = file_url.split('/')[-1]
+                public_url = f"https://cdn.mevzuatgpt.org/{filename}"
+                logger.info(f"🔄 Converted Bunny URL to public CDN: {file_url[:30]} → {public_url[:50]}")
+                return public_url
+            
+            # If it's just a filename/path, construct the full CDN URL
+            if not file_url.startswith('http'):
+                # Remove leading slash if present
+                clean_path = file_url.lstrip('/')
+                public_url = f"https://cdn.mevzuatgpt.org/{clean_path}"
+                logger.info(f"🔄 Constructed CDN URL from path: {file_url} → {public_url}")
+                return public_url
+            
+            # For other URLs, try to extract filename and construct CDN URL
+            if '/' in file_url:
+                filename = file_url.split('/')[-1]
+                if filename and '.' in filename:  # Make sure it's a valid filename
+                    public_url = f"https://cdn.mevzuatgpt.org/{filename}"
+                    logger.info(f"🔄 Extracted filename for CDN URL: {filename} → {public_url}")
+                    return public_url
+            
+            logger.warning(f"❌ Could not convert URL to public CDN format: {file_url}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error converting URL to public CDN format: {e}")
+            return None
