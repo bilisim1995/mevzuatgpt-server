@@ -153,9 +153,9 @@ class SourceEnhancementService:
                 
             from models.supabase_client import supabase_client
             
-            # Batch query for all document URLs and metadata
+            # Batch query for all document URLs and metadata including filename
             result = supabase_client.supabase.table('mevzuat_documents') \
-                .select('id, file_url, metadata') \
+                .select('id, file_url, filename, metadata') \
                 .in_('id', document_ids) \
                 .execute()
             
@@ -166,14 +166,23 @@ class SourceEnhancementService:
                 for doc in result.data:
                     doc_id = doc['id']
                     file_url = doc.get('file_url')
-                    url_map[doc_id] = file_url
+                    filename = doc.get('filename', 'Unknown')
+                    
                     metadata_map[doc_id] = doc.get('metadata', {})
                     
-                    # Debug logging for each document
+                    # Enhanced debug logging for each document
                     if file_url:
-                        logger.debug(f"✅ Batch: Found URL for {doc_id}: {file_url[:50] if len(file_url) > 50 else file_url}")
+                        logger.debug(f"✅ Batch: Found URL for {doc_id} ({filename}): {file_url[:50] if len(file_url) > 50 else file_url}")
+                        url_map[doc_id] = file_url
                     else:
-                        logger.warning(f"❌ Batch: NULL file_url for document {doc_id}")
+                        logger.warning(f"❌ Batch: NULL file_url for document {doc_id} - filename: {filename}")
+                        # Try to generate CDN URL from filename if possible
+                        if filename and filename != 'Unknown' and '.' in filename:
+                            generated_url = f"https://cdn.mevzuatgpt.org/documents/{filename}"
+                            logger.info(f"🔧 Generated CDN URL for {filename}: {generated_url}")
+                            url_map[doc_id] = generated_url
+                        else:
+                            url_map[doc_id] = None
             
             logger.info(f"📦 Batch fetched URLs for {len(url_map)} documents, {sum(1 for url in url_map.values() if url)} have valid URLs")
             return {'urls': url_map, 'metadata': metadata_map}
