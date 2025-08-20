@@ -158,10 +158,18 @@ class SourceEnhancementService:
             metadata_map = {}
             if result.data:
                 for doc in result.data:
-                    url_map[doc['id']] = doc.get('file_url')
-                    metadata_map[doc['id']] = doc.get('metadata', {})
+                    doc_id = doc['id']
+                    file_url = doc.get('file_url')
+                    url_map[doc_id] = file_url
+                    metadata_map[doc_id] = doc.get('metadata', {})
+                    
+                    # Debug logging for each document
+                    if file_url:
+                        logger.debug(f"✅ Batch: Found URL for {doc_id}: {file_url[:50] if len(file_url) > 50 else file_url}")
+                    else:
+                        logger.warning(f"❌ Batch: NULL file_url for document {doc_id}")
             
-            logger.debug(f"Batch fetched URLs for {len(url_map)} documents")
+            logger.info(f"📦 Batch fetched URLs for {len(url_map)} documents, {sum(1 for url in url_map.values() if url)} have valid URLs")
             return {'urls': url_map, 'metadata': metadata_map}
             
         except Exception as e:
@@ -176,18 +184,31 @@ class SourceEnhancementService:
                 
             from models.supabase_client import supabase_client
             
-            # Query document table for file_url
+            logger.debug(f"🔍 Fetching PDF URL from DB for document_id: {document_id}")
+            
+            # Query document table for file_url and file_name for debugging
             result = supabase_client.supabase.table('mevzuat_documents') \
-                .select('file_url') \
+                .select('file_url, file_name, title') \
                 .eq('id', document_id) \
                 .single() \
                 .execute()
             
-            if result.data and result.data.get('file_url'):
-                return result.data['file_url']
-            
-            logger.warning(f"No file_url found for document {document_id}")
-            return None
+            if result.data:
+                file_url = result.data.get('file_url')
+                file_name = result.data.get('file_name')
+                title = result.data.get('title')
+                
+                logger.debug(f"📁 Document found - Name: {file_name}, Title: {title}")
+                
+                if file_url:
+                    logger.info(f"✅ PDF URL found in DB for {document_id}: {file_url[:50] if len(file_url) > 50 else file_url}")
+                    return file_url
+                else:
+                    logger.warning(f"❌ PDF file_url is NULL in database for document {document_id} ({file_name})")
+                    return None
+            else:
+                logger.warning(f"❌ Document {document_id} not found in database")
+                return None
             
         except Exception as e:
             logger.error(f"Failed to get PDF URL for document {document_id}: {e}")
