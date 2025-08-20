@@ -36,8 +36,9 @@ class SourceEnhancementService:
             enhanced_results = []
             
             # Batch fetch document URLs and metadata to avoid duplicate queries
+            logger.info(f"🚀 Starting batch fetch for {len(search_results)} search results")
             document_data = self._batch_fetch_document_urls(search_results)
-            logger.debug(f"Batch fetch returned data for {len(document_data.get('urls', {}))} documents")
+            logger.info(f"📦 Batch fetch completed: {len(document_data.get('urls', {}))} documents with URLs")
             
             for result in search_results:
                 document_id = result.get("document_id")
@@ -142,8 +143,11 @@ class SourceEnhancementService:
                 if result.get("document_id")
             ))
             
+            logger.info(f"🔍 Extracted {len(document_ids)} unique document IDs: {document_ids[:3]}...")
+            
             if not document_ids:
-                return {}
+                logger.warning("❌ No document IDs found in search results")
+                return {'urls': {}, 'metadata': {}}
                 
             from models.supabase_client import supabase_client
             
