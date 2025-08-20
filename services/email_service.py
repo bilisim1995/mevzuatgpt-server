@@ -19,7 +19,7 @@ class EmailService:
             raise ValueError("SendGrid API key is required")
         
         self.sg = SendGridAPIClient(self.api_key)
-        self.from_email = "noreply@mevzuatgpt.com"
+        self.from_email = "noreply@mevzuatgpt.org"
         self.from_name = "MevzuatGPT"
     
     async def send_password_reset_email(
