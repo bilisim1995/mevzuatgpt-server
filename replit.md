@@ -49,7 +49,18 @@ A comprehensive confidence scoring mechanism includes:
 -   Currency Evaluation.
 
 ### UI/UX Decisions
-The system supports a support ticket system, user credit management, and advanced query filtering. AI responses are enhanced for length and creativity, with a focus on detailed legal analysis. PDF URL source attribution is integrated for direct document access.
+The system supports a support ticket system, user credit management, password reset functionality, and advanced query filtering. AI responses are enhanced for length and creativity, with a focus on detailed legal analysis. PDF URL source attribution is integrated for direct document access.
+
+### Password Reset System
+A comprehensive password reset system has been implemented with enterprise-grade security:
+- **Email-Based Reset**: Users can request password reset via email address
+- **Secure Token Management**: Reset tokens are stored in Redis with 24-hour TTL for automatic expiry
+- **Email Notifications**: SendGrid integration for professional password reset emails
+- **Security Features**: Email enumeration protection, secure token generation, and automatic cleanup
+- **API Endpoints**:
+  - `POST /api/auth/forgot-password`: Request password reset
+  - `POST /api/auth/reset-password`: Confirm password reset with token
+  - `POST /api/auth/verify-reset-token`: Validate reset token
 
 ## External Dependencies
 

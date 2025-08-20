@@ -13,6 +13,7 @@ import time
 from core.config import settings
 from core.logging import setup_logging
 from api.auth.routes import router as auth_router
+from api.auth.password_reset_routes import router as password_reset_router
 from api.admin.routes import router as admin_router
 from api.user.routes import router as user_router
 from api.user.credit_routes import router as user_credit_router
@@ -260,6 +261,7 @@ async def api_info():
 
 # Include routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(password_reset_router, tags=["Password Reset"])
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
 app.include_router(admin_credit_router, tags=["Admin-Credits"])  # Admin kredi yönetimi
 app.include_router(user_router, prefix="/api/user", tags=["User"])

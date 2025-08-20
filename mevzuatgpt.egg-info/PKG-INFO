@@ -31,3 +31,5 @@ Requires-Dist: pdfplumber>=0.11.7
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: groq>=0.31.0
 Requires-Dist: elasticsearch>=9.1.0
+Requires-Dist: pyjwt>=2.10.1
+Requires-Dist: sendgrid>=6.12.4

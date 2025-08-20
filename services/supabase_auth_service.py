@@ -4,6 +4,7 @@ Handles user registration, login, and role-based access control
 """
 
 import logging
+import secrets
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 from uuid import UUID
@@ -11,6 +12,7 @@ from fastapi import HTTPException, status
 from core.supabase_client import supabase_client
 from core.security import SecurityManager
 from models.schemas import UserResponse, UserCreate, UserLogin, UserProfileUpdate
+from services.email_service import email_service
 
 logger = logging.getLogger(__name__)
 
@@ -237,8 +239,8 @@ class SupabaseAuthService:
     async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """Get user by email"""
         try:
-            # Use service client to query users table
-            response = self.supabase.service_client.table("auth.users")\
+            # Use service client to query user_profiles table
+            response = self.supabase.service_client.table("user_profiles")\
                 .select("*")\
                 .eq("email", email)\
                 .single()\
@@ -312,6 +314,215 @@ class SupabaseAuthService:
         except Exception as e:
             logger.error(f"Token verification failed: {str(e)}")
             return None
+    
+    async def create_password_reset_token(self, email: str) -> Optional[str]:
+        """
+        Create a password reset token for user
+        
+        Args:
+            email: User's email address
+            
+        Returns:
+            str: Reset token if successful, None otherwise
+        """
+        try:
+            # Check if user exists
+            user = await self.get_user_by_email(email)
+            if not user:
+                logger.warning(f"Password reset requested for non-existent user: {email}")
+                # Don't reveal whether user exists or not
+                return None
+            
+            # Generate secure reset token
+            reset_token = secrets.token_urlsafe(32)
+            expires_at = datetime.now() + timedelta(hours=24)  # 24 hour expiry
+            
+            # Store reset token in Redis with TTL (alternative to database)
+            try:
+                import redis
+                import json
+                from core.config import settings
+                
+                # Connect to Redis
+                redis_client = redis.from_url(settings.REDIS_URL)
+                
+                # Store token with email and expiry info
+                token_data = {
+                    "email": email,
+                    "expires_at": expires_at.isoformat()
+                }
+                
+                # Set with 24 hour expiry
+                redis_client.setex(
+                    f"reset_token:{reset_token}", 
+                    24 * 60 * 60,  # 24 hours in seconds
+                    json.dumps(token_data)
+                )
+                
+                logger.info(f"Password reset token created for user: {email}")
+                return reset_token
+                    
+            except Exception as e:
+                logger.error(f"Database error storing reset token: {str(e)}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error creating password reset token: {str(e)}")
+            return None
+    
+    async def verify_reset_token(self, token: str) -> Optional[str]:
+        """
+        Verify password reset token and return user email
+        
+        Args:
+            token: Reset token to verify
+            
+        Returns:
+            str: User email if token is valid, None otherwise
+        """
+        try:
+            import redis
+            import json
+            from core.config import settings
+            
+            # Connect to Redis
+            redis_client = redis.from_url(settings.REDIS_URL)
+            
+            # Get token data from Redis
+            token_data_str = redis_client.get(f"reset_token:{token}")
+            if not token_data_str:
+                logger.warning("Invalid or expired reset token provided")
+                return None
+            
+            # Parse token data
+            token_data = json.loads(token_data_str)
+            email = token_data.get("email")
+            expires_str = token_data.get("expires_at")
+            
+            if not email or not expires_str:
+                logger.warning("Invalid token data format")
+                return None
+            
+            # Double-check expiry (Redis TTL should handle this, but extra safety)
+            try:
+                expires_at = datetime.fromisoformat(expires_str.replace('Z', '+00:00'))
+                if datetime.now() > expires_at:
+                    logger.warning(f"Reset token expired for user: {email}")
+                    redis_client.delete(f"reset_token:{token}")
+                    return None
+            except Exception:
+                logger.warning("Invalid reset token expiry format")
+                return None
+            
+            return email
+            
+        except Exception as e:
+            logger.error(f"Error verifying reset token: {str(e)}")
+            return None
+    
+    async def reset_password(self, token: str, new_password: str) -> bool:
+        """
+        Reset user password using reset token
+        
+        Args:
+            token: Valid reset token
+            new_password: New password
+            
+        Returns:
+            bool: True if password reset successful, False otherwise
+        """
+        try:
+            # Verify token and get user email
+            email = await self.verify_reset_token(token)
+            if not email:
+                return False
+            
+            # Update password in Supabase Auth
+            try:
+                # Get user by email first
+                auth_result = self.supabase.service_client.auth.admin.list_users()
+                user_id = None
+                
+                for user in auth_result.users:
+                    if user.email == email:
+                        user_id = user.id
+                        break
+                
+                if not user_id:
+                    logger.error(f"User not found in auth for email: {email}")
+                    return False
+                
+                # Update password
+                self.supabase.service_client.auth.admin.update_user_by_id(
+                    user_id,
+                    {"password": new_password}
+                )
+                
+                # Clear reset token after successful password change
+                await self._clear_reset_token(token)
+                
+                logger.info(f"Password successfully reset for user: {email}")
+                return True
+                
+            except Exception as e:
+                logger.error(f"Failed to update password in Supabase Auth: {str(e)}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error resetting password: {str(e)}")
+            return False
+    
+    async def _clear_reset_token(self, token: str) -> None:
+        """Clear reset token from Redis"""
+        try:
+            import redis
+            from core.config import settings
+            
+            redis_client = redis.from_url(settings.REDIS_URL)
+            redis_client.delete(f"reset_token:{token}")
+        except Exception as e:
+            logger.warning(f"Failed to clear reset token: {str(e)}")
+    
+    async def send_password_reset_email(self, email: str) -> bool:
+        """
+        Send password reset email to user
+        
+        Args:
+            email: User's email address
+            
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        try:
+            # Create reset token
+            reset_token = await self.create_password_reset_token(email)
+            if not reset_token:
+                # Always return True to prevent email enumeration
+                return True
+            
+            # Get user info for personalization
+            user_data = await self.get_user_by_email(email)
+            user_name = user_data.get("full_name") if user_data else None
+            
+            # Send email
+            email_sent = await email_service.send_password_reset_email(
+                to_email=email,
+                reset_token=reset_token,
+                user_name=user_name
+            )
+            
+            if email_sent:
+                logger.info(f"Password reset email sent to: {email}")
+            else:
+                logger.error(f"Failed to send password reset email to: {email}")
+            
+            # Always return True to prevent email enumeration
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending password reset email: {str(e)}")
+            # Always return True to prevent email enumeration
+            return True
 
     async def update_user_profile(self, user_id: str, profile_data: UserProfileUpdate) -> bool:
         """
