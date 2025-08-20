@@ -60,7 +60,8 @@ class SupabaseClient:
     async def update_document_status(self, doc_id: str, status: str, error: Optional[str] = None):
         """Update document processing status"""
         try:
-            update_data = {'status': status}
+            # Update processing_status instead of status to avoid constraint issues
+            update_data = {'processing_status': status}
             if error:
                 update_data['processing_error'] = error
                 
