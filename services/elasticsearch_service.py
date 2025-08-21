@@ -233,16 +233,23 @@ class ElasticsearchService:
             if document_id:
                 query = {
                     "query": {
-                        "match": {"document_id": document_id}
+                        "term": {"document_id.keyword": document_id}
                     }
                 }
+                logger.info(f"Counting embeddings for document_id: {document_id}")
                 async with session.post(
                     f"{self.elasticsearch_url}/{self.index_name}/_count",
                     json=query
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
-                        return result.get("count", 0)
+                        count = result.get("count", 0)
+                        logger.info(f"Found {count} embeddings for document {document_id}")
+                        return count
+                    else:
+                        logger.error(f"Embeddings count query failed: HTTP {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"Error response: {error_text}")
             else:
                 async with session.get(f"{self.elasticsearch_url}/{self.index_name}/_count") as response:
                     if response.status == 200:
@@ -264,29 +271,16 @@ class ElasticsearchService:
             stats_query = {
                 "size": 0,
                 "query": {
-                    "match": {"document_id": document_id}
+                    "term": {"document_id.keyword": document_id}
                 },
                 "aggs": {
                     "chunk_count": {
                         "cardinality": {"field": "chunk_index"}
-                    },
-                    "avg_content_length": {
-                        "avg": {
-                            "script": "doc['content'].value.length()"
-                        }
-                    },
-                    "page_spread": {
-                        "stats": {"field": "page_number"}
-                    },
-                    "creation_timeline": {
-                        "date_histogram": {
-                            "field": "created_at",
-                            "calendar_interval": "day"
-                        }
                     }
                 }
             }
             
+            logger.info(f"Getting vector stats for document_id: {document_id}")
             async with session.post(
                 f"{self.elasticsearch_url}/{self.index_name}/_search",
                 json=stats_query
@@ -299,8 +293,8 @@ class ElasticsearchService:
                     # Extract statistics
                     total_vectors = result.get("hits", {}).get("total", {}).get("value", 0)
                     unique_chunks = aggs.get("chunk_count", {}).get("value", 0)
-                    avg_length = aggs.get("avg_content_length", {}).get("value", 0)
-                    page_stats = aggs.get("page_spread", {})
+                    
+                    logger.info(f"Vector stats for {document_id}: total_vectors={total_vectors}, unique_chunks={unique_chunks}")
                     
                     return {
                         "total_vectors": total_vectors,
@@ -309,6 +303,8 @@ class ElasticsearchService:
                     }
                 else:
                     logger.error(f"Vector stats query failed: HTTP {response.status}")
+                    error_text = await response.text()
+                    logger.error(f"Error response: {error_text}")
                     return {"total_vectors": 0, "unique_chunks": 0, "index_name": self.index_name}
                     
         except Exception as e:
@@ -322,7 +318,7 @@ class ElasticsearchService:
             
             delete_query = {
                 "query": {
-                    "match": {"document_id": document_id}
+                    "term": {"document_id.keyword": document_id}
                 }
             }
             
