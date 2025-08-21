@@ -233,7 +233,7 @@ class ElasticsearchService:
             if document_id:
                 query = {
                     "query": {
-                        "term": {"document_id": document_id}
+                        "match": {"document_id": document_id}
                     }
                 }
                 async with session.post(
@@ -264,7 +264,7 @@ class ElasticsearchService:
             stats_query = {
                 "size": 0,
                 "query": {
-                    "term": {"document_id": document_id}
+                    "match": {"document_id": document_id}
                 },
                 "aggs": {
                     "chunk_count": {
@@ -322,7 +322,7 @@ class ElasticsearchService:
             
             delete_query = {
                 "query": {
-                    "term": {"document_id": document_id}
+                    "match": {"document_id": document_id}
                 }
             }
             
