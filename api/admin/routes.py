@@ -315,6 +315,8 @@ async def get_document_details(
         
         document = document_response.data[0]
         
+
+        
         # Step 2: Get detailed vector information from Elasticsearch
         from services.embedding_service import EmbeddingService
         from services.elasticsearch_service import ElasticsearchService
@@ -380,9 +382,16 @@ async def get_document_details(
                     "vectorization_complete": vector_stats.get("total_vectors", 0) > 0 and document.get('processing_status') == 'completed'
                 },
                 "metadata": {
-                    "keywords": document.get('keywords', []),
-                    "source_institution": document.get('institution'),
-                    "publish_date": document.get('publish_date'),
+                    "document_id": document['id'],
+                    "original_filename": document.get('filename'),
+                    "category": document.get('category'),
+                    "processing_status": document.get('processing_status'),
+                    "file_size_bytes": document.get('file_size', 0),
+                    "uploaded_by": document.get('uploaded_by'),
+                    "upload_date": document.get('created_at'),
+                    "last_updated": document.get('updated_at'),
+                    "content_preview": document.get('content_preview'),
+                    "bunny_cdn_url": document.get('file_url'),
                     "processing_notes": f"Status: {document.get('processing_status', 'unknown')}"
                 }
             }
