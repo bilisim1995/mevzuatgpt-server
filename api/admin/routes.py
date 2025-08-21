@@ -366,12 +366,7 @@ async def get_document_details(
                 },
                 "vector_analytics": {
                     "total_vectors": vector_stats.get("total_vectors", 0),
-                    "unique_chunks": vector_stats.get("unique_chunks", 0),
-                    "chunk_count": vector_stats.get("unique_chunks", 0),  # Same as unique_chunks
-                    "avg_chunk_length": vector_stats.get("avg_chunk_length", 0),
-                    "vector_dimensions": vector_stats.get("vector_dimensions", 1536),
-                    "total_vector_storage_mb": vector_stats.get("total_storage_mb", 0),
-                    "page_coverage": vector_stats.get("page_range", {}),
+                    "chunk_count": vector_stats.get("unique_chunks", 0),
                     "elasticsearch_index": vector_stats.get("index_name", "mevzuat_embeddings")
                 },
                 "processing_metrics": {
