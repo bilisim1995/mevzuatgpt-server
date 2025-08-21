@@ -211,7 +211,7 @@ async def list_documents(
         
         # Build query
         query = supabase_client.supabase.table('mevzuat_documents').select(
-            'id, title, filename, file_url, category, processing_status, file_size, created_at, updated_at, uploaded_by, content_preview, processing_error'
+            'id, title, filename, file_url, category, processing_status, file_size, created_at, updated_at, uploaded_by, content_preview'
         )
         
         # Apply filters
@@ -262,7 +262,7 @@ async def list_documents(
                 "created_at": doc.get('created_at'),
                 "updated_at": doc.get('updated_at'),
                 "uploaded_by": doc.get('uploaded_by'),
-                "has_error": bool(doc.get('processing_error')),
+                "has_error": doc.get('processing_status') == 'failed',
                 "preview": doc.get('content_preview', '')[:100] + '...' if doc.get('content_preview') else None
             })
         
@@ -366,7 +366,7 @@ async def get_document_details(
                     "keywords": document.get('keywords', []),
                     "source_institution": document.get('institution'),
                     "publish_date": document.get('publish_date'),
-                    "processing_error": document.get('processing_error')
+                    "processing_notes": f"Status: {document.get('processing_status', 'unknown')}"
                 }
             }
         }
