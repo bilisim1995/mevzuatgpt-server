@@ -305,23 +305,15 @@ class ElasticsearchService:
                     return {
                         "total_vectors": total_vectors,
                         "unique_chunks": unique_chunks,
-                        "avg_chunk_length": round(avg_length, 2) if avg_length else 0,
-                        "page_range": {
-                            "min": page_stats.get("min", 0),
-                            "max": page_stats.get("max", 0),
-                            "count": page_stats.get("count", 0)
-                        },
-                        "vector_dimensions": 1536,
-                        "total_storage_mb": round((total_vectors * 1536 * 4) / (1024 * 1024), 2),
                         "index_name": self.index_name
                     }
                 else:
                     logger.error(f"Vector stats query failed: HTTP {response.status}")
-                    return {"total_vectors": 0, "unique_chunks": 0}
+                    return {"total_vectors": 0, "unique_chunks": 0, "index_name": self.index_name}
                     
         except Exception as e:
             logger.error(f"Error getting vector stats: {e}")
-            return {"total_vectors": 0, "unique_chunks": 0, "error": str(e)}
+            return {"total_vectors": 0, "unique_chunks": 0, "index_name": self.index_name, "error": str(e)}
     
     async def delete_document_embeddings(self, document_id: str) -> int:
         """Delete all embeddings for a document"""

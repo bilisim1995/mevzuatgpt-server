@@ -1,0 +1,54 @@
+{
+    "success": true,
+    "data": {
+        "document_info": {
+            "id": "f63d3fe2-1041-4b79-acd5-29b7821398a5",
+            "title": "dasdasdas",
+            "filename": "82660-111-136.pdf",
+            "category": "mevzuat",
+            "description": "dasdasdasd",
+            "processing_status": "completed",
+            "created_at": "2025-08-21T05:42:10.278821+00:00",
+            "updated_at": "2025-08-21T05:43:31.953341+00:00",
+            "uploaded_by": "a99ffd5c-cbac-4585-bc30-40dbf03fbe89"
+        },
+        "storage_info": {
+            "bunny_url": "https://cdn.mevzuatgpt.org/documents/b6c4bd36-8a31-4ad5-a1d7-7e340a63fca3.pdf",
+            "file_size_bytes": 290682,
+            "file_size_mb": 0.28
+        },
+        "vector_analytics": {
+            "total_vectors": 0,
+            "unique_chunks": 0,
+            "chunk_count": 0,
+            "avg_chunk_length": 0,
+            "vector_dimensions": 1536,
+            "total_vector_storage_mb": 0.0,
+            "page_coverage": {
+                "min": null,
+                "max": null,
+                "count": 0
+            },
+            "elasticsearch_index": "mevzuat_embeddings"
+        },
+        "processing_metrics": {
+            "embeddings_created": 0,
+            "processing_status": "completed",
+            "has_vectors": false,
+            "vectorization_complete": false
+        },
+        "metadata": {
+            "document_id": "f63d3fe2-1041-4b79-acd5-29b7821398a5",
+            "original_filename": "82660-111-136.pdf",
+            "category": "mevzuat",
+            "processing_status": "completed",
+            "file_size_bytes": 290682,
+            "uploaded_by": "a99ffd5c-cbac-4585-bc30-40dbf03fbe89",
+            "upload_date": "2025-08-21T05:42:10.278821+00:00",
+            "last_updated": "2025-08-21T05:43:31.953341+00:00",
+            "content_preview": "dasdasdasd",
+            "bunny_cdn_url": "https://cdn.mevzuatgpt.org/documents/b6c4bd36-8a31-4ad5-a1d7-7e340a63fca3.pdf",
+            "processing_notes": "Status: completed"
+        }
+    }
+}
