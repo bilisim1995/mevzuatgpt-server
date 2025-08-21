@@ -28,7 +28,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python app.py server"
+args = "ALLOWED_ORIGINS=\"https://d918281c-1bd6-402c-9393-c4aff6ab45cd-00-24vj3sc6uk3ba.worf.replit.dev,http://localhost:3000,http://localhost:5173,*\" ALLOWED_HOSTS=\"*\" python app.py server"
 waitForPort = 5000
 
 [[workflows.workflow]]
