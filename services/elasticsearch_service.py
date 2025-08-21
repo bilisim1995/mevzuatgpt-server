@@ -255,6 +255,74 @@ class ElasticsearchService:
             logger.error(f"Error getting embeddings count: {e}")
             return 0
     
+    async def get_document_vector_stats(self, document_id: str) -> Dict[str, Any]:
+        """Get detailed vector statistics for a document"""
+        try:
+            session = await self._get_session()
+            
+            # Get aggregation data for the document
+            stats_query = {
+                "size": 0,
+                "query": {
+                    "term": {"document_id": document_id}
+                },
+                "aggs": {
+                    "chunk_count": {
+                        "cardinality": {"field": "chunk_index"}
+                    },
+                    "avg_content_length": {
+                        "avg": {
+                            "script": "doc['content'].value.length()"
+                        }
+                    },
+                    "page_spread": {
+                        "stats": {"field": "page_number"}
+                    },
+                    "creation_timeline": {
+                        "date_histogram": {
+                            "field": "created_at",
+                            "calendar_interval": "day"
+                        }
+                    }
+                }
+            }
+            
+            async with session.post(
+                f"{self.elasticsearch_url}/{self.index_name}/_search",
+                json=stats_query
+            ) as response:
+                
+                if response.status == 200:
+                    result = await response.json()
+                    aggs = result.get("aggregations", {})
+                    
+                    # Extract statistics
+                    total_vectors = result.get("hits", {}).get("total", {}).get("value", 0)
+                    unique_chunks = aggs.get("chunk_count", {}).get("value", 0)
+                    avg_length = aggs.get("avg_content_length", {}).get("value", 0)
+                    page_stats = aggs.get("page_spread", {})
+                    
+                    return {
+                        "total_vectors": total_vectors,
+                        "unique_chunks": unique_chunks,
+                        "avg_chunk_length": round(avg_length, 2) if avg_length else 0,
+                        "page_range": {
+                            "min": page_stats.get("min", 0),
+                            "max": page_stats.get("max", 0),
+                            "count": page_stats.get("count", 0)
+                        },
+                        "vector_dimensions": 1536,
+                        "total_storage_mb": round((total_vectors * 1536 * 4) / (1024 * 1024), 2),
+                        "index_name": self.index_name
+                    }
+                else:
+                    logger.error(f"Vector stats query failed: HTTP {response.status}")
+                    return {"total_vectors": 0, "unique_chunks": 0}
+                    
+        except Exception as e:
+            logger.error(f"Error getting vector stats: {e}")
+            return {"total_vectors": 0, "unique_chunks": 0, "error": str(e)}
+    
     async def delete_document_embeddings(self, document_id: str) -> int:
         """Delete all embeddings for a document"""
         try:

@@ -315,10 +315,18 @@ async def get_document_details(
         
         document = document_response.data[0]
         
-        # Step 2: Get embedding count from Elasticsearch
+        # Step 2: Get detailed vector information from Elasticsearch
         from services.embedding_service import EmbeddingService
+        from services.elasticsearch_service import ElasticsearchService
+        
         embedding_service = EmbeddingService()
+        es_service = ElasticsearchService()
+        
+        # Get embedding count and additional vector info
         embedding_count = await embedding_service.get_embeddings_count(document_id)
+        
+        # Get chunk information and vector statistics
+        vector_stats = await es_service.get_document_vector_stats(document_id)
         
         # Step 3: Generate full Bunny.net URL (3-tier fallback system)
         full_url = None
@@ -333,9 +341,8 @@ async def get_document_details(
             title_as_filename = f"{document.get('title', 'unknown')}.pdf"
             full_url = f"https://cdn.mevzuatgpt.org/documents/{title_as_filename}"
         
-        # Step 4: Calculate storage size (estimate vector storage)
+        # Step 4: Calculate storage size from actual vector stats
         file_size_mb = round(document.get('file_size', 0) / (1024 * 1024), 2) if document.get('file_size') else 0
-        vector_storage_mb = round((embedding_count * 1536 * 4) / (1024 * 1024), 2)  # 1536 dims * 4 bytes per float
         
         return {
             "success": True,
@@ -356,11 +363,21 @@ async def get_document_details(
                     "file_size_bytes": document.get('file_size', 0),
                     "file_size_mb": file_size_mb
                 },
-                "elasticsearch_info": {
-                    "embedding_count": embedding_count,
-                    "vector_storage_mb": vector_storage_mb,
-                    "vector_dimensions": 1536,
-                    "index_name": "mevzuat_embeddings"
+                "vector_analytics": {
+                    "total_vectors": vector_stats.get("total_vectors", 0),
+                    "unique_chunks": vector_stats.get("unique_chunks", 0),
+                    "chunk_count": vector_stats.get("unique_chunks", 0),  # Same as unique_chunks
+                    "avg_chunk_length": vector_stats.get("avg_chunk_length", 0),
+                    "vector_dimensions": vector_stats.get("vector_dimensions", 1536),
+                    "total_vector_storage_mb": vector_stats.get("total_storage_mb", 0),
+                    "page_coverage": vector_stats.get("page_range", {}),
+                    "elasticsearch_index": vector_stats.get("index_name", "mevzuat_embeddings")
+                },
+                "processing_metrics": {
+                    "embeddings_created": embedding_count,
+                    "processing_status": document.get('processing_status'),
+                    "has_vectors": vector_stats.get("total_vectors", 0) > 0,
+                    "vectorization_complete": vector_stats.get("total_vectors", 0) > 0 and document.get('processing_status') == 'completed'
                 },
                 "metadata": {
                     "keywords": document.get('keywords', []),
