@@ -1097,8 +1097,7 @@ async def update_user_credits(
             'user_id': user_id,
             'amount': abs(credit_update.amount),
             'transaction_type': transaction_type,
-            'description': f"Admin tarafından manuel {transaction_type}: {credit_update.reason}",
-            'created_by': str(current_user.id),
+            'description': f"Admin tarafından manuel {transaction_type}: {credit_update.reason} (Yapan: {current_user.email})",
             'created_at': datetime.now().isoformat()
         }).execute()
         
