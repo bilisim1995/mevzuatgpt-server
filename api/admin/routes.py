@@ -161,6 +161,44 @@ async def elasticsearch_health(
             detail=f"Failed to check Elasticsearch health: {str(e)}"
         )
 
+@router.get("/system/health", response_model=Dict[str, Any])
+async def system_health(
+    current_user: UserResponse = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Comprehensive system health check (Admin only)
+    
+    Returns detailed health information for all system components:
+    - Database (Supabase) 
+    - Redis cache
+    - Elasticsearch
+    - Celery workers
+    - Email service (SendGrid)
+    - AI services (OpenAI, Groq)
+    - Storage (Bunny.net)
+    - API performance metrics
+    """
+    try:
+        from services.health_service import HealthService
+        
+        health_service = HealthService(db)
+        health_data = await health_service.get_comprehensive_health()
+        
+        logger.info(f"System health check requested by admin {current_user.id}")
+        
+        return {
+            "success": True,
+            "data": health_data
+        }
+        
+    except Exception as e:
+        logger.error(f"System health check failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to check system health: {str(e)}"
+        )
+
 @router.get("/embeddings/count", response_model=Dict[str, Any])
 async def embeddings_count(
     document_id: Optional[str] = Query(None, description="Filter by document ID"),
