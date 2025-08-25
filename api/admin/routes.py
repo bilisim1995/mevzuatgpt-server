@@ -161,6 +161,205 @@ async def elasticsearch_health(
             detail=f"Failed to check Elasticsearch health: {str(e)}"
         )
 
+@router.get("/dashboard/stats", response_model=Dict[str, Any])
+async def dashboard_statistics(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Ana sayfa için genel istatistikler (Admin only)
+    
+    Frontend ana sayfasında gösterilecek:
+    - Toplam üye sayısı
+    - Toplam doküman sayısı
+    - Toplam sorgu sayısı
+    - Son 24 saatteki aktivite
+    - Sistem performance metrikleri
+    """
+    try:
+        from datetime import datetime, timedelta
+        import time
+        
+        start_time = time.time()
+        logger.info(f"Dashboard statistics requested by admin {current_user.id}")
+        
+        # Tarih hesaplamaları
+        now = datetime.utcnow()
+        last_24h = (now - timedelta(hours=24)).isoformat()
+        last_30d = (now - timedelta(days=30)).isoformat()
+        
+        # Paralel veri toplama
+        stats = {}
+        
+        # 1. Toplam kullanıcı sayısı
+        try:
+            users_result = supabase_client.supabase.table('user_profiles').select('id').execute()
+            stats['total_users'] = len(users_result.data) if users_result.data else 0
+        except Exception as e:
+            logger.warning(f"Failed to get user count: {e}")
+            stats['total_users'] = 0
+            
+        # 2. Toplam doküman sayısı
+        try:
+            docs_result = supabase_client.supabase.table('mevzuat_documents').select('id').execute()
+            stats['total_documents'] = len(docs_result.data) if docs_result.data else 0
+        except Exception as e:
+            logger.warning(f"Failed to get document count: {e}")
+            stats['total_documents'] = 0
+            
+        # 3. Toplam sorgu sayısı
+        try:
+            queries_result = supabase_client.supabase.table('search_logs').select('id').execute()
+            stats['total_queries'] = len(queries_result.data) if queries_result.data else 0
+        except Exception as e:
+            logger.warning(f"Failed to get query count: {e}")
+            stats['total_queries'] = 0
+            
+        # 4. Son 24 saatteki sorgular
+        try:
+            recent_queries = supabase_client.supabase.table('search_logs')\
+                .select('id')\
+                .gte('created_at', last_24h)\
+                .execute()
+            stats['queries_last_24h'] = len(recent_queries.data) if recent_queries.data else 0
+        except Exception as e:
+            logger.warning(f"Failed to get recent queries: {e}")
+            stats['queries_last_24h'] = 0
+            
+        # 5. Aktif kullanıcılar (son 30 gün)
+        try:
+            active_users = supabase_client.supabase.table('search_logs')\
+                .select('user_id')\
+                .gte('created_at', last_30d)\
+                .execute()
+            unique_users = set()
+            if active_users.data:
+                for log in active_users.data:
+                    if log.get('user_id'):
+                        unique_users.add(log['user_id'])
+            stats['active_users_30d'] = len(unique_users)
+        except Exception as e:
+            logger.warning(f"Failed to get active users: {e}")
+            stats['active_users_30d'] = 0
+            
+        # 6. Ortalama güvenilirlik skoru
+        try:
+            reliability_result = supabase_client.supabase.table('search_logs')\
+                .select('reliability_score')\
+                .gte('created_at', last_30d)\
+                .execute()
+            
+            scores = []
+            if reliability_result.data:
+                for log in reliability_result.data:
+                    score = log.get('reliability_score')
+                    if score and isinstance(score, (int, float)):
+                        scores.append(score)
+            
+            stats['avg_reliability_score'] = round(sum(scores) / len(scores), 2) if scores else 0
+        except Exception as e:
+            logger.warning(f"Failed to get reliability scores: {e}")
+            stats['avg_reliability_score'] = 0
+            
+        # 7. Kredi işlemleri
+        try:
+            credit_result = supabase_client.supabase.table('credit_transactions').select('id').execute()
+            stats['total_credit_transactions'] = len(credit_result.data) if credit_result.data else 0
+        except Exception as e:
+            logger.warning(f"Failed to get credit transactions: {e}")
+            stats['total_credit_transactions'] = 0
+            
+        # 8. Doküman kategorileri (Top 5)
+        try:
+            categories_result = supabase_client.supabase.table('mevzuat_documents')\
+                .select('category')\
+                .execute()
+            
+            category_count = {}
+            if categories_result.data:
+                for doc in categories_result.data:
+                    category = doc.get('category') or 'Belirtilmemiş'
+                    category_count[category] = category_count.get(category, 0) + 1
+            
+            # En çok kullanılan 5 kategori
+            top_categories = sorted(category_count.items(), key=lambda x: x[1], reverse=True)[:5]
+            stats['top_categories'] = [
+                {"name": cat, "count": count} for cat, count in top_categories
+            ]
+        except Exception as e:
+            logger.warning(f"Failed to get categories: {e}")
+            stats['top_categories'] = []
+            
+        # 9. Son yüklenen dokümanlar (5 adet)
+        try:
+            recent_docs = supabase_client.supabase.table('mevzuat_documents')\
+                .select('id, title, category, created_at')\
+                .order('created_at', desc=True)\
+                .limit(5)\
+                .execute()
+            
+            stats['recent_documents'] = recent_docs.data if recent_docs.data else []
+        except Exception as e:
+            logger.warning(f"Failed to get recent documents: {e}")
+            stats['recent_documents'] = []
+            
+        # 10. Sistem performance
+        response_time = round((time.time() - start_time) * 1000, 2)
+        
+        # Redis durumu (basit ping)
+        redis_status = "healthy"
+        try:
+            from services.redis_service import RedisService
+            redis_service = RedisService()
+            await redis_service.ping()
+        except Exception:
+            redis_status = "warning"
+            
+        # Elasticsearch durumu
+        es_status = "healthy"
+        try:
+            from services.elasticsearch_service import ElasticsearchService
+            es_service = ElasticsearchService()
+            health_data = await es_service.health_check()
+            if health_data.get("health") != "ok":
+                es_status = "warning"
+        except Exception:
+            es_status = "error"
+            
+        # Final response
+        return {
+            "success": True,
+            "data": {
+                "overview": {
+                    "total_users": stats['total_users'],
+                    "total_documents": stats['total_documents'],
+                    "total_queries": stats['total_queries'],
+                    "active_users_30d": stats['active_users_30d']
+                },
+                "activity": {
+                    "queries_last_24h": stats['queries_last_24h'],
+                    "avg_reliability_score": stats['avg_reliability_score'],
+                    "total_credit_transactions": stats['total_credit_transactions']
+                },
+                "content": {
+                    "top_categories": stats['top_categories'],
+                    "recent_documents": stats['recent_documents']
+                },
+                "system": {
+                    "response_time_ms": response_time,
+                    "redis_status": redis_status,
+                    "elasticsearch_status": es_status,
+                    "timestamp": now.isoformat()
+                }
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Dashboard statistics error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get dashboard statistics: {str(e)}"
+        )
+
 @router.get("/system/health", response_model=Dict[str, Any])
 async def system_health(
     current_user: UserResponse = Depends(get_admin_user),
