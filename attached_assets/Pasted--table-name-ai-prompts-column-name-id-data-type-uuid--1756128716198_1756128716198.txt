@@ -1,0 +1,512 @@
+[
+  {
+    "table_name": "ai_prompts",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "ai_prompts",
+    "column_name": "prompt_type",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "ai_prompts",
+    "column_name": "prompt_content",
+    "data_type": "text"
+  },
+  {
+    "table_name": "ai_prompts",
+    "column_name": "is_active",
+    "data_type": "boolean"
+  },
+  {
+    "table_name": "ai_prompts",
+    "column_name": "version",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "ai_prompts",
+    "column_name": "updated_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "ai_prompts",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_name": "ai_prompts",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "ai_prompts",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "credit_transactions",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "credit_transactions",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "credit_transactions",
+    "column_name": "transaction_type",
+    "data_type": "text"
+  },
+  {
+    "table_name": "credit_transactions",
+    "column_name": "amount",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "credit_transactions",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_name": "credit_transactions",
+    "column_name": "search_log_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "credit_transactions",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "maintenance_mode",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "maintenance_mode",
+    "column_name": "is_enabled",
+    "data_type": "boolean"
+  },
+  {
+    "table_name": "maintenance_mode",
+    "column_name": "title",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "maintenance_mode",
+    "column_name": "message",
+    "data_type": "text"
+  },
+  {
+    "table_name": "maintenance_mode",
+    "column_name": "start_time",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "maintenance_mode",
+    "column_name": "end_time",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "maintenance_mode",
+    "column_name": "allowed_users",
+    "data_type": "ARRAY"
+  },
+  {
+    "table_name": "maintenance_mode",
+    "column_name": "created_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "maintenance_mode",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "maintenance_mode",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "title",
+    "data_type": "text"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "filename",
+    "data_type": "text"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "file_url",
+    "data_type": "text"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "file_size",
+    "data_type": "bigint"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "institution",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "uploaded_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "processing_status",
+    "data_type": "text"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "metadata",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "content_preview",
+    "data_type": "text"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "upload_date",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "mevzuat_documents",
+    "column_name": "category",
+    "data_type": "text"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "query",
+    "data_type": "text"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "response",
+    "data_type": "text"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "results_count",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "reliability_score",
+    "data_type": "double precision"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "institution_filter",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "execution_time",
+    "data_type": "double precision"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "credits_used",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "ip_address",
+    "data_type": "inet"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "search_logs",
+    "column_name": "sources",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "ticket_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "sender_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "message",
+    "data_type": "text"
+  },
+  {
+    "table_name": "support_messages",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "subject",
+    "data_type": "text"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "category",
+    "data_type": "text"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "priority",
+    "data_type": "text"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "support_tickets",
+    "column_name": "ticket_number",
+    "data_type": "text"
+  },
+  {
+    "table_name": "user_credit_balance",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "user_credit_balance",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "user_credit_balance",
+    "column_name": "current_balance",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "user_credit_balance",
+    "column_name": "total_purchased",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "user_credit_balance",
+    "column_name": "total_used",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "user_credit_balance",
+    "column_name": "last_transaction_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "user_credit_balance",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "user_credit_balance",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "user_credits",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "user_credits",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "user_credits",
+    "column_name": "transaction_type",
+    "data_type": "text"
+  },
+  {
+    "table_name": "user_credits",
+    "column_name": "amount",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "user_credits",
+    "column_name": "balance_after",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "user_credits",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_name": "user_credits",
+    "column_name": "query_id",
+    "data_type": "text"
+  },
+  {
+    "table_name": "user_credits",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "user_feedback",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "user_feedback",
+    "column_name": "user_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "user_feedback",
+    "column_name": "search_log_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "user_feedback",
+    "column_name": "feedback_type",
+    "data_type": "text"
+  },
+  {
+    "table_name": "user_feedback",
+    "column_name": "feedback_comment",
+    "data_type": "text"
+  },
+  {
+    "table_name": "user_feedback",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "user_feedback",
+    "column_name": "query_text",
+    "data_type": "text"
+  },
+  {
+    "table_name": "user_feedback",
+    "column_name": "answer_text",
+    "data_type": "text"
+  },
+  {
+    "table_name": "user_feedback",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "user_profiles",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "user_profiles",
+    "column_name": "email",
+    "data_type": "text"
+  },
+  {
+    "table_name": "user_profiles",
+    "column_name": "full_name",
+    "data_type": "text"
+  },
+  {
+    "table_name": "user_profiles",
+    "column_name": "role",
+    "data_type": "text"
+  },
+  {
+    "table_name": "user_profiles",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "user_profiles",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "user_profiles",
+    "column_name": "ad",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "user_profiles",
+    "column_name": "soyad",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "user_profiles",
+    "column_name": "meslek",
+    "data_type": "character varying"
+  },
+  {
+    "table_name": "user_profiles",
+    "column_name": "calistigi_yer",
+    "data_type": "character varying"
+  }
+]

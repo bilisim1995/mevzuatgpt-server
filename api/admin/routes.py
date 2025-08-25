@@ -615,14 +615,6 @@ async def list_users(
         # Kullanıcı detaylarını zenginleştir
         enriched_users = []
         for user in users_response.data:
-            # Kredi bilgilerini al
-            credit_response = supabase_client.supabase.table('user_credits').select('balance').eq('user_id', user['id']).execute()
-            total_credits = credit_response.data[0]['balance'] if credit_response.data else 0
-            
-            # Harcanan kredileri hesapla
-            spent_response = supabase_client.supabase.table('credit_transactions').select('amount').eq('user_id', user['id']).eq('transaction_type', 'debit').execute()
-            credits_used = sum([t['amount'] for t in spent_response.data]) if spent_response.data else 0
-            
             # Arama sayısı
             search_response = supabase_client.supabase.table('search_logs').select('id', count='exact').eq('user_id', user['id']).execute()
             search_count = search_response.count
@@ -638,8 +630,6 @@ async def list_users(
                 "role": user['role'],
                 "created_at": user['created_at'],
                 "updated_at": user.get('updated_at'),
-                "total_credits": total_credits,
-                "credits_used": credits_used,
                 "search_count": search_count
             })
         
@@ -682,14 +672,6 @@ async def get_user_details(
         
         user = user_response.data[0]
         
-        # Kredi bilgilerini al
-        credit_response = supabase_client.supabase.table('user_credits').select('balance').eq('user_id', user_id).execute()
-        total_credits = credit_response.data[0]['balance'] if credit_response.data else 0
-        
-        # Harcanan kredileri hesapla
-        spent_response = supabase_client.supabase.table('credit_transactions').select('amount').eq('user_id', user_id).eq('transaction_type', 'debit').execute()
-        credits_used = sum([t['amount'] for t in spent_response.data]) if spent_response.data else 0
-        
         # Arama sayısı
         search_response = supabase_client.supabase.table('search_logs').select('id', count='exact').eq('user_id', user_id).execute()
         search_count = search_response.count
@@ -705,8 +687,6 @@ async def get_user_details(
             "role": user['role'],
             "created_at": user['created_at'],
             "updated_at": user.get('updated_at'),
-            "total_credits": total_credits,
-            "credits_used": credits_used,
             "search_count": search_count
         }
         
