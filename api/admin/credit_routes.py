@@ -247,3 +247,241 @@ async def get_user_credit_history(
             status_code=500,
             detail="Kullanıcı kredi geçmişi getirilemedi"
         )
+
+
+# ============ CREDIT TRANSACTIONS ADMIN ENDPOINTS ============
+
+@router.get("/transactions", response_model=Dict[str, Any])
+async def get_all_transactions(
+    page: int = Query(1, ge=1, description="Sayfa numarası"),
+    limit: int = Query(50, ge=1, le=200, description="Sayfa başına kayıt"),
+    transaction_type: Optional[str] = Query(None, description="İşlem tipi: purchase, usage, refund, bonus"),
+    user_id: Optional[str] = Query(None, description="Kullanıcı ID filtresi"),
+    current_user: dict = Depends(get_current_user_admin)
+):
+    """
+    Tüm kredi işlemlerini listele (Admin)
+    
+    Args:
+        page: Sayfa numarası
+        limit: Sayfa başına kayıt sayısı
+        transaction_type: İşlem tipi filtresi
+        user_id: Kullanıcı filtresi
+        current_user: Admin kullanıcı
+        
+    Returns:
+        Kredi işlemleri listesi
+    """
+    try:
+        from models.supabase_client import supabase_client
+        
+        # Base query
+        query = supabase_client.supabase.table('credit_transactions').select('*')
+        
+        # Filtreleme
+        if transaction_type:
+            if transaction_type not in ['purchase', 'usage', 'refund', 'bonus']:
+                raise HTTPException(status_code=400, detail="Geçersiz işlem tipi")
+            query = query.eq('transaction_type', transaction_type)
+        
+        if user_id:
+            query = query.eq('user_id', user_id)
+        
+        # Toplam sayı için count
+        count_response = query.execute()
+        total_count = len(count_response.data) if count_response.data else 0
+        
+        # Sayfalama
+        offset = (page - 1) * limit
+        response = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+        
+        # Kullanıcı bilgilerini ekle
+        transactions_with_user = []
+        if response.data:
+            for transaction in response.data:
+                # Kullanıcı bilgilerini al
+                user_response = supabase_client.supabase.table('user_profiles') \
+                    .select('full_name, email') \
+                    .eq('id', transaction['user_id']) \
+                    .single() \
+                    .execute()
+                
+                transaction_with_user = transaction.copy()
+                if user_response.data:
+                    transaction_with_user['user_name'] = user_response.data.get('full_name', 'Bilinmiyor')
+                    transaction_with_user['user_email'] = user_response.data.get('email', 'Bilinmiyor')
+                else:
+                    transaction_with_user['user_name'] = 'Silinmiş Kullanıcı'
+                    transaction_with_user['user_email'] = 'Silinmiş'
+                
+                transactions_with_user.append(transaction_with_user)
+        
+        return {
+            "success": True,
+            "data": {
+                "transactions": transactions_with_user,
+                "total_count": total_count,
+                "has_more": total_count > offset + limit,
+                "page": page,
+                "limit": limit,
+                "filters": {
+                    "transaction_type": transaction_type,
+                    "user_id": user_id
+                }
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Tüm işlemler alınırken hata: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Kredi işlemleri alınamadı"
+        )
+
+@router.get("/transactions/stats", response_model=Dict[str, Any])
+async def get_transaction_stats(
+    current_user: dict = Depends(get_current_user_admin)
+):
+    """
+    Kredi işlemleri istatistikleri (Admin)
+    
+    Returns:
+        Kredi işlem istatistikleri
+    """
+    try:
+        from models.supabase_client import supabase_client
+        
+        # Tüm işlemler
+        all_transactions = supabase_client.supabase.table('credit_transactions') \
+            .select('transaction_type, amount') \
+            .execute()
+        
+        stats = {
+            "total_transactions": 0,
+            "by_type": {
+                "purchase": {"count": 0, "total_amount": 0},
+                "usage": {"count": 0, "total_amount": 0},
+                "refund": {"count": 0, "total_amount": 0},
+                "bonus": {"count": 0, "total_amount": 0}
+            },
+            "total_credits_purchased": 0,
+            "total_credits_used": 0,
+            "total_credits_refunded": 0,
+            "total_credits_bonus": 0
+        }
+        
+        if all_transactions.data:
+            stats["total_transactions"] = len(all_transactions.data)
+            
+            for transaction in all_transactions.data:
+                t_type = transaction['transaction_type']
+                amount = transaction['amount']
+                
+                if t_type in stats["by_type"]:
+                    stats["by_type"][t_type]["count"] += 1
+                    stats["by_type"][t_type]["total_amount"] += amount
+                    
+                    # Toplam rakamlar
+                    if t_type == "purchase":
+                        stats["total_credits_purchased"] += amount
+                    elif t_type == "usage":
+                        stats["total_credits_used"] += abs(amount)  # Usage negatif olabilir
+                    elif t_type == "refund":
+                        stats["total_credits_refunded"] += amount
+                    elif t_type == "bonus":
+                        stats["total_credits_bonus"] += amount
+        
+        return {
+            "success": True,
+            "data": stats
+        }
+        
+    except Exception as e:
+        logger.error(f"İşlem istatistikleri alınırken hata: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="İstatistikler alınamadı"
+        )
+
+@router.get("/transactions/user/{user_id}", response_model=Dict[str, Any])
+async def get_user_transactions(
+    user_id: str,
+    page: int = Query(1, ge=1, description="Sayfa numarası"),
+    limit: int = Query(50, ge=1, le=200, description="Sayfa başına kayıt"),
+    transaction_type: Optional[str] = Query(None, description="İşlem tipi filtresi"),
+    current_user: dict = Depends(get_current_user_admin)
+):
+    """
+    Belirli kullanıcının kredi işlemlerini getir (Admin)
+    
+    Args:
+        user_id: Kullanıcı ID'si
+        page: Sayfa numarası
+        limit: Sayfa başına kayıt
+        transaction_type: İşlem tipi filtresi
+        current_user: Admin kullanıcı
+        
+    Returns:
+        Kullanıcının kredi işlemleri
+    """
+    try:
+        from models.supabase_client import supabase_client
+        
+        # Kullanıcı varlığını kontrol et
+        user_check = supabase_client.supabase.table('user_profiles') \
+            .select('full_name, email') \
+            .eq('id', user_id) \
+            .single() \
+            .execute()
+        
+        if not user_check.data:
+            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+        
+        # Base query
+        query = supabase_client.supabase.table('credit_transactions') \
+            .select('*') \
+            .eq('user_id', user_id)
+        
+        # Filtreleme
+        if transaction_type:
+            if transaction_type not in ['purchase', 'usage', 'refund', 'bonus']:
+                raise HTTPException(status_code=400, detail="Geçersiz işlem tipi")
+            query = query.eq('transaction_type', transaction_type)
+        
+        # Toplam sayı
+        count_response = query.execute()
+        total_count = len(count_response.data) if count_response.data else 0
+        
+        # Sayfalama ile sonuçlar
+        offset = (page - 1) * limit
+        response = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+        
+        return {
+            "success": True,
+            "data": {
+                "user_info": {
+                    "user_id": user_id,
+                    "user_name": user_check.data.get('full_name', 'Bilinmiyor'),
+                    "user_email": user_check.data.get('email', 'Bilinmiyor')
+                },
+                "transactions": response.data or [],
+                "total_count": total_count,
+                "has_more": total_count > offset + limit,
+                "page": page,
+                "limit": limit,
+                "filters": {
+                    "transaction_type": transaction_type
+                }
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kullanıcı işlemleri alınırken hata {user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Kullanıcı işlemleri alınamadı"
+        )
