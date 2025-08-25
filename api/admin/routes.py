@@ -670,16 +670,34 @@ async def list_users(
     try:
         logger.info(f"Admin {current_user.email} kullanıcıları listeli - sayfa: {page}, limit: {limit}")
         
-        # Supabase Auth'dan tüm kullanıcıları al (ban bilgileri ile) - listUsers() kullan
-        auth_users_response = supabase_client.supabase.auth.admin.list_users()
-        auth_users = {user.id: user for user in auth_users_response}
+        # Supabase Auth'dan RAW database response alacağız (banned_until field için)
+        import httpx
         
-        logger.info(f"Debug - listUsers() ile {len(auth_users)} kullanıcı bulundu")
+        # Supabase service key ile direct API çağrısı
+        headers = {
+            'Authorization': f'Bearer {supabase_client.supabase.supabase_key}',
+            'apikey': supabase_client.supabase.supabase_key,
+            'Content-Type': 'application/json'
+        }
         
-        # İlk kullanıcının tam bilgilerini logla
+        # Raw auth.users verilerini al
+        auth_api_url = f"{supabase_client.supabase.url}/auth/v1/admin/users"
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(auth_api_url, headers=headers)
+            auth_users_raw = response.json()
+            
+        logger.info(f"Debug - Raw API ile {len(auth_users_raw.get('users', []))} kullanıcı bulundu")
+        
+        # Auth users'ı dictionary'e çevir
+        auth_users = {user['id']: user for user in auth_users_raw.get('users', [])}
+        
+        # İlk kullanıcının banned_until field'ını kontrol et
         if auth_users:
             first_user = next(iter(auth_users.values()))
-            logger.info(f"Debug - listUsers() kullanıcı örneği: {first_user.__dict__}")
+            banned_until = first_user.get('banned_until')
+            logger.info(f"Debug - İlk kullanıcının banned_until: {banned_until}")
+            logger.info(f"Debug - Raw user keys: {first_user.keys()}")
         
         # Base query
         query = supabase_client.supabase.table('user_profiles').select(
@@ -723,32 +741,35 @@ async def list_users(
             }
             
             if auth_user:
-                # listUsers() ile gelen ban bilgilerini kontrol et
+                # Raw database'den banned_until field'ını kontrol et
+                banned_until_str = auth_user.get('banned_until')
                 is_banned = False
                 banned_until = None
                 
-                # Tüm mümkün ban field'larını kontrol et
-                potential_ban_fields = ['banned_until', 'banned_at', 'ban_duration', 'disabled_until']
-                for field in potential_ban_fields:
-                    value = getattr(auth_user, field, None)
-                    if value:
-                        logger.info(f"Debug - {user_id} ban field bulundu: {field}: {value}")
-                        is_banned = True
-                        if field.endswith('_until'):
-                            banned_until = value
+                if banned_until_str:
+                    # Tarih string'ini parse et
+                    from datetime import datetime
+                    try:
+                        banned_until_datetime = datetime.fromisoformat(banned_until_str.replace('Z', '+00:00'))
+                        current_time = datetime.now(banned_until_datetime.tzinfo)
+                        
+                        # Ban süresi hala aktif mi?
+                        if banned_until_datetime > current_time:
+                            is_banned = True
+                            banned_until = banned_until_str
+                            logger.info(f"Debug - {user_id} BANLI: {banned_until_str}")
+                        else:
+                            logger.info(f"Debug - {user_id} ban süresi dolmuş: {banned_until_str}")
+                    except Exception as date_error:
+                        logger.warning(f"Banned_until tarihi parse edilemedi: {date_error}")
                 
-                # app_metadata ve user_metadata kontrol et
-                app_metadata = getattr(auth_user, 'app_metadata', {}) or {}
-                user_metadata = getattr(auth_user, 'user_metadata', {}) or {}
-                
-                if app_metadata.get('banned') or app_metadata.get('is_banned'):
-                    is_banned = True
-                    banned_until = app_metadata.get('banned_until')
-                    logger.info(f"Debug - {user_id} ban bulundu app_metadata'da")
+                # Email confirmed ve last sign in al
+                email_confirmed_at = auth_user.get('email_confirmed_at')
+                last_sign_in_at = auth_user.get('last_sign_in_at')
                 
                 auth_info = {
-                    "email_confirmed_at": getattr(auth_user, 'email_confirmed_at', None),
-                    "last_sign_in_at": getattr(auth_user, 'last_sign_in_at', None),
+                    "email_confirmed_at": email_confirmed_at,
+                    "last_sign_in_at": last_sign_in_at,
                     "is_banned": is_banned,
                     "banned_until": banned_until
                 }
