@@ -14,7 +14,7 @@ from models.support_schemas import (
     TicketStatsResponse, TicketCategory, TicketPriority, TicketStatus
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/support")
 support_service = SupportService()
 
 
