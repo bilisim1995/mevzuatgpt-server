@@ -16,7 +16,7 @@ from models.schemas import (
     UserResponse, DocumentResponse, DocumentCreate, 
     DocumentUpdate, DocumentListResponse, UploadResponse,
     AdminUserUpdate, AdminUserResponse, AdminUserListResponse,
-    UserCreditUpdate, UserBanRequest
+    UserCreditUpdate
 )
 from models.supabase_client import supabase_client
 from services.storage_service import StorageService
@@ -570,7 +570,6 @@ async def list_users(
     page: int = Query(1, ge=1, description="Sayfa numarası"),
     limit: int = Query(20, ge=1, le=100, description="Sayfa başına kullanıcı sayısı"),
     role: Optional[str] = Query(None, description="Role göre filtrele (user/admin)"),
-    is_active: Optional[bool] = Query(None, description="Aktif duruma göre filtrele"),
     search: Optional[str] = Query(None, description="Email veya ad soyad ile ara"),
     current_user: UserResponse = Depends(get_admin_user)
 ):
@@ -588,14 +587,12 @@ async def list_users(
         
         # Base query
         query = supabase_client.supabase.table('user_profiles').select(
-            'id, email, full_name, ad, soyad, meslek, calistigi_yer, role, is_active, created_at, updated_at, last_login_at'
+            'id, email, full_name, ad, soyad, meslek, calistigi_yer, role, created_at, updated_at, last_login_at'
         )
         
         # Filtreleme
         if role:
             query = query.eq('role', role)
-        if is_active is not None:
-            query = query.eq('is_active', is_active)
         if search:
             search_term = f'%{search}%'
             query = query.or_(f'email.ilike.{search_term},full_name.ilike.{search_term},ad.ilike.{search_term},soyad.ilike.{search_term}')
@@ -604,8 +601,6 @@ async def list_users(
         count_query = supabase_client.supabase.table('user_profiles').select('id', count='exact')
         if role:
             count_query = count_query.eq('role', role)
-        if is_active is not None:
-            count_query = count_query.eq('is_active', is_active)
         if search:
             search_term = f'%{search}%'
             count_query = count_query.or_(f'email.ilike.{search_term},full_name.ilike.{search_term},ad.ilike.{search_term},soyad.ilike.{search_term}')
@@ -641,7 +636,6 @@ async def list_users(
                 "meslek": user.get('meslek'),
                 "calistigi_yer": user.get('calistigi_yer'),
                 "role": user['role'],
-                "is_active": user.get('is_active', True),
                 "created_at": user['created_at'],
                 "updated_at": user.get('updated_at'),
                 "last_login_at": user.get('last_login_at'),
@@ -710,7 +704,6 @@ async def get_user_details(
             "meslek": user.get('meslek'),
             "calistigi_yer": user.get('calistigi_yer'),
             "role": user['role'],
-            "is_active": user.get('is_active', True),
             "created_at": user['created_at'],
             "updated_at": user.get('updated_at'),
             "last_login_at": user.get('last_login_at'),
@@ -763,8 +756,6 @@ async def update_user(
             update_data['calistigi_yer'] = user_update.calistigi_yer
         if user_update.role is not None:
             update_data['role'] = user_update.role
-        if user_update.is_active is not None:
-            update_data['is_active'] = user_update.is_active
         
         if not update_data:
             raise HTTPException(status_code=400, detail="Güncellenecek veri bulunamadı")
@@ -794,109 +785,8 @@ async def update_user(
         logger.error(f"Kullanıcı güncelleme hatası {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Kullanıcı güncelleme başarısız: {str(e)}")
 
-@router.put("/users/{user_id}/ban")
-async def ban_user(
-    user_id: str,
-    ban_request: UserBanRequest,
-    current_user: UserResponse = Depends(get_admin_user)
-):
-    """
-    Kullanıcıyı banla (Admin only)
-    
-    is_active = false yapar ve ban nedenini loglar
-    """
-    try:
-        logger.info(f"Admin {current_user.email} kullanıcıyı banlıyor: {user_id}")
-        
-        # Kullanıcının varlığını kontrol et
-        existing_user = supabase_client.supabase.table('user_profiles').select('*').eq('id', user_id).execute()
-        if not existing_user.data:
-            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
-        
-        user = existing_user.data[0]
-        if not user.get('is_active', True):
-            raise HTTPException(status_code=400, detail="Kullanıcı zaten banlanmış")
-        
-        # Kullanıcıyı banla
-        ban_result = supabase_client.supabase.table('user_profiles').update({
-            'is_active': False,
-            'updated_at': datetime.now().isoformat()
-        }).eq('id', user_id).execute()
-        
-        if not ban_result.data:
-            raise HTTPException(status_code=400, detail="Kullanıcı banlanamadı")
-        
-        # Ban logu
-        logger.info(f"Kullanıcı banlandı: {user['email']} - Neden: {ban_request.reason or 'Neden belirtilmedi'} - Admin: {current_user.email}")
-        
-        return {
-            "success": True,
-            "message": "Kullanıcı başarıyla banlandı",
-            "data": {
-                "user_id": user_id,
-                "user_email": user['email'],
-                "ban_reason": ban_request.reason or "Neden belirtilmedi",
-                "banned_by": current_user.email,
-                "timestamp": datetime.now().isoformat()
-            }
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Kullanıcı banlama hatası {user_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Kullanıcı banlama başarısız: {str(e)}")
-
-@router.put("/users/{user_id}/unban")
-async def unban_user(
-    user_id: str,
-    current_user: UserResponse = Depends(get_admin_user)
-):
-    """
-    Kullanıcı banını kaldır (Admin only)
-    
-    is_active = true yapar
-    """
-    try:
-        logger.info(f"Admin {current_user.email} kullanıcı banını kaldırıyor: {user_id}")
-        
-        # Kullanıcının varlığını kontrol et
-        existing_user = supabase_client.supabase.table('user_profiles').select('*').eq('id', user_id).execute()
-        if not existing_user.data:
-            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
-        
-        user = existing_user.data[0]
-        if user.get('is_active', True):
-            raise HTTPException(status_code=400, detail="Kullanıcı zaten aktif")
-        
-        # Ban kaldır
-        unban_result = supabase_client.supabase.table('user_profiles').update({
-            'is_active': True,
-            'updated_at': datetime.now().isoformat()
-        }).eq('id', user_id).execute()
-        
-        if not unban_result.data:
-            raise HTTPException(status_code=400, detail="Kullanıcı ban kaldırılamadı")
-        
-        # Unban logu
-        logger.info(f"Kullanıcı ban kaldırıldı: {user['email']} - Admin: {current_user.email}")
-        
-        return {
-            "success": True,
-            "message": "Kullanıcı banı başarıyla kaldırıldı",
-            "data": {
-                "user_id": user_id,
-                "user_email": user['email'],
-                "unbanned_by": current_user.email,
-                "timestamp": datetime.now().isoformat()
-            }
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Kullanıcı ban kaldırma hatası {user_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Kullanıcı ban kaldırma başarısız: {str(e)}")
+# Note: Ban/unban functionality removed because is_active column doesn't exist in user_profiles table
+# If ban functionality is needed, consider using role changes or a separate banned_users table
 
 @router.put("/users/{user_id}/credits")
 async def update_user_credits(

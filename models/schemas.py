@@ -319,7 +319,6 @@ class AdminUserUpdate(BaseModel):
     meslek: Optional[str] = Field(None, max_length=100)
     calistigi_yer: Optional[str] = Field(None, max_length=150)
     role: Optional[str] = Field(None, pattern="^(user|admin)$")
-    is_active: Optional[bool] = None
 
 class AdminUserResponse(BaseModel):
     """Admin user response with additional fields"""
@@ -331,7 +330,6 @@ class AdminUserResponse(BaseModel):
     meslek: Optional[str] = None
     calistigi_yer: Optional[str] = None
     role: str
-    is_active: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
     last_login_at: Optional[datetime] = None
@@ -352,9 +350,7 @@ class UserCreditUpdate(BaseModel):
     amount: int = Field(..., description="Credit amount (positive to add, negative to subtract)")
     reason: str = Field(..., max_length=500, description="Reason for credit adjustment")
 
-class UserBanRequest(BaseModel):
-    """User ban/unban request model"""
-    reason: Optional[str] = Field(None, max_length=500, description="Ban reason")
+# UserBanRequest removed - ban functionality not available without is_active column
 
 # Health Check Models
 class HealthCheck(BaseModel):
