@@ -670,6 +670,17 @@ async def list_users(
     try:
         logger.info(f"Admin {current_user.email} kullanıcıları listeli - sayfa: {page}, limit: {limit}")
         
+        # Supabase Auth'dan tüm kullanıcıları al (ban bilgileri ile) - listUsers() kullan
+        auth_users_response = supabase_client.supabase.auth.admin.list_users()
+        auth_users = {user.id: user for user in auth_users_response}
+        
+        logger.info(f"Debug - listUsers() ile {len(auth_users)} kullanıcı bulundu")
+        
+        # İlk kullanıcının tam bilgilerini logla
+        if auth_users:
+            first_user = next(iter(auth_users.values()))
+            logger.info(f"Debug - listUsers() kullanıcı örneği: {first_user.__dict__}")
+        
         # Base query
         query = supabase_client.supabase.table('user_profiles').select(
             'id, email, full_name, ad, soyad, meslek, calistigi_yer, role, created_at, updated_at'
@@ -697,11 +708,50 @@ async def list_users(
         offset = (page - 1) * limit
         users_response = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
         
-        # Kullanıcı detaylarını zenginleştir (auth.users + credits)
+        # Kullanıcı detaylarını zenginleştir (listUsers() verileri kullan)
         enriched_users = []
         for user in users_response.data:
-            # Auth.users bilgileri
-            auth_info = await get_auth_user_info(user['id'])
+            user_id = user['id']
+            
+            # Auth kullanıcısından ban bilgilerini al  
+            auth_user = auth_users.get(user_id)
+            auth_info = {
+                "email_confirmed_at": None,
+                "last_sign_in_at": None,
+                "is_banned": False,
+                "banned_until": None
+            }
+            
+            if auth_user:
+                # listUsers() ile gelen ban bilgilerini kontrol et
+                is_banned = False
+                banned_until = None
+                
+                # Tüm mümkün ban field'larını kontrol et
+                potential_ban_fields = ['banned_until', 'banned_at', 'ban_duration', 'disabled_until']
+                for field in potential_ban_fields:
+                    value = getattr(auth_user, field, None)
+                    if value:
+                        logger.info(f"Debug - {user_id} ban field bulundu: {field}: {value}")
+                        is_banned = True
+                        if field.endswith('_until'):
+                            banned_until = value
+                
+                # app_metadata ve user_metadata kontrol et
+                app_metadata = getattr(auth_user, 'app_metadata', {}) or {}
+                user_metadata = getattr(auth_user, 'user_metadata', {}) or {}
+                
+                if app_metadata.get('banned') or app_metadata.get('is_banned'):
+                    is_banned = True
+                    banned_until = app_metadata.get('banned_until')
+                    logger.info(f"Debug - {user_id} ban bulundu app_metadata'da")
+                
+                auth_info = {
+                    "email_confirmed_at": getattr(auth_user, 'email_confirmed_at', None),
+                    "last_sign_in_at": getattr(auth_user, 'last_sign_in_at', None),
+                    "is_banned": is_banned,
+                    "banned_until": banned_until
+                }
             
             # Kredi bilgilerini al
             credit_response = supabase_client.supabase.table('user_credit_balance').select('current_balance, total_used').eq('user_id', user['id']).execute()
@@ -726,7 +776,7 @@ async def list_users(
                 "current_balance": current_balance,
                 "total_used": total_used,
                 "search_count": search_count,
-                # Auth.users bilgileri
+                # listUsers() ile alınan auth bilgileri
                 "email_confirmed_at": auth_info["email_confirmed_at"],
                 "last_sign_in_at": auth_info["last_sign_in_at"],
                 "is_banned": auth_info["is_banned"],
