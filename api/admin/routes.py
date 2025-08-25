@@ -780,17 +780,21 @@ async def list_users(
                 }
             
             # Kredi bilgilerini al
+            logger.info(f"Debug - Kullanıcı {user['id']} için kredi sorgusu başlıyor")
             credit_response = supabase_client.supabase.table('user_credit_balance').select('current_balance, total_used').eq('user_id', user['id']).execute()
+            logger.info(f"Debug - Kredi response: {credit_response.data}")
             
             # Basit null kontrolü - kaydı yoksa 0 değerler döndür
             if credit_response.data and len(credit_response.data) > 0:
                 credit_data = credit_response.data[0]
                 current_balance = credit_data.get('current_balance') if credit_data.get('current_balance') is not None else 0
                 total_used = credit_data.get('total_used') if credit_data.get('total_used') is not None else 0
+                logger.info(f"Debug - {user['id']} kredi bulundu: balance={current_balance}, used={total_used}")
             else:
                 # Kredi kaydı yok, 0 değerler döndür
                 current_balance = 0
                 total_used = 0
+                logger.info(f"Debug - {user['id']} kredi kaydı yok, 0 değerler atandı")
             
             # Toplam satın alınan krediyi hesapla
             try:
