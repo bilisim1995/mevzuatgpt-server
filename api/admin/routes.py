@@ -672,16 +672,21 @@ async def list_users(
         
         # Supabase Auth'dan RAW database response alacağız (banned_until field için)
         import httpx
+        import os
+        
+        # Environment'dan Supabase URL ve key'i al
+        supabase_url = os.getenv('SUPABASE_URL')
+        supabase_service_key = os.getenv('SUPABASE_SERVICE_KEY')
         
         # Supabase service key ile direct API çağrısı
         headers = {
-            'Authorization': f'Bearer {supabase_client.supabase.supabase_key}',
-            'apikey': supabase_client.supabase.supabase_key,
+            'Authorization': f'Bearer {supabase_service_key}',
+            'apikey': supabase_service_key,
             'Content-Type': 'application/json'
         }
         
         # Raw auth.users verilerini al
-        auth_api_url = f"{supabase_client.supabase.url}/auth/v1/admin/users"
+        auth_api_url = f"{supabase_url}/auth/v1/admin/users"
         
         async with httpx.AsyncClient() as client:
             response = await client.get(auth_api_url, headers=headers)
