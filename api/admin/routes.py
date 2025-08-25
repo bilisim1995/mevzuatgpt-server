@@ -743,9 +743,10 @@ async def list_users(
             }
             
             if auth_user:
-                # Raw database'den banned_until field'ını kontrol et
-                banned_until_str = auth_user.get('banned_until')
-                is_banned = False
+                # app_metadata'dan ban bilgilerini kontrol et
+                app_metadata = auth_user.get('app_metadata', {})
+                banned_until_str = app_metadata.get('banned_until')
+                is_banned = app_metadata.get('is_banned', False) or app_metadata.get('banned', False)
                 banned_until = None
                 
                 if banned_until_str:
