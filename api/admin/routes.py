@@ -633,7 +633,6 @@ async def get_auth_user_info(user_id: str):
             except Exception as sql_error:
                 logger.info(f"RPC ban kontrolü çalışmadı (normal): {sql_error}")
             
-            logger.info(f"Debug {user_id} - Final: is_banned={is_banned}, banned_until={banned_until}")
             
             return {
                 "email_confirmed_at": getattr(user, 'email_confirmed_at', None),
@@ -701,8 +700,6 @@ async def list_users(
         if auth_users:
             first_user = next(iter(auth_users.values()))
             banned_until = first_user.get('banned_until')
-            logger.info(f"Debug - İlk kullanıcının banned_until: {banned_until}")
-            logger.info(f"Debug - Raw user keys: {first_user.keys()}")
         
         # Base query
         query = supabase_client.supabase.table('user_profiles').select(
@@ -762,9 +759,7 @@ async def list_users(
                         if banned_until_datetime > current_time:
                             is_banned = True
                             banned_until = banned_until_str
-                            logger.info(f"Debug - {user_id} BANLI: {banned_until_str}")
-                        else:
-                            logger.info(f"Debug - {user_id} ban süresi dolmuş: {banned_until_str}")
+                        # else: Ban süresi dolmuş, is_banned=False kalır
                     except Exception as date_error:
                         logger.warning(f"Banned_until tarihi parse edilemedi: {date_error}")
                 
@@ -1265,8 +1260,10 @@ async def ban_user(
                 ban_data["app_metadata"]["banned_until"] = ban_until
                 ban_data["app_metadata"]["ban_duration_hours"] = ban_request.ban_duration_hours
             
-            # User metadata'yı güncelle
-            supabase_client.supabase.auth.admin.update_user_by_id(user_id, ban_data)
+            # User metadata'yı güncelle - Type hatasını düzelt
+            # ban_data'yi string olarak gönder
+            import json
+            supabase_client.supabase.auth.admin.update_user_by_id(user_id, json.dumps(ban_data))
             
             logger.info(f"Kullanıcı metadata ile banlandı: {user_id}, süre: {ban_request.ban_duration_hours} saat")
             
@@ -1314,8 +1311,10 @@ async def unban_user(
                 }
             }
             
-            # User metadata'yı güncelle
-            supabase_client.supabase.auth.admin.update_user_by_id(user_id, unban_data)
+            # User metadata'yı güncelle - Type hatasını düzelt  
+            # unban_data'yi string olarak gönder
+            import json
+            supabase_client.supabase.auth.admin.update_user_by_id(user_id, json.dumps(unban_data))
             
             logger.info(f"Kullanıcı metadata'dan unbanlandı: {user_id}")
             
