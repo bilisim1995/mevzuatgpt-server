@@ -781,8 +781,31 @@ async def list_users(
             
             # Kredi bilgilerini al
             credit_response = supabase_client.supabase.table('user_credit_balance').select('current_balance, total_used').eq('user_id', user['id']).execute()
-            current_balance = credit_response.data[0]['current_balance'] if credit_response.data else 0
-            total_used = credit_response.data[0]['total_used'] if credit_response.data else 0
+            
+            if credit_response.data:
+                current_balance = credit_response.data[0]['current_balance'] or 0
+                total_used = credit_response.data[0]['total_used'] or 0
+            else:
+                # Kullanıcının kredi kaydı yok, başlangıç kredisi ver
+                logger.info(f"Kullanıcı {user['id']} için kredi kaydı oluşturuluyor")
+                initial_credit_data = {
+                    'user_id': user['id'],
+                    'current_balance': 30,
+                    'total_used': 0
+                }
+                try:
+                    insert_response = supabase_client.supabase.table('user_credit_balance').insert(initial_credit_data).execute()
+                    if insert_response.data:
+                        current_balance = 30
+                        total_used = 0
+                        logger.info(f"Kullanıcı {user['id']} için başlangıç kredisi oluşturuldu")
+                    else:
+                        current_balance = 0
+                        total_used = 0
+                except Exception as e:
+                    logger.error(f"Kullanıcı {user['id']} için kredi kaydı oluşturulamadı: {e}")
+                    current_balance = 0
+                    total_used = 0
             
             # Toplam satın alınan krediyi hesapla
             try:
@@ -866,8 +889,31 @@ async def get_user_details(
         
         # Kredi bilgilerini al
         credit_response = supabase_client.supabase.table('user_credit_balance').select('current_balance, total_used').eq('user_id', user_id).execute()
-        current_balance = credit_response.data[0]['current_balance'] if credit_response.data else 0
-        total_used = credit_response.data[0]['total_used'] if credit_response.data else 0
+        
+        if credit_response.data:
+            current_balance = credit_response.data[0]['current_balance'] or 0
+            total_used = credit_response.data[0]['total_used'] or 0
+        else:
+            # Kullanıcının kredi kaydı yok, başlangıç kredisi ver
+            logger.info(f"Kullanıcı {user_id} için kredi kaydı oluşturuluyor")
+            initial_credit_data = {
+                'user_id': user_id,
+                'current_balance': 30,
+                'total_used': 0
+            }
+            try:
+                insert_response = supabase_client.supabase.table('user_credit_balance').insert(initial_credit_data).execute()
+                if insert_response.data:
+                    current_balance = 30
+                    total_used = 0
+                    logger.info(f"Kullanıcı {user_id} için başlangıç kredisi oluşturuldu")
+                else:
+                    current_balance = 0
+                    total_used = 0
+            except Exception as e:
+                logger.error(f"Kullanıcı {user_id} için kredi kaydı oluşturulamadı: {e}")
+                current_balance = 0
+                total_used = 0
         
         # Toplam satın alınan krediyi hesapla
         try:
