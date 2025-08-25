@@ -127,14 +127,26 @@ class CreditService:
             
             new_balance = current_balance - amount
             
-            # Direct balance update (bypass transaction constraint)
+            # Önce mevcut total_used değerini al
+            current_used_response = supabase_client.supabase.table('user_credit_balance') \
+                .select('total_used') \
+                .eq('user_id', user_id) \
+                .execute()
+            
+            current_used = current_used_response.data[0]['total_used'] if current_used_response.data else 0
+            new_used = current_used + amount
+            
+            # Hem current_balance hem de total_used güncelle
             response = supabase_client.supabase.table('user_credit_balance') \
-                .update({'current_balance': new_balance}) \
+                .update({
+                    'current_balance': new_balance,
+                    'total_used': new_used
+                }) \
                 .eq('user_id', user_id) \
                 .execute()
             
             if response.data:
-                logger.info(f"Kredi düşüldü: {user_id} - {amount} kredi, Kalan: {new_balance}")
+                logger.info(f"Kredi düşüldü: {user_id} - {amount} kredi, Kalan: {new_balance}, Toplam kullanılan: {new_used}")
                 return True
             else:
                 logger.error(f"Kredi düşme işlemi başarısız: {user_id}")
@@ -162,14 +174,26 @@ class CreditService:
             current_balance = await self.get_user_balance(user_id)
             new_balance = current_balance + amount
             
-            # Direct balance update for refund (bypass transaction constraint)
+            # Mevcut total_used değerini al ve azalt (iade işleminde)
+            current_used_response = supabase_client.supabase.table('user_credit_balance') \
+                .select('total_used') \
+                .eq('user_id', user_id) \
+                .execute()
+            
+            current_used = current_used_response.data[0]['total_used'] if current_used_response.data else 0
+            new_used = max(0, current_used - amount)  # Negatif olmamak için max(0, ...)
+            
+            # Hem current_balance hem de total_used güncelle
             response = supabase_client.supabase.table('user_credit_balance') \
-                .update({'current_balance': new_balance}) \
+                .update({
+                    'current_balance': new_balance,
+                    'total_used': new_used
+                }) \
                 .eq('user_id', user_id) \
                 .execute()
             
             if response.data:
-                logger.info(f"Kredi iadesi yapıldı: {user_id} - {amount} kredi, Toplam: {new_balance}")
+                logger.info(f"Kredi iadesi yapıldı: {user_id} - {amount} kredi, Toplam: {new_balance}, Toplam kullanılan: {new_used}")
                 return True
             else:
                 logger.error(f"Kredi iade işlemi başarısız: {user_id}")
