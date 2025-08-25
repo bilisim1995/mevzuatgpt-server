@@ -973,11 +973,45 @@ async def update_user(
         
         update_data['updated_at'] = datetime.now().isoformat()
         
-        # Güncelleme işlemi
+        # user_profiles tablosunu güncelle
         result = supabase_client.supabase.table('user_profiles').update(update_data).eq('id', user_id).execute()
         
         if not result.data:
             raise HTTPException(status_code=400, detail="Kullanıcı güncellenemedi")
+        
+        # auth.users tablosunu da güncelle (email değişikliği için)
+        auth_update_data = {}
+        if user_update.email is not None:
+            auth_update_data['email'] = user_update.email
+        
+        if auth_update_data:
+            try:
+                import os
+                import httpx
+                
+                supabase_url = os.getenv('SUPABASE_URL')
+                supabase_service_key = os.getenv('SUPABASE_SERVICE_KEY')
+                
+                headers = {
+                    'Authorization': f'Bearer {supabase_service_key}',
+                    'apikey': supabase_service_key,
+                    'Content-Type': 'application/json'
+                }
+                
+                # auth.users tablosunu da güncelle
+                auth_api_url = f"{supabase_url}/auth/v1/admin/users/{user_id}"
+                
+                async with httpx.AsyncClient() as client:
+                    auth_response = await client.put(auth_api_url, headers=headers, json=auth_update_data)
+                    
+                if auth_response.status_code == 200:
+                    logger.info(f"Auth.users tablosu da güncellendi: {user_id}")
+                else:
+                    logger.warning(f"Auth.users güncelleme başarısız: {auth_response.text}")
+                    
+            except Exception as auth_error:
+                logger.error(f"Auth.users güncelleme hatası: {auth_error}")
+                # user_profiles güncellemesi başarılı, auth hatası kritik değil
         
         return {
             "success": True,
@@ -986,7 +1020,8 @@ async def update_user(
                 "user_id": user_id,
                 "updated_fields": list(update_data.keys()),
                 "updated_by": current_user.email,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "auth_updated": len(auth_update_data) > 0
             }
         }
         
