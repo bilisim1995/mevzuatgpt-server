@@ -784,6 +784,15 @@ async def list_users(
             current_balance = credit_response.data[0]['current_balance'] if credit_response.data else 0
             total_used = credit_response.data[0]['total_used'] if credit_response.data else 0
             
+            # Toplam satın alınan krediyi hesapla
+            try:
+                # user_credits tablosundan pozitif tutarları topla (satın alma işlemleri)
+                purchase_response = supabase_client.supabase.table('user_credits').select('amount').eq('user_id', user['id']).gt('amount', 0).execute()
+                total_purchased = sum(item['amount'] for item in purchase_response.data) if purchase_response.data else 0
+            except Exception as e:
+                logger.warning(f"Toplam satın alınan kredi hesaplanamadı {user['id']}: {e}")
+                total_purchased = 0
+            
             # Arama sayısı
             search_response = supabase_client.supabase.table('search_logs').select('id', count='exact').eq('user_id', user['id']).execute()
             search_count = search_response.count
@@ -799,8 +808,12 @@ async def list_users(
                 "role": user['role'],
                 "created_at": user['created_at'],
                 "updated_at": user.get('updated_at'),
-                "current_balance": current_balance,
-                "total_used": total_used,
+                # Kredi bilgileri
+                "credits": {
+                    "current_balance": current_balance,        # Mevcut kredi
+                    "total_used": total_used,                 # Kullanılan kredi
+                    "total_purchased": total_purchased        # Toplam satın alınan
+                },
                 "search_count": search_count,
                 # listUsers() ile alınan auth bilgileri
                 "email_confirmed_at": auth_info["email_confirmed_at"],
@@ -856,6 +869,15 @@ async def get_user_details(
         current_balance = credit_response.data[0]['current_balance'] if credit_response.data else 0
         total_used = credit_response.data[0]['total_used'] if credit_response.data else 0
         
+        # Toplam satın alınan krediyi hesapla
+        try:
+            # user_credits tablosundan pozitif tutarları topla (satın alma işlemleri)
+            purchase_response = supabase_client.supabase.table('user_credits').select('amount').eq('user_id', user_id).gt('amount', 0).execute()
+            total_purchased = sum(item['amount'] for item in purchase_response.data) if purchase_response.data else 0
+        except Exception as e:
+            logger.warning(f"Toplam satın alınan kredi hesaplanamadı {user_id}: {e}")
+            total_purchased = 0
+        
         # Arama sayısı
         search_response = supabase_client.supabase.table('search_logs').select('id', count='exact').eq('user_id', user_id).execute()
         search_count = search_response.count
@@ -871,8 +893,12 @@ async def get_user_details(
             "role": user['role'],
             "created_at": user['created_at'],
             "updated_at": user.get('updated_at'),
-            "current_balance": current_balance,
-            "total_used": total_used,
+            # Kredi bilgileri
+            "credits": {
+                "current_balance": current_balance,        # Mevcut kredi
+                "total_used": total_used,                 # Kullanılan kredi
+                "total_purchased": total_purchased        # Toplam satın alınan
+            },
             "search_count": search_count,
             # Auth.users bilgileri
             "email_confirmed_at": auth_info["email_confirmed_at"],
