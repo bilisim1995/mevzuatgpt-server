@@ -234,31 +234,38 @@ class HealthService:
             start_time = time.time()
             
             # Test SendGrid API with a simple request
-            async with aiohttp.ClientSession() as session:
-                headers = {
-                    'Authorization': f'Bearer {settings.SENDGRID_API_KEY}',
-                    'Content-Type': 'application/json'
-                }
-                
-                async with session.get(
-                    'https://api.sendgrid.com/v3/user/profile',
-                    headers=headers
-                ) as response:
-                    api_response_time = round((time.time() - start_time) * 1000, 2)
+            try:
+                async with aiohttp.ClientSession() as session:
+                    headers = {
+                        'Authorization': f'Bearer {settings.SENDGRID_API_KEY}',
+                        'Content-Type': 'application/json'
+                    }
                     
-                    if response.status == 200:
-                        return {
-                            "status": "healthy",
-                            "api_response_time_ms": api_response_time,
-                            "provider": "sendgrid",
-                            "last_check": datetime.utcnow().isoformat()
-                        }
-                    else:
-                        return {
-                            "status": "error",
-                            "error": f"SendGrid API returned {response.status}",
-                            "last_check": datetime.utcnow().isoformat()
-                        }
+                    async with session.get(
+                        'https://api.sendgrid.com/v3/user/profile',
+                        headers=headers
+                    ) as response:
+                        api_response_time = round((time.time() - start_time) * 1000, 2)
+                        
+                        if response.status == 200:
+                            return {
+                                "status": "healthy",
+                                "api_response_time_ms": api_response_time,
+                                "provider": "sendgrid",
+                                "last_check": datetime.utcnow().isoformat()
+                            }
+                        else:
+                            return {
+                                "status": "error",
+                                "error": f"SendGrid API returned {response.status}",
+                                "last_check": datetime.utcnow().isoformat()
+                            }
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "error": f"SendGrid API request failed: {str(e)}",
+                    "last_check": datetime.utcnow().isoformat()
+                }
                         
         except Exception as e:
             logger.error(f"Email service health check failed: {e}")
@@ -274,32 +281,38 @@ class HealthService:
         
         # Check OpenAI
         try:
-            if settings.OPENAI_API_KEY:
+            if hasattr(settings, 'OPENAI_API_KEY') and settings.OPENAI_API_KEY:
                 start_time = time.time()
                 
-                async with aiohttp.ClientSession() as session:
-                    headers = {
-                        'Authorization': f'Bearer {settings.OPENAI_API_KEY}',
-                        'Content-Type': 'application/json'
-                    }
-                    
-                    async with session.get(
-                        'https://api.openai.com/v1/models',
-                        headers=headers
-                    ) as response:
-                        response_time = round((time.time() - start_time) * 1000, 2)
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        headers = {
+                            'Authorization': f'Bearer {settings.OPENAI_API_KEY}',
+                            'Content-Type': 'application/json'
+                        }
                         
-                        if response.status == 200:
-                            ai_status["openai"] = {
-                                "status": "healthy",
-                                "api_response_time_ms": response_time,
-                                "model": settings.OPENAI_MODEL
-                            }
-                        else:
-                            ai_status["openai"] = {
-                                "status": "error",
-                                "error": f"OpenAI API returned {response.status}"
-                            }
+                        async with session.get(
+                            'https://api.openai.com/v1/models',
+                            headers=headers
+                        ) as response:
+                            response_time = round((time.time() - start_time) * 1000, 2)
+                            
+                            if response.status == 200:
+                                ai_status["openai"] = {
+                                    "status": "healthy",
+                                    "api_response_time_ms": response_time,
+                                    "model": settings.OPENAI_MODEL
+                                }
+                            else:
+                                ai_status["openai"] = {
+                                    "status": "error",
+                                    "error": f"OpenAI API returned {response.status}"
+                                }
+                except Exception as e:
+                    ai_status["openai"] = {
+                        "status": "error",
+                        "error": f"OpenAI API request failed: {str(e)}"
+                    }
             else:
                 ai_status["openai"] = {
                     "status": "not_configured",
@@ -312,35 +325,41 @@ class HealthService:
                 "error": str(e)
             }
         
-        # Check Groq
+        # Check Groq  
         try:
             if hasattr(settings, 'GROQ_API_KEY') and settings.GROQ_API_KEY:
                 start_time = time.time()
                 
-                async with aiohttp.ClientSession() as session:
-                    headers = {
-                        'Authorization': f'Bearer {settings.GROQ_API_KEY}',
-                        'Content-Type': 'application/json'
-                    }
-                    
-                    async with session.get(
-                        'https://api.groq.com/openai/v1/models',
-                        headers=headers
-                    ) as response:
-                        response_time = round((time.time() - start_time) * 1000, 2)
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        headers = {
+                            'Authorization': f'Bearer {settings.GROQ_API_KEY}',
+                            'Content-Type': 'application/json'
+                        }
                         
-                        if response.status == 200:
-                            groq_model = getattr(settings, 'GROQ_MODEL', 'llama3-70b-8192')
-                            ai_status["groq"] = {
-                                "status": "healthy",
-                                "api_response_time_ms": response_time,
-                                "model": groq_model
-                            }
-                        else:
-                            ai_status["groq"] = {
-                                "status": "error",
-                                "error": f"Groq API returned {response.status}"
-                            }
+                        async with session.get(
+                            'https://api.groq.com/openai/v1/models',
+                            headers=headers
+                        ) as response:
+                            response_time = round((time.time() - start_time) * 1000, 2)
+                            
+                            if response.status == 200:
+                                groq_model = getattr(settings, 'GROQ_MODEL', 'llama3-70b-8192')
+                                ai_status["groq"] = {
+                                    "status": "healthy",
+                                    "api_response_time_ms": response_time,
+                                    "model": groq_model
+                                }
+                            else:
+                                ai_status["groq"] = {
+                                    "status": "error",
+                                    "error": f"Groq API returned {response.status}"
+                                }
+                except Exception as e:
+                    ai_status["groq"] = {
+                        "status": "error",
+                        "error": f"Groq API request failed: {str(e)}"
+                    }
             else:
                 ai_status["groq"] = {
                     "status": "not_configured",
