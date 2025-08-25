@@ -63,10 +63,14 @@ class Settings(BaseSettings):
     
     # AI Model Configuration
     GROQ_API_KEY: str = "your-groq-api-key-here"
+    GROQ_MODEL: str = "llama3-70b-8192"  # Default Groq model
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3"
     OLLAMA_TIMEOUT: int = 30
     OLLAMA_MAX_TOKENS: int = 2048
+    
+    # Email Service (SendGrid)
+    SENDGRID_API_KEY: Optional[str] = None  # Optional email service
     
     # AI Provider Selection
     AI_PROVIDER: str = Field(default="groq", description="AI provider: groq, ollama, or openai")

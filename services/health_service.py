@@ -224,7 +224,7 @@ class HealthService:
     async def _check_email_health(self) -> Dict[str, Any]:
         """Check SendGrid email service health"""
         try:
-            if not settings.SENDGRID_API_KEY:
+            if not hasattr(settings, 'SENDGRID_API_KEY') or not settings.SENDGRID_API_KEY:
                 return {
                     "status": "not_configured",
                     "error": "SendGrid API key not configured",
@@ -314,7 +314,7 @@ class HealthService:
         
         # Check Groq
         try:
-            if settings.GROQ_API_KEY:
+            if hasattr(settings, 'GROQ_API_KEY') and settings.GROQ_API_KEY:
                 start_time = time.time()
                 
                 async with aiohttp.ClientSession() as session:
@@ -330,10 +330,11 @@ class HealthService:
                         response_time = round((time.time() - start_time) * 1000, 2)
                         
                         if response.status == 200:
+                            groq_model = getattr(settings, 'GROQ_MODEL', 'llama3-70b-8192')
                             ai_status["groq"] = {
                                 "status": "healthy",
                                 "api_response_time_ms": response_time,
-                                "model": settings.GROQ_MODEL
+                                "model": groq_model
                             }
                         else:
                             ai_status["groq"] = {
@@ -359,18 +360,19 @@ class HealthService:
         try:
             storage_service = StorageService()
             
-            # Get document count from database
-            doc_result = supabase_client.supabase.table('mevzuat_documents').select('file_size', count='exact').execute()
-            total_files = doc_result.count if doc_result.count else 0
+            # Get document count and file sizes from database
+            doc_result = supabase_client.supabase.table('mevzuat_documents').select('file_size').execute()
+            total_files = len(doc_result.data) if doc_result.data else 0
             
             # Calculate total storage used
             total_size = 0
             if doc_result.data:
                 for doc in doc_result.data:
-                    if doc.get('file_size'):
-                        total_size += doc['file_size']
+                    file_size = doc.get('file_size')
+                    if file_size and isinstance(file_size, (int, float)):
+                        total_size += file_size
             
-            storage_used_gb = round(total_size / 1024 / 1024 / 1024, 2)
+            storage_used_gb = round(total_size / 1024 / 1024 / 1024, 2) if total_size > 0 else 0.0
             
             return {
                 "status": "healthy",
