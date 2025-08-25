@@ -131,17 +131,22 @@ class MaintenanceService:
             if request.end_time is not None:
                 update_data['end_time'] = request.end_time.isoformat()
             
-            # Update maintenance record (maintenance_mode tablosunda sadece 1 kayıt olmalı)
-            result = self.supabase.table('maintenance_mode') \
-                .update(update_data) \
-                .eq('id', 1) \
+            # Önce mevcut maintenance kaydını al (genelde tek kayıt vardır)
+            existing_result = self.supabase.table('maintenance_mode') \
+                .select('id') \
+                .limit(1) \
                 .execute()
                 
-            # Eğer kayıt yoksa, yeni bir kayıt oluştur
-            if not result.data or len(result.data) == 0:
-                # İlk kez kayıt oluşturuluyor
+            if existing_result.data and len(existing_result.data) > 0:
+                # Mevcut kayıt var - güncelle
+                existing_id = existing_result.data[0]['id']
+                result = self.supabase.table('maintenance_mode') \
+                    .update(update_data) \
+                    .eq('id', existing_id) \
+                    .execute()
+            else:
+                # Hiç kayıt yok - yeni oluştur (UUID otomatik oluşturulacak)
                 insert_data = update_data.copy()
-                insert_data['id'] = 1
                 insert_data['created_at'] = datetime.utcnow().isoformat()
                 
                 result = self.supabase.table('maintenance_mode') \
