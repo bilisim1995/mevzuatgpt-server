@@ -87,7 +87,7 @@ class MaintenanceService:
                     message=data.get('message', 'Sistem geçici olarak bakım modunda.'),
                     start_time=data.get('start_time'),
                     end_time=data.get('end_time'),
-                    updated_by=data.get('updated_by'),
+                    updated_by=None,  # Bu alan artık kullanılmıyor
                     created_at=data['created_at'],
                     updated_at=data['updated_at']
                 )
@@ -117,9 +117,9 @@ class MaintenanceService:
             # Prepare update data
             update_data = {
                 'is_enabled': request.is_enabled,
-                'updated_by': admin_user_id,
                 'updated_at': datetime.utcnow().isoformat()
             }
+            # Note: updated_by kolonu tablodan kaldırıldı
             
             # Add optional fields if provided
             if request.title is not None:
@@ -148,7 +148,7 @@ class MaintenanceService:
                     message=data.get('message', 'Sistem geçici olarak bakım modunda.'),
                     start_time=data.get('start_time'),
                     end_time=data.get('end_time'),
-                    updated_by=data.get('updated_by'),
+                    updated_by=None,  # Bu alan artık kullanılmıyor
                     created_at=data['created_at'],
                     updated_at=data['updated_at']
                 )
