@@ -1150,18 +1150,25 @@ async def delete_user(
         if str(current_user.id) == user_id:
             raise HTTPException(status_code=400, detail="Kendi hesabınızı silemezsiniz")
         
-        # İlişkili verileri sil
+        # İlişkili verileri sil - TÜM KULLANICI VERİLERİ TEMİZLENİR!
         deletion_stats = {
-            "credits_deleted": 0,
+            "credit_balance_deleted": 0,
+            "user_credits_deleted": 0,
             "transactions_deleted": 0,
             "search_logs_deleted": 0,
+            "support_tickets_deleted": 0,
+            "user_feedback_deleted": 0,
             "documents_found": 0
         }
         
         # 1. İlişkili verileri sil (foreign key constraints nedeniyle)
         # Kredi bakiye kayıtlarını sil
-        credit_result = supabase_client.supabase.table('user_credit_balance').delete().eq('user_id', user_id).execute()
-        deletion_stats["credits_deleted"] = len(credit_result.data) if credit_result.data else 0
+        credit_balance_result = supabase_client.supabase.table('user_credit_balance').delete().eq('user_id', user_id).execute()
+        deletion_stats["credit_balance_deleted"] = len(credit_balance_result.data) if credit_balance_result.data else 0
+        
+        # Kredi tarihi kayıtlarını sil (user_credits tablosu)
+        user_credits_result = supabase_client.supabase.table('user_credits').delete().eq('user_id', user_id).execute()
+        deletion_stats["user_credits_deleted"] = len(user_credits_result.data) if user_credits_result.data else 0
         
         # Kredi transaction kayıtlarını sil
         transactions_result = supabase_client.supabase.table('credit_transactions').delete().eq('user_id', user_id).execute()
@@ -1172,8 +1179,12 @@ async def delete_user(
         deletion_stats["search_logs_deleted"] = len(search_logs_result.data) if search_logs_result.data else 0
         
         # Destek biletlerini sil
-        supabase_client.supabase.table('support_tickets').delete().eq('user_id', user_id).execute()
-        supabase_client.supabase.table('user_feedback').delete().eq('user_id', user_id).execute()
+        support_tickets_result = supabase_client.supabase.table('support_tickets').delete().eq('user_id', user_id).execute()
+        deletion_stats["support_tickets_deleted"] = len(support_tickets_result.data) if support_tickets_result.data else 0
+        
+        # Kullanıcı geri bildirimlerini sil
+        user_feedback_result = supabase_client.supabase.table('user_feedback').delete().eq('user_id', user_id).execute()
+        deletion_stats["user_feedback_deleted"] = len(user_feedback_result.data) if user_feedback_result.data else 0
         
         # Kullanıcının yüklediği dökümanları kontrol et (silmek yerine uyarı ver)
         documents_result = supabase_client.supabase.table('mevzuat_documents').select('id, title').eq('uploaded_by', user_id).execute()
