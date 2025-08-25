@@ -161,6 +161,333 @@ async def elasticsearch_health(
             detail=f"Failed to check Elasticsearch health: {str(e)}"
         )
 
+# ===============================
+# ANNOUNCEMENTS CRUD ENDPOINTS
+# ===============================
+
+@router.post("/announcements", response_model=Dict[str, Any])
+async def create_announcement(
+    title: str = Form(...),
+    content: str = Form(...),
+    priority: str = Form(default="normal"),
+    publish_date: Optional[str] = Form(None),
+    is_active: bool = Form(default=True),
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Yeni duyuru oluştur (Admin only)
+    
+    Args:
+        title: Duyuru başlığı
+        content: Duyuru içeriği  
+        priority: Önem durumu (low, normal, high, urgent)
+        publish_date: Yayın tarihi (ISO format)
+        is_active: Aktif durumu
+    """
+    try:
+        from datetime import datetime
+        
+        logger.info(f"Creating announcement by admin {current_user.id}: {title}")
+        
+        # Validate priority
+        valid_priorities = ['low', 'normal', 'high', 'urgent']
+        if priority not in valid_priorities:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Priority must be one of: {', '.join(valid_priorities)}"
+            )
+        
+        # Parse publish_date if provided
+        parsed_publish_date = None
+        if publish_date:
+            try:
+                parsed_publish_date = datetime.fromisoformat(publish_date.replace('Z', '+00:00')).isoformat()
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid publish_date format. Use ISO format (YYYY-MM-DDTHH:MM:SSZ)"
+                )
+        
+        # Create announcement data
+        announcement_data = {
+            'title': title,
+            'content': content,
+            'priority': priority,
+            'publish_date': parsed_publish_date or datetime.utcnow().isoformat(),
+            'is_active': is_active,
+            'created_by': str(current_user.id)
+        }
+        
+        # Insert into database
+        response = supabase_client.supabase.table('announcements').insert(announcement_data).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Failed to create announcement")
+        
+        created_announcement = response.data[0]
+        
+        return {
+            "success": True,
+            "data": {
+                "id": created_announcement['id'],
+                "title": created_announcement['title'],
+                "content": created_announcement['content'],
+                "priority": created_announcement['priority'],
+                "publish_date": created_announcement['publish_date'],
+                "is_active": created_announcement['is_active'],
+                "created_by": created_announcement['created_by'],
+                "created_at": created_announcement['created_at']
+            },
+            "message": "Announcement created successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create announcement: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create announcement: {str(e)}")
+
+@router.get("/announcements", response_model=Dict[str, Any])
+async def list_announcements(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    priority: Optional[str] = Query(None),
+    is_active: Optional[bool] = Query(None),
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Duyuruları listele (Admin only)
+    
+    Args:
+        page: Sayfa numarası
+        limit: Sayfa başına öğe sayısı
+        priority: Öncelik filtresi
+        is_active: Aktiflik durumu filtresi
+    """
+    try:
+        logger.info(f"Admin {current_user.id} listing announcements - page: {page}, limit: {limit}")
+        
+        offset = (page - 1) * limit
+        
+        # Build query
+        query = supabase_client.supabase.table('announcements').select('*')
+        
+        # Apply filters
+        if priority:
+            query = query.eq('priority', priority)
+        if is_active is not None:
+            query = query.eq('is_active', is_active)
+            
+        # Get total count
+        count_query = supabase_client.supabase.table('announcements').select('id')
+        if priority:
+            count_query = count_query.eq('priority', priority)
+        if is_active is not None:
+            count_query = count_query.eq('is_active', is_active)
+            
+        count_result = count_query.execute()
+        total_count = len(count_result.data) if count_result.data else 0
+        
+        # Get paginated results
+        announcements_result = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+        
+        announcements = []
+        if announcements_result.data:
+            for announcement in announcements_result.data:
+                announcements.append({
+                    "id": announcement['id'],
+                    "title": announcement['title'],
+                    "content": announcement['content'],
+                    "priority": announcement['priority'],
+                    "publish_date": announcement['publish_date'],
+                    "is_active": announcement['is_active'],
+                    "created_by": announcement['created_by'],
+                    "created_at": announcement['created_at'],
+                    "updated_at": announcement.get('updated_at')
+                })
+        
+        return {
+            "success": True,
+            "data": {
+                "announcements": announcements,
+                "pagination": {
+                    "page": page,
+                    "limit": limit,
+                    "total": total_count,
+                    "pages": (total_count + limit - 1) // limit,
+                    "has_next": offset + limit < total_count,
+                    "has_previous": page > 1
+                },
+                "filters": {
+                    "priority": priority,
+                    "is_active": is_active
+                }
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to list announcements: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list announcements: {str(e)}")
+
+@router.get("/announcements/{announcement_id}", response_model=Dict[str, Any])
+async def get_announcement(
+    announcement_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Belirli bir duyuru detayını getir (Admin only)
+    """
+    try:
+        logger.info(f"Admin {current_user.id} getting announcement: {announcement_id}")
+        
+        response = supabase_client.supabase.table('announcements').select('*').eq('id', announcement_id).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Announcement not found")
+        
+        announcement = response.data[0]
+        
+        return {
+            "success": True,
+            "data": {
+                "id": announcement['id'],
+                "title": announcement['title'],
+                "content": announcement['content'],
+                "priority": announcement['priority'],
+                "publish_date": announcement['publish_date'],
+                "is_active": announcement['is_active'],
+                "created_by": announcement['created_by'],
+                "created_at": announcement['created_at'],
+                "updated_at": announcement.get('updated_at')
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get announcement: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get announcement: {str(e)}")
+
+@router.put("/announcements/{announcement_id}", response_model=Dict[str, Any])
+async def update_announcement(
+    announcement_id: str,
+    title: str = Form(...),
+    content: str = Form(...),
+    priority: str = Form(default="normal"),
+    publish_date: Optional[str] = Form(None),
+    is_active: bool = Form(default=True),
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Duyuru güncelle (Admin only)
+    """
+    try:
+        from datetime import datetime
+        
+        logger.info(f"Admin {current_user.id} updating announcement: {announcement_id}")
+        
+        # Check if announcement exists
+        existing = supabase_client.supabase.table('announcements').select('id').eq('id', announcement_id).execute()
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Announcement not found")
+        
+        # Validate priority
+        valid_priorities = ['low', 'normal', 'high', 'urgent']
+        if priority not in valid_priorities:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Priority must be one of: {', '.join(valid_priorities)}"
+            )
+        
+        # Parse publish_date if provided
+        parsed_publish_date = None
+        if publish_date:
+            try:
+                parsed_publish_date = datetime.fromisoformat(publish_date.replace('Z', '+00:00')).isoformat()
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid publish_date format. Use ISO format (YYYY-MM-DDTHH:MM:SSZ)"
+                )
+        
+        # Update data
+        update_data = {
+            'title': title,
+            'content': content,
+            'priority': priority,
+            'is_active': is_active,
+            'updated_at': datetime.utcnow().isoformat()
+        }
+        
+        if parsed_publish_date:
+            update_data['publish_date'] = parsed_publish_date
+        
+        # Update in database
+        response = supabase_client.supabase.table('announcements').update(update_data).eq('id', announcement_id).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Failed to update announcement")
+        
+        updated_announcement = response.data[0]
+        
+        return {
+            "success": True,
+            "data": {
+                "id": updated_announcement['id'],
+                "title": updated_announcement['title'],
+                "content": updated_announcement['content'],
+                "priority": updated_announcement['priority'],
+                "publish_date": updated_announcement['publish_date'],
+                "is_active": updated_announcement['is_active'],
+                "created_by": updated_announcement['created_by'],
+                "created_at": updated_announcement['created_at'],
+                "updated_at": updated_announcement.get('updated_at')
+            },
+            "message": "Announcement updated successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update announcement: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update announcement: {str(e)}")
+
+@router.delete("/announcements/{announcement_id}", response_model=Dict[str, Any])
+async def delete_announcement(
+    announcement_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Duyuru sil (Admin only)
+    """
+    try:
+        logger.info(f"Admin {current_user.id} deleting announcement: {announcement_id}")
+        
+        # Check if announcement exists
+        existing = supabase_client.supabase.table('announcements').select('id, title').eq('id', announcement_id).execute()
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Announcement not found")
+        
+        announcement_title = existing.data[0]['title']
+        
+        # Delete from database
+        response = supabase_client.supabase.table('announcements').delete().eq('id', announcement_id).execute()
+        
+        return {
+            "success": True,
+            "data": {
+                "id": announcement_id,
+                "title": announcement_title
+            },
+            "message": "Announcement deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete announcement: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete announcement: {str(e)}")
+
 @router.get("/dashboard/stats", response_model=Dict[str, Any])
 async def dashboard_statistics(
     current_user: UserResponse = Depends(get_admin_user)

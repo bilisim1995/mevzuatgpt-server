@@ -26,6 +26,7 @@ from api.user.profile_routes import router as user_profile_router
 from api.user.maintenance_routes import router as user_maintenance_router
 from api.admin.maintenance_routes import router as admin_maintenance_router
 from api.admin.prompt_routes import router as admin_prompt_router
+from api.public_routes import router as public_router
 from utils.exceptions import AppException
 
 # Setup logging
@@ -275,6 +276,7 @@ app.include_router(user_profile_router, prefix="/api/user", tags=["User-Profile"
 app.include_router(user_maintenance_router, prefix="/api/maintenance", tags=["Maintenance"])  # Bakım modu durumu
 app.include_router(admin_maintenance_router, prefix="/api/admin", tags=["Admin-Maintenance"])  # Admin bakım yönetimi
 app.include_router(admin_prompt_router, prefix="/api/admin", tags=["Admin-Prompts"])       # Admin prompt yönetimi
+app.include_router(public_router, prefix="/api", tags=["Public"])                                  # Public endpoints
 
 # Startup event
 @app.on_event("startup")
