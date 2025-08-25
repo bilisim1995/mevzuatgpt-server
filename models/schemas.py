@@ -332,7 +332,6 @@ class AdminUserResponse(BaseModel):
     role: str
     created_at: datetime
     updated_at: Optional[datetime] = None
-    last_login_at: Optional[datetime] = None
     total_credits: Optional[int] = None
     credits_used: Optional[int] = None
     search_count: Optional[int] = None

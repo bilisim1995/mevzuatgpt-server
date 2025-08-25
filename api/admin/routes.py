@@ -587,7 +587,7 @@ async def list_users(
         
         # Base query
         query = supabase_client.supabase.table('user_profiles').select(
-            'id, email, full_name, ad, soyad, meslek, calistigi_yer, role, created_at, updated_at, last_login_at'
+            'id, email, full_name, ad, soyad, meslek, calistigi_yer, role, created_at, updated_at'
         )
         
         # Filtreleme
@@ -638,7 +638,6 @@ async def list_users(
                 "role": user['role'],
                 "created_at": user['created_at'],
                 "updated_at": user.get('updated_at'),
-                "last_login_at": user.get('last_login_at'),
                 "total_credits": total_credits,
                 "credits_used": credits_used,
                 "search_count": search_count
@@ -706,7 +705,6 @@ async def get_user_details(
             "role": user['role'],
             "created_at": user['created_at'],
             "updated_at": user.get('updated_at'),
-            "last_login_at": user.get('last_login_at'),
             "total_credits": total_credits,
             "credits_used": credits_used,
             "search_count": search_count
