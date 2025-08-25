@@ -316,6 +316,8 @@ class AdminUserUpdate(BaseModel):
     full_name: Optional[str] = Field(None, max_length=255)
     ad: Optional[str] = Field(None, max_length=50)
     soyad: Optional[str] = Field(None, max_length=50)
+    meslek: Optional[str] = Field(None, max_length=100)
+    calistigi_yer: Optional[str] = Field(None, max_length=150)
     role: Optional[str] = Field(None, pattern="^(user|admin)$")
 
 class AdminUserResponse(BaseModel):
@@ -325,6 +327,8 @@ class AdminUserResponse(BaseModel):
     full_name: Optional[str] = None
     ad: Optional[str] = None
     soyad: Optional[str] = None
+    meslek: Optional[str] = None
+    calistigi_yer: Optional[str] = None
     role: str
     created_at: datetime
     updated_at: Optional[datetime] = None

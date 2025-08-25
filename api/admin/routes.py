@@ -587,7 +587,7 @@ async def list_users(
         
         # Base query
         query = supabase_client.supabase.table('user_profiles').select(
-            'id, email, full_name, ad, soyad, role, created_at, updated_at'
+            'id, email, full_name, ad, soyad, meslek, calistigi_yer, role, created_at, updated_at'
         )
         
         # Filtreleme
@@ -630,6 +630,8 @@ async def list_users(
                 "full_name": user.get('full_name'),
                 "ad": user.get('ad'),
                 "soyad": user.get('soyad'),
+                "meslek": user.get('meslek'),
+                "calistigi_yer": user.get('calistigi_yer'),
                 "role": user['role'],
                 "created_at": user['created_at'],
                 "updated_at": user.get('updated_at'),
@@ -692,6 +694,8 @@ async def get_user_details(
             "full_name": user.get('full_name'),
             "ad": user.get('ad'),
             "soyad": user.get('soyad'),
+            "meslek": user.get('meslek'),
+            "calistigi_yer": user.get('calistigi_yer'),
             "role": user['role'],
             "created_at": user['created_at'],
             "updated_at": user.get('updated_at'),
@@ -738,6 +742,10 @@ async def update_user(
             update_data['ad'] = user_update.ad
         if user_update.soyad is not None:
             update_data['soyad'] = user_update.soyad
+        if user_update.meslek is not None:
+            update_data['meslek'] = user_update.meslek
+        if user_update.calistigi_yer is not None:
+            update_data['calistigi_yer'] = user_update.calistigi_yer
         if user_update.role is not None:
             update_data['role'] = user_update.role
         
