@@ -576,22 +576,51 @@ async def get_auth_user_info(user_id: str):
             is_banned = False
             banned_until = None
             
+            # Debug: User objesinin tüm raw içeriğini görelim
+            user_dict = user.__dict__ if hasattr(user, '__dict__') else {}
+            logger.info(f"Debug {user_id} - Full user object: {user_dict}")
+            
+            # Tüm mümkün ban field'larını kontrol edelim
+            potential_ban_fields = [
+                'banned_until', 'banned_at', 'ban_duration', 'is_banned', 'banned',
+                'disabled_until', 'disabled_at', 'is_disabled', 'disabled',
+                'locked_until', 'locked_at', 'is_locked', 'locked',
+                'blocked_until', 'blocked_at', 'is_blocked', 'blocked'
+            ]
+            
+            for field in potential_ban_fields:
+                value = getattr(user, field, None)
+                if value:
+                    logger.info(f"Debug {user_id} - {field}: {value}")
+                    is_banned = True
+                    if field.endswith('_until'):
+                        banned_until = value
+            
             # 1. app_metadata'da ban bilgisi kontrol et
             app_metadata = getattr(user, 'app_metadata', {}) or {}
+            logger.info(f"Debug {user_id} - app_metadata: {app_metadata}")
+            
             if app_metadata.get('banned') or app_metadata.get('is_banned'):
                 is_banned = True
                 banned_until = app_metadata.get('banned_until')
+                logger.info(f"Debug {user_id} - Ban bulundu app_metadata'da!")
             
             # 2. user_metadata'da ban bilgisi kontrol et  
             user_metadata = getattr(user, 'user_metadata', {}) or {}
+            logger.info(f"Debug {user_id} - user_metadata: {user_metadata}")
+            
             if user_metadata.get('banned') or user_metadata.get('is_banned'):
                 is_banned = True
                 banned_until = user_metadata.get('banned_until')
+                logger.info(f"Debug {user_id} - Ban bulundu user_metadata'da!")
             
             # 3. Role-based ban kontrolü (role 'banned' ise)
             user_role = getattr(user, 'role', 'authenticated')
+            logger.info(f"Debug {user_id} - user_role: {user_role}")
+            
             if user_role == 'banned' or user_role == 'disabled':
                 is_banned = True
+                logger.info(f"Debug {user_id} - Ban bulundu role'da!")
             
             # 4. Direct SQL sorgusu ile auth.users tablosundan ban durumu kontrol et
             try:
@@ -603,6 +632,8 @@ async def get_auth_user_info(user_id: str):
                     banned_until = ban_data.get('banned_until')
             except Exception as sql_error:
                 logger.info(f"RPC ban kontrolü çalışmadı (normal): {sql_error}")
+            
+            logger.info(f"Debug {user_id} - Final: is_banned={is_banned}, banned_until={banned_until}")
             
             return {
                 "email_confirmed_at": getattr(user, 'email_confirmed_at', None),
