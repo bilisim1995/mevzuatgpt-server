@@ -14,7 +14,9 @@ from core.database import get_db
 from api.dependencies import get_admin_user
 from models.schemas import (
     UserResponse, DocumentResponse, DocumentCreate, 
-    DocumentUpdate, DocumentListResponse, UploadResponse
+    DocumentUpdate, DocumentListResponse, UploadResponse,
+    AdminUserUpdate, AdminUserResponse, AdminUserListResponse,
+    UserCreditUpdate, UserBanRequest
 )
 from models.supabase_client import supabase_client
 from services.storage_service import StorageService
@@ -560,6 +562,513 @@ async def update_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="DELETE_FAILED"
         )
+
+# ========================= USER MANAGEMENT ENDPOINTS =========================
+
+@router.get("/users", response_model=AdminUserListResponse)
+async def list_users(
+    page: int = Query(1, ge=1, description="Sayfa numarası"),
+    limit: int = Query(20, ge=1, le=100, description="Sayfa başına kullanıcı sayısı"),
+    role: Optional[str] = Query(None, description="Role göre filtrele (user/admin)"),
+    is_active: Optional[bool] = Query(None, description="Aktif duruma göre filtrele"),
+    search: Optional[str] = Query(None, description="Email veya ad soyad ile ara"),
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Tüm kullanıcıları listele (Admin only)
+    
+    Returns:
+    - Sayfalanmış kullanıcı listesi
+    - Kredi bilgileri
+    - Son giriş tarihleri
+    - İstatistikler
+    """
+    try:
+        logger.info(f"Admin {current_user.email} kullanıcıları listeli - sayfa: {page}, limit: {limit}")
+        
+        # Base query
+        query = supabase_client.supabase.table('user_profiles').select(
+            'id, email, full_name, ad, soyad, meslek, calistigi_yer, role, is_active, created_at, updated_at, last_login_at'
+        )
+        
+        # Filtreleme
+        if role:
+            query = query.eq('role', role)
+        if is_active is not None:
+            query = query.eq('is_active', is_active)
+        if search:
+            search_term = f'%{search}%'
+            query = query.or_(f'email.ilike.{search_term},full_name.ilike.{search_term},ad.ilike.{search_term},soyad.ilike.{search_term}')
+        
+        # Toplam sayı
+        count_query = supabase_client.supabase.table('user_profiles').select('id', count='exact')
+        if role:
+            count_query = count_query.eq('role', role)
+        if is_active is not None:
+            count_query = count_query.eq('is_active', is_active)
+        if search:
+            search_term = f'%{search}%'
+            count_query = count_query.or_(f'email.ilike.{search_term},full_name.ilike.{search_term},ad.ilike.{search_term},soyad.ilike.{search_term}')
+        
+        count_result = count_query.execute()
+        total_count = count_result.count
+        
+        # Sayfalanmış sonuçlar
+        offset = (page - 1) * limit
+        users_response = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+        
+        # Kullanıcı detaylarını zenginleştir
+        enriched_users = []
+        for user in users_response.data:
+            # Kredi bilgilerini al
+            credit_response = supabase_client.supabase.table('user_credits').select('balance').eq('user_id', user['id']).execute()
+            total_credits = credit_response.data[0]['balance'] if credit_response.data else 0
+            
+            # Harcanan kredileri hesapla
+            spent_response = supabase_client.supabase.table('credit_transactions').select('amount').eq('user_id', user['id']).eq('transaction_type', 'debit').execute()
+            credits_used = sum([t['amount'] for t in spent_response.data]) if spent_response.data else 0
+            
+            # Döküman sayısı
+            doc_response = supabase_client.supabase.table('mevzuat_documents').select('id', count='exact').eq('uploaded_by', user['id']).execute()
+            document_count = doc_response.count
+            
+            # Arama sayısı
+            search_response = supabase_client.supabase.table('search_logs').select('id', count='exact').eq('user_id', user['id']).execute()
+            search_count = search_response.count
+            
+            enriched_users.append({
+                "id": user['id'],
+                "email": user['email'],
+                "full_name": user.get('full_name'),
+                "ad": user.get('ad'),
+                "soyad": user.get('soyad'),
+                "meslek": user.get('meslek'),
+                "calistigi_yer": user.get('calistigi_yer'),
+                "role": user['role'],
+                "is_active": user.get('is_active', True),
+                "created_at": user['created_at'],
+                "updated_at": user.get('updated_at'),
+                "last_login_at": user.get('last_login_at'),
+                "total_credits": total_credits,
+                "credits_used": credits_used,
+                "document_count": document_count,
+                "search_count": search_count
+            })
+        
+        return {
+            "users": enriched_users,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_count,
+                "pages": (total_count + limit - 1) // limit,
+                "has_next": offset + limit < total_count,
+                "has_previous": page > 1
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Kullanıcıları listelerken hata: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Kullanıcıları listeleme başarısız: {str(e)}")
+
+@router.get("/users/{user_id}", response_model=AdminUserResponse)
+async def get_user_details(
+    user_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Kullanıcı detaylarını getir (Admin only)
+    
+    Returns:
+    - Tam kullanıcı bilgileri
+    - Kredi geçmişi
+    - Aktivite istatistikleri
+    """
+    try:
+        logger.info(f"Admin {current_user.email} kullanıcı detaylarını görüntülüyor: {user_id}")
+        
+        # Kullanıcı bilgilerini al
+        user_response = supabase_client.supabase.table('user_profiles').select('*').eq('id', user_id).execute()
+        if not user_response.data:
+            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+        
+        user = user_response.data[0]
+        
+        # Kredi bilgilerini al
+        credit_response = supabase_client.supabase.table('user_credits').select('balance').eq('user_id', user_id).execute()
+        total_credits = credit_response.data[0]['balance'] if credit_response.data else 0
+        
+        # Harcanan kredileri hesapla
+        spent_response = supabase_client.supabase.table('credit_transactions').select('amount').eq('user_id', user_id).eq('transaction_type', 'debit').execute()
+        credits_used = sum([t['amount'] for t in spent_response.data]) if spent_response.data else 0
+        
+        # Döküman sayısı
+        doc_response = supabase_client.supabase.table('mevzuat_documents').select('id', count='exact').eq('uploaded_by', user_id).execute()
+        document_count = doc_response.count
+        
+        # Arama sayısı
+        search_response = supabase_client.supabase.table('search_logs').select('id', count='exact').eq('user_id', user_id).execute()
+        search_count = search_response.count
+        
+        return {
+            "id": user['id'],
+            "email": user['email'],
+            "full_name": user.get('full_name'),
+            "ad": user.get('ad'),
+            "soyad": user.get('soyad'),
+            "meslek": user.get('meslek'),
+            "calistigi_yer": user.get('calistigi_yer'),
+            "role": user['role'],
+            "is_active": user.get('is_active', True),
+            "created_at": user['created_at'],
+            "updated_at": user.get('updated_at'),
+            "last_login_at": user.get('last_login_at'),
+            "total_credits": total_credits,
+            "credits_used": credits_used,
+            "document_count": document_count,
+            "search_count": search_count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kullanıcı detaylarını getirirken hata {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Kullanıcı detaylarını getirme başarısız: {str(e)}")
+
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: str,
+    user_update: AdminUserUpdate,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Kullanıcı bilgilerini güncelle (Admin only)
+    
+    Güncellenebilir alanlar:
+    - Email, ad, soyad, meslek, çalıştığı yer
+    - Role (user/admin)
+    - Aktif durumu
+    """
+    try:
+        logger.info(f"Admin {current_user.email} kullanıcıyı güncelliyor: {user_id}")
+        
+        # Kullanıcının varlığını kontrol et
+        existing_user = supabase_client.supabase.table('user_profiles').select('*').eq('id', user_id).execute()
+        if not existing_user.data:
+            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+        
+        # Güncelleme verilerini hazırla
+        update_data = {}
+        if user_update.email is not None:
+            update_data['email'] = user_update.email
+        if user_update.full_name is not None:
+            update_data['full_name'] = user_update.full_name
+        if user_update.ad is not None:
+            update_data['ad'] = user_update.ad
+        if user_update.soyad is not None:
+            update_data['soyad'] = user_update.soyad
+        if user_update.meslek is not None:
+            update_data['meslek'] = user_update.meslek
+        if user_update.calistigi_yer is not None:
+            update_data['calistigi_yer'] = user_update.calistigi_yer
+        if user_update.role is not None:
+            update_data['role'] = user_update.role
+        if user_update.is_active is not None:
+            update_data['is_active'] = user_update.is_active
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="Güncellenecek veri bulunamadı")
+        
+        update_data['updated_at'] = datetime.now().isoformat()
+        
+        # Güncelleme işlemi
+        result = supabase_client.supabase.table('user_profiles').update(update_data).eq('id', user_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=400, detail="Kullanıcı güncellenemedi")
+        
+        return {
+            "success": True,
+            "message": "Kullanıcı başarıyla güncellendi",
+            "data": {
+                "user_id": user_id,
+                "updated_fields": list(update_data.keys()),
+                "updated_by": current_user.email,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kullanıcı güncelleme hatası {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Kullanıcı güncelleme başarısız: {str(e)}")
+
+@router.put("/users/{user_id}/ban")
+async def ban_user(
+    user_id: str,
+    ban_request: UserBanRequest,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Kullanıcıyı banla (Admin only)
+    
+    is_active = false yapar ve ban nedenini loglar
+    """
+    try:
+        logger.info(f"Admin {current_user.email} kullanıcıyı banlıyor: {user_id}")
+        
+        # Kullanıcının varlığını kontrol et
+        existing_user = supabase_client.supabase.table('user_profiles').select('*').eq('id', user_id).execute()
+        if not existing_user.data:
+            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+        
+        user = existing_user.data[0]
+        if not user.get('is_active', True):
+            raise HTTPException(status_code=400, detail="Kullanıcı zaten banlanmış")
+        
+        # Kullanıcıyı banla
+        ban_result = supabase_client.supabase.table('user_profiles').update({
+            'is_active': False,
+            'updated_at': datetime.now().isoformat()
+        }).eq('id', user_id).execute()
+        
+        if not ban_result.data:
+            raise HTTPException(status_code=400, detail="Kullanıcı banlanamadı")
+        
+        # Ban logu
+        logger.info(f"Kullanıcı banlandı: {user['email']} - Neden: {ban_request.reason or 'Neden belirtilmedi'} - Admin: {current_user.email}")
+        
+        return {
+            "success": True,
+            "message": "Kullanıcı başarıyla banlandı",
+            "data": {
+                "user_id": user_id,
+                "user_email": user['email'],
+                "ban_reason": ban_request.reason or "Neden belirtilmedi",
+                "banned_by": current_user.email,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kullanıcı banlama hatası {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Kullanıcı banlama başarısız: {str(e)}")
+
+@router.put("/users/{user_id}/unban")
+async def unban_user(
+    user_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Kullanıcı banını kaldır (Admin only)
+    
+    is_active = true yapar
+    """
+    try:
+        logger.info(f"Admin {current_user.email} kullanıcı banını kaldırıyor: {user_id}")
+        
+        # Kullanıcının varlığını kontrol et
+        existing_user = supabase_client.supabase.table('user_profiles').select('*').eq('id', user_id).execute()
+        if not existing_user.data:
+            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+        
+        user = existing_user.data[0]
+        if user.get('is_active', True):
+            raise HTTPException(status_code=400, detail="Kullanıcı zaten aktif")
+        
+        # Ban kaldır
+        unban_result = supabase_client.supabase.table('user_profiles').update({
+            'is_active': True,
+            'updated_at': datetime.now().isoformat()
+        }).eq('id', user_id).execute()
+        
+        if not unban_result.data:
+            raise HTTPException(status_code=400, detail="Kullanıcı ban kaldırılamadı")
+        
+        # Unban logu
+        logger.info(f"Kullanıcı ban kaldırıldı: {user['email']} - Admin: {current_user.email}")
+        
+        return {
+            "success": True,
+            "message": "Kullanıcı banı başarıyla kaldırıldı",
+            "data": {
+                "user_id": user_id,
+                "user_email": user['email'],
+                "unbanned_by": current_user.email,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kullanıcı ban kaldırma hatası {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Kullanıcı ban kaldırma başarısız: {str(e)}")
+
+@router.put("/users/{user_id}/credits")
+async def update_user_credits(
+    user_id: str,
+    credit_update: UserCreditUpdate,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Kullanıcı kredisini güncelle (Admin only)
+    
+    Pozitif değer: Kredi ekle
+    Negatif değer: Kredi düş
+    """
+    try:
+        logger.info(f"Admin {current_user.email} kullanıcı kredisini güncelliyor: {user_id}, miktar: {credit_update.amount}")
+        
+        # Kullanıcının varlığını kontrol et
+        existing_user = supabase_client.supabase.table('user_profiles').select('email').eq('id', user_id).execute()
+        if not existing_user.data:
+            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+        
+        user_email = existing_user.data[0]['email']
+        
+        # Mevcut kredi bakiyesini al
+        credit_response = supabase_client.supabase.table('user_credits').select('balance').eq('user_id', user_id).execute()
+        
+        if credit_response.data:
+            # Mevcut bakiye varsa güncelle
+            current_balance = credit_response.data[0]['balance']
+            new_balance = current_balance + credit_update.amount
+            
+            if new_balance < 0:
+                raise HTTPException(status_code=400, detail="Kredi bakiyesi 0'ın altına düşemez")
+            
+            # Bakiyeyi güncelle
+            supabase_client.supabase.table('user_credits').update({
+                'balance': new_balance,
+                'updated_at': datetime.now().isoformat()
+            }).eq('user_id', user_id).execute()
+        else:
+            # İlk kredi kaydı oluştur
+            if credit_update.amount < 0:
+                raise HTTPException(status_code=400, detail="Kullanıcının kredi kaydı yok, negatif miktar eklenemez")
+            
+            supabase_client.supabase.table('user_credits').insert({
+                'user_id': user_id,
+                'balance': credit_update.amount,
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }).execute()
+            new_balance = credit_update.amount
+        
+        # Kredi transaction kaydı
+        transaction_type = 'credit' if credit_update.amount > 0 else 'debit'
+        supabase_client.supabase.table('credit_transactions').insert({
+            'user_id': user_id,
+            'amount': abs(credit_update.amount),
+            'transaction_type': transaction_type,
+            'description': f"Admin tarafından manuel {transaction_type}: {credit_update.reason}",
+            'created_by': str(current_user.id),
+            'created_at': datetime.now().isoformat()
+        }).execute()
+        
+        return {
+            "success": True,
+            "message": "Kullanıcı kredisi başarıyla güncellendi",
+            "data": {
+                "user_id": user_id,
+                "user_email": user_email,
+                "amount_changed": credit_update.amount,
+                "new_balance": new_balance,
+                "reason": credit_update.reason,
+                "updated_by": current_user.email,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kullanıcı kredi güncelleme hatası {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Kullanıcı kredi güncelleme başarısız: {str(e)}")
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Kullanıcıyı tamamen sil (Admin only)
+    
+    UYARI: Bu işlem geri alınamaz!
+    Kullanıcıyı ve tüm ilişkili verilerini siler:
+    - User profile
+    - Credit records
+    - Search logs
+    - Uploaded documents (opsiyonel)
+    """
+    try:
+        logger.info(f"Admin {current_user.email} kullanıcıyı siliyor: {user_id}")
+        
+        # Kullanıcının varlığını kontrol et
+        existing_user = supabase_client.supabase.table('user_profiles').select('email').eq('id', user_id).execute()
+        if not existing_user.data:
+            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+        
+        user_email = existing_user.data[0]['email']
+        
+        # Admin kendini silemez
+        if str(current_user.id) == user_id:
+            raise HTTPException(status_code=400, detail="Kendi hesabınızı silemezsiniz")
+        
+        # İlişkili verileri sil
+        deletion_stats = {
+            "credits_deleted": 0,
+            "transactions_deleted": 0,
+            "search_logs_deleted": 0,
+            "documents_found": 0
+        }
+        
+        # Kredi kayıtlarını sil
+        credit_result = supabase_client.supabase.table('user_credits').delete().eq('user_id', user_id).execute()
+        deletion_stats["credits_deleted"] = len(credit_result.data) if credit_result.data else 0
+        
+        # Kredi transaction kayıtlarını sil
+        transactions_result = supabase_client.supabase.table('credit_transactions').delete().eq('user_id', user_id).execute()
+        deletion_stats["transactions_deleted"] = len(transactions_result.data) if transactions_result.data else 0
+        
+        # Arama loglarını sil
+        search_logs_result = supabase_client.supabase.table('search_logs').delete().eq('user_id', user_id).execute()
+        deletion_stats["search_logs_deleted"] = len(search_logs_result.data) if search_logs_result.data else 0
+        
+        # Kullanıcının yüklediği dökümanları kontrol et (silmek yerine uyarı ver)
+        documents_result = supabase_client.supabase.table('mevzuat_documents').select('id, title').eq('uploaded_by', user_id).execute()
+        deletion_stats["documents_found"] = len(documents_result.data) if documents_result.data else 0
+        
+        # Kullanıcı profilini sil
+        user_delete_result = supabase_client.supabase.table('user_profiles').delete().eq('id', user_id).execute()
+        
+        if not user_delete_result.data:
+            raise HTTPException(status_code=400, detail="Kullanıcı silinemedi")
+        
+        logger.warning(f"Kullanıcı silindi: {user_email} - Admin: {current_user.email} - Stats: {deletion_stats}")
+        
+        return {
+            "success": True,
+            "message": "Kullanıcı ve ilişkili verileri başarıyla silindi",
+            "data": {
+                "user_id": user_id,
+                "user_email": user_email,
+                "deletion_stats": deletion_stats,
+                "deleted_by": current_user.email,
+                "timestamp": datetime.now().isoformat(),
+                "warning": f"{deletion_stats['documents_found']} döküman bulundu ama silinmedi. Gerekirse ayrıca silin." if deletion_stats["documents_found"] > 0 else None
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kullanıcı silme hatası {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Kullanıcı silme başarısız: {str(e)}")
 
 @router.post("/documents/{document_id}/reprocess")
 async def reprocess_document(

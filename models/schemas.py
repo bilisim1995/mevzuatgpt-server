@@ -309,6 +309,54 @@ class SearchStats(BaseModel):
     popular_queries: List[Dict[str, Union[str, int]]]
     search_trends: Dict[str, int]
 
+# Admin User Management Models
+class AdminUserUpdate(BaseModel):
+    """Admin user update model"""
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = Field(None, max_length=255)
+    ad: Optional[str] = Field(None, max_length=50)
+    soyad: Optional[str] = Field(None, max_length=50)
+    meslek: Optional[str] = Field(None, max_length=100)
+    calistigi_yer: Optional[str] = Field(None, max_length=150)
+    role: Optional[str] = Field(None, pattern="^(user|admin)$")
+    is_active: Optional[bool] = None
+
+class AdminUserResponse(BaseModel):
+    """Admin user response with additional fields"""
+    id: UUID
+    email: EmailStr
+    full_name: Optional[str] = None
+    ad: Optional[str] = None
+    soyad: Optional[str] = None
+    meslek: Optional[str] = None
+    calistigi_yer: Optional[str] = None
+    role: str
+    is_active: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
+    total_credits: Optional[int] = None
+    credits_used: Optional[int] = None
+    document_count: Optional[int] = None
+    search_count: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
+
+class AdminUserListResponse(BaseModel):
+    """Admin user list response with pagination"""
+    users: List[AdminUserResponse]
+    pagination: Dict[str, int]
+
+class UserCreditUpdate(BaseModel):
+    """User credit update model"""
+    amount: int = Field(..., description="Credit amount (positive to add, negative to subtract)")
+    reason: str = Field(..., max_length=500, description="Reason for credit adjustment")
+
+class UserBanRequest(BaseModel):
+    """User ban/unban request model"""
+    reason: Optional[str] = Field(None, max_length=500, description="Ban reason")
+
 # Health Check Models
 class HealthCheck(BaseModel):
     """Health check response model"""
