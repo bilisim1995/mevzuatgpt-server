@@ -820,12 +820,10 @@ async def list_users(
                 "role": user['role'],
                 "created_at": user['created_at'],
                 "updated_at": user.get('updated_at'),
-                # Kredi bilgileri
-                "credits": {
-                    "current_balance": current_balance,        # Mevcut kredi
-                    "total_used": total_used,                 # Kullanılan kredi
-                    "total_purchased": total_purchased        # Toplam satın alınan
-                },
+                # Kredi bilgileri (flat format - eski uyumluluk için)
+                "current_balance": current_balance,        # Mevcut kredi
+                "total_used": total_used,                 # Kullanılan kredi  
+                "total_purchased": total_purchased,       # Toplam satın alınan
                 "search_count": search_count,
                 # listUsers() ile alınan auth bilgileri
                 "email_confirmed_at": auth_info["email_confirmed_at"],
@@ -913,12 +911,10 @@ async def get_user_details(
             "role": user['role'],
             "created_at": user['created_at'],
             "updated_at": user.get('updated_at'),
-            # Kredi bilgileri
-            "credits": {
-                "current_balance": current_balance,        # Mevcut kredi
-                "total_used": total_used,                 # Kullanılan kredi
-                "total_purchased": total_purchased        # Toplam satın alınan
-            },
+            # Kredi bilgileri (flat format)
+            "current_balance": current_balance,        # Mevcut kredi
+            "total_used": total_used,                 # Kullanılan kredi
+            "total_purchased": total_purchased,       # Toplam satın alınan
             "search_count": search_count,
             # Auth.users bilgileri
             "email_confirmed_at": auth_info["email_confirmed_at"],
