@@ -1340,6 +1340,236 @@ async def unban_user(
         logger.error(f"Ban kaldırılırken hata: {e}")
         raise HTTPException(status_code=500, detail=f"Ban kaldırma sırasında hata: {e}")
 
+# ========================= AI PROMPTS MANAGEMENT =========================
+
+@router.get("/prompts")
+async def list_prompts(
+    current_user: UserResponse = Depends(get_admin_user),
+    provider: Optional[str] = Query(None, description="Provider filter (groq, openai, claude)"),
+    is_active: Optional[bool] = Query(None, description="Active status filter")
+):
+    """AI prompt'larını listele (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} AI prompt'larını listeli")
+        
+        # Base query
+        query = supabase_client.supabase.table('ai_prompts').select('*')
+        
+        # Filters
+        if provider:
+            query = query.eq('provider', provider)
+        if is_active is not None:
+            query = query.eq('is_active', is_active)
+            
+        # Order by update date
+        query = query.order('updated_at', desc=True)
+        
+        response = query.execute()
+        
+        return {
+            "success": True,
+            "data": {
+                "prompts": response.data,
+                "total": len(response.data) if response.data else 0
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"AI prompt'ları listelenirken hata: {e}")
+        raise HTTPException(status_code=500, detail=f"Prompt'lar listelenemedi: {e}")
+
+@router.get("/prompts/{prompt_id}")
+async def get_prompt(
+    prompt_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Specific AI prompt detayını getir (Admin only)"""
+    try:
+        response = supabase_client.supabase.table('ai_prompts').select('*').eq('id', prompt_id).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Prompt bulunamadı")
+            
+        return success_response("Prompt detayı getirildi", response.data[0])
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Prompt detayı getirilirken hata: {e}")
+        raise HTTPException(status_code=500, detail=f"Prompt detayı getirilemedi: {e}")
+
+@router.post("/prompts")
+async def create_prompt(
+    prompt_data: dict,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Yeni AI prompt oluştur (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} yeni AI prompt oluşturuyor")
+        
+        # Required fields validation
+        required_fields = ['provider', 'prompt_type', 'prompt_content']
+        for field in required_fields:
+            if field not in prompt_data:
+                raise HTTPException(status_code=400, detail=f"'{field}' alanı gereklidir")
+        
+        # Provider validation
+        valid_providers = ['groq', 'openai', 'claude']
+        if prompt_data['provider'] not in valid_providers:
+            raise HTTPException(status_code=400, detail=f"Provider '{valid_providers}' listesinden olmalıdır")
+            
+        # Prompt type validation  
+        valid_types = ['system', 'user', 'assistant']
+        if prompt_data['prompt_type'] not in valid_types:
+            raise HTTPException(status_code=400, detail=f"Prompt type '{valid_types}' listesinden olmalıdır")
+        
+        # Prepare data
+        new_prompt = {
+            'provider': prompt_data['provider'],
+            'prompt_type': prompt_data['prompt_type'], 
+            'prompt_content': prompt_data['prompt_content'],
+            'description': prompt_data.get('description'),
+            'version': prompt_data.get('version', '1.0'),
+            'is_active': prompt_data.get('is_active', True),
+            'created_by': str(current_user.id),
+            'updated_by': str(current_user.id),
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        # Insert to database
+        response = supabase_client.supabase.table('ai_prompts').insert(new_prompt).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Prompt oluşturulamadı")
+            
+        return success_response("AI prompt başarıyla oluşturuldu", response.data[0])
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"AI prompt oluşturulurken hata: {e}")
+        raise HTTPException(status_code=500, detail=f"Prompt oluşturulamadı: {e}")
+
+@router.put("/prompts/{prompt_id}")
+async def update_prompt(
+    prompt_id: str,
+    prompt_data: dict,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """AI prompt güncelle (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} AI prompt güncelliyor: {prompt_id}")
+        
+        # Check if prompt exists
+        existing = supabase_client.supabase.table('ai_prompts').select('*').eq('id', prompt_id).execute()
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Prompt bulunamadı")
+        
+        # Prepare update data
+        update_data = {
+            'updated_by': str(current_user.id),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        # Update allowed fields
+        allowed_fields = ['provider', 'prompt_type', 'prompt_content', 'description', 'version', 'is_active']
+        for field in allowed_fields:
+            if field in prompt_data:
+                update_data[field] = prompt_data[field]
+        
+        # Validate provider if being updated
+        if 'provider' in update_data:
+            valid_providers = ['groq', 'openai', 'claude']
+            if update_data['provider'] not in valid_providers:
+                raise HTTPException(status_code=400, detail=f"Provider '{valid_providers}' listesinden olmalıdır")
+                
+        # Validate prompt_type if being updated
+        if 'prompt_type' in update_data:
+            valid_types = ['system', 'user', 'assistant']
+            if update_data['prompt_type'] not in valid_types:
+                raise HTTPException(status_code=400, detail=f"Prompt type '{valid_types}' listesinden olmalıdır")
+        
+        # Update in database
+        response = supabase_client.supabase.table('ai_prompts').update(update_data).eq('id', prompt_id).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Prompt güncellenemedi")
+            
+        return success_response("AI prompt başarıyla güncellendi", response.data[0])
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"AI prompt güncellenirken hata: {e}")
+        raise HTTPException(status_code=500, detail=f"Prompt güncellenemedi: {e}")
+
+@router.delete("/prompts/{prompt_id}")
+async def delete_prompt(
+    prompt_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """AI prompt sil (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} AI prompt siliyor: {prompt_id}")
+        
+        # Check if prompt exists
+        existing = supabase_client.supabase.table('ai_prompts').select('*').eq('id', prompt_id).execute()
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Prompt bulunamadı")
+        
+        prompt_data = existing.data[0]
+        
+        # Delete from database
+        response = supabase_client.supabase.table('ai_prompts').delete().eq('id', prompt_id).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Prompt silinemedi")
+            
+        logger.warning(f"AI prompt silindi: {prompt_data.get('provider')}/{prompt_data.get('prompt_type')} - Admin: {current_user.email}")
+        
+        return success_response("AI prompt başarıyla silindi", {
+            "deleted_prompt": {
+                "id": prompt_id,
+                "provider": prompt_data.get('provider'),
+                "prompt_type": prompt_data.get('prompt_type'),
+                "description": prompt_data.get('description')
+            },
+            "deleted_by": current_user.email,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"AI prompt silinirken hata: {e}")
+        raise HTTPException(status_code=500, detail=f"Prompt silinemedi: {e}")
+
+@router.post("/prompts/refresh-cache")
+async def refresh_prompt_cache(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Prompt cache'ini manuel refresh et (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} prompt cache'ini yeniliyor")
+        
+        # Import PromptService
+        from services.prompt_service import prompt_service
+        
+        # Clear cache
+        prompt_service._cached_prompts = {}
+        prompt_service._cache_timestamp = None
+        
+        return success_response("Prompt cache başarıyla temizlendi", {
+            "cache_cleared": True,
+            "cleared_by": current_user.email,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Prompt cache temizlenirken hata: {e}")
+        raise HTTPException(status_code=500, detail=f"Cache temizlenemedi: {e}")
+
 @router.post("/documents/{document_id}/reprocess")
 async def reprocess_document(
     document_id: str,
