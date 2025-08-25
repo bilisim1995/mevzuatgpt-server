@@ -1260,10 +1260,8 @@ async def ban_user(
                 ban_data["app_metadata"]["banned_until"] = ban_until
                 ban_data["app_metadata"]["ban_duration_hours"] = ban_request.ban_duration_hours
             
-            # User metadata'yı güncelle - Type hatasını düzelt
-            # ban_data'yi string olarak gönder
-            import json
-            supabase_client.supabase.auth.admin.update_user_by_id(user_id, json.dumps(ban_data))
+            # User metadata'yı güncelle
+            supabase_client.supabase.auth.admin.update_user_by_id(user_id, ban_data)
             
             logger.info(f"Kullanıcı metadata ile banlandı: {user_id}, süre: {ban_request.ban_duration_hours} saat")
             
@@ -1311,10 +1309,8 @@ async def unban_user(
                 }
             }
             
-            # User metadata'yı güncelle - Type hatasını düzelt  
-            # unban_data'yi string olarak gönder
-            import json
-            supabase_client.supabase.auth.admin.update_user_by_id(user_id, json.dumps(unban_data))
+            # User metadata'yı güncelle
+            supabase_client.supabase.auth.admin.update_user_by_id(user_id, unban_data)
             
             logger.info(f"Kullanıcı metadata'dan unbanlandı: {user_id}")
             
