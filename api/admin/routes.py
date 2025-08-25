@@ -587,7 +587,7 @@ async def list_users(
         
         # Base query
         query = supabase_client.supabase.table('user_profiles').select(
-            'id, email, full_name, ad, soyad, meslek, calistigi_yer, role, created_at, updated_at'
+            'id, email, full_name, ad, soyad, role, created_at, updated_at'
         )
         
         # Filtreleme
@@ -615,6 +615,11 @@ async def list_users(
         # Kullanıcı detaylarını zenginleştir
         enriched_users = []
         for user in users_response.data:
+            # Kredi bilgilerini al
+            credit_response = supabase_client.supabase.table('user_credit_balance').select('current_balance, total_used').eq('user_id', user['id']).execute()
+            current_balance = credit_response.data[0]['current_balance'] if credit_response.data else 0
+            total_used = credit_response.data[0]['total_used'] if credit_response.data else 0
+            
             # Arama sayısı
             search_response = supabase_client.supabase.table('search_logs').select('id', count='exact').eq('user_id', user['id']).execute()
             search_count = search_response.count
@@ -625,11 +630,11 @@ async def list_users(
                 "full_name": user.get('full_name'),
                 "ad": user.get('ad'),
                 "soyad": user.get('soyad'),
-                "meslek": user.get('meslek'),
-                "calistigi_yer": user.get('calistigi_yer'),
                 "role": user['role'],
                 "created_at": user['created_at'],
                 "updated_at": user.get('updated_at'),
+                "current_balance": current_balance,
+                "total_used": total_used,
                 "search_count": search_count
             })
         
@@ -672,6 +677,11 @@ async def get_user_details(
         
         user = user_response.data[0]
         
+        # Kredi bilgilerini al
+        credit_response = supabase_client.supabase.table('user_credit_balance').select('current_balance, total_used').eq('user_id', user_id).execute()
+        current_balance = credit_response.data[0]['current_balance'] if credit_response.data else 0
+        total_used = credit_response.data[0]['total_used'] if credit_response.data else 0
+        
         # Arama sayısı
         search_response = supabase_client.supabase.table('search_logs').select('id', count='exact').eq('user_id', user_id).execute()
         search_count = search_response.count
@@ -682,11 +692,11 @@ async def get_user_details(
             "full_name": user.get('full_name'),
             "ad": user.get('ad'),
             "soyad": user.get('soyad'),
-            "meslek": user.get('meslek'),
-            "calistigi_yer": user.get('calistigi_yer'),
             "role": user['role'],
             "created_at": user['created_at'],
             "updated_at": user.get('updated_at'),
+            "current_balance": current_balance,
+            "total_used": total_used,
             "search_count": search_count
         }
         
@@ -728,10 +738,6 @@ async def update_user(
             update_data['ad'] = user_update.ad
         if user_update.soyad is not None:
             update_data['soyad'] = user_update.soyad
-        if user_update.meslek is not None:
-            update_data['meslek'] = user_update.meslek
-        if user_update.calistigi_yer is not None:
-            update_data['calistigi_yer'] = user_update.calistigi_yer
         if user_update.role is not None:
             update_data['role'] = user_update.role
         
@@ -789,29 +795,43 @@ async def update_user_credits(
         user_email = existing_user.data[0]['email']
         
         # Mevcut kredi bakiyesini al
-        credit_response = supabase_client.supabase.table('user_credits').select('balance').eq('user_id', user_id).execute()
+        credit_response = supabase_client.supabase.table('user_credit_balance').select('current_balance, total_used').eq('user_id', user_id).execute()
         
         if credit_response.data:
             # Mevcut bakiye varsa güncelle
-            current_balance = credit_response.data[0]['balance']
+            current_balance = credit_response.data[0]['current_balance']
+            total_used = credit_response.data[0]['total_used']
             new_balance = current_balance + credit_update.amount
             
             if new_balance < 0:
                 raise HTTPException(status_code=400, detail="Kredi bakiyesi 0'ın altına düşemez")
             
-            # Bakiyeyi güncelle
-            supabase_client.supabase.table('user_credits').update({
-                'balance': new_balance,
+            # Eğer kredi ekliyorsak total_purchased da güncellenir, çıkarıyorsak total_used güncellenir
+            update_data = {
+                'current_balance': new_balance,
                 'updated_at': datetime.now().isoformat()
-            }).eq('user_id', user_id).execute()
+            }
+            
+            if credit_update.amount > 0:
+                # Kredi ekleme
+                current_total_purchased = current_balance + total_used  # Toplam satın alınmış
+                update_data['total_purchased'] = current_total_purchased + credit_update.amount
+            else:
+                # Kredi çıkarma
+                update_data['total_used'] = total_used + abs(credit_update.amount)
+            
+            # Bakiyeyi güncelle
+            supabase_client.supabase.table('user_credit_balance').update(update_data).eq('user_id', user_id).execute()
         else:
             # İlk kredi kaydı oluştur
             if credit_update.amount < 0:
                 raise HTTPException(status_code=400, detail="Kullanıcının kredi kaydı yok, negatif miktar eklenemez")
             
-            supabase_client.supabase.table('user_credits').insert({
+            supabase_client.supabase.table('user_credit_balance').insert({
                 'user_id': user_id,
-                'balance': credit_update.amount,
+                'current_balance': credit_update.amount,
+                'total_purchased': credit_update.amount,
+                'total_used': 0,
                 'created_at': datetime.now().isoformat(),
                 'updated_at': datetime.now().isoformat()
             }).execute()
