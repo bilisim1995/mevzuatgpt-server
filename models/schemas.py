@@ -335,6 +335,11 @@ class AdminUserResponse(BaseModel):
     current_balance: Optional[int] = None
     total_used: Optional[int] = None
     search_count: Optional[int] = None
+    # Auth.users bilgileri
+    email_confirmed_at: Optional[datetime] = None
+    last_sign_in_at: Optional[datetime] = None
+    is_banned: Optional[bool] = None
+    banned_until: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -349,7 +354,10 @@ class UserCreditUpdate(BaseModel):
     amount: int = Field(..., description="Credit amount (positive to add, negative to subtract)")
     reason: str = Field(..., max_length=500, description="Reason for credit adjustment")
 
-# UserBanRequest removed - ban functionality not available without is_active column
+class UserBanRequest(BaseModel):
+    """User ban/unban request model"""
+    reason: Optional[str] = Field(None, max_length=500, description="Ban reason")
+    ban_duration_hours: Optional[int] = Field(None, ge=1, le=8760, description="Ban duration in hours (max 1 year)")
 
 # Health Check Models
 class HealthCheck(BaseModel):

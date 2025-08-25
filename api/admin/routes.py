@@ -16,7 +16,7 @@ from models.schemas import (
     UserResponse, DocumentResponse, DocumentCreate, 
     DocumentUpdate, DocumentListResponse, UploadResponse,
     AdminUserUpdate, AdminUserResponse, AdminUserListResponse,
-    UserCreditUpdate
+    UserCreditUpdate, UserBanRequest
 )
 from models.supabase_client import supabase_client
 from services.storage_service import StorageService
@@ -565,6 +565,29 @@ async def update_document(
 
 # ========================= USER MANAGEMENT ENDPOINTS =========================
 
+async def get_auth_user_info(user_id: str):
+    """Get user info from auth.users table"""
+    try:
+        auth_response = supabase_client.supabase.auth.admin.get_user_by_id(user_id)
+        if auth_response.user:
+            user = auth_response.user
+            # Supabase user object fieldlarını kontrol et
+            banned_until = getattr(user, 'banned_until', None)
+            return {
+                "email_confirmed_at": getattr(user, 'email_confirmed_at', None),
+                "last_sign_in_at": getattr(user, 'last_sign_in_at', None),
+                "is_banned": banned_until is not None,
+                "banned_until": banned_until
+            }
+    except Exception as e:
+        logger.warning(f"Auth user info alınamadı {user_id}: {e}")
+    return {
+        "email_confirmed_at": None,
+        "last_sign_in_at": None,
+        "is_banned": False,
+        "banned_until": None
+    }
+
 @router.get("/users", response_model=AdminUserListResponse)
 async def list_users(
     page: int = Query(1, ge=1, description="Sayfa numarası"),
@@ -612,9 +635,12 @@ async def list_users(
         offset = (page - 1) * limit
         users_response = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
         
-        # Kullanıcı detaylarını zenginleştir
+        # Kullanıcı detaylarını zenginleştir (auth.users + credits)
         enriched_users = []
         for user in users_response.data:
+            # Auth.users bilgileri
+            auth_info = await get_auth_user_info(user['id'])
+            
             # Kredi bilgilerini al
             credit_response = supabase_client.supabase.table('user_credit_balance').select('current_balance, total_used').eq('user_id', user['id']).execute()
             current_balance = credit_response.data[0]['current_balance'] if credit_response.data else 0
@@ -637,7 +663,12 @@ async def list_users(
                 "updated_at": user.get('updated_at'),
                 "current_balance": current_balance,
                 "total_used": total_used,
-                "search_count": search_count
+                "search_count": search_count,
+                # Auth.users bilgileri
+                "email_confirmed_at": auth_info["email_confirmed_at"],
+                "last_sign_in_at": auth_info["last_sign_in_at"],
+                "is_banned": auth_info["is_banned"],
+                "banned_until": auth_info["banned_until"]
             })
         
         return {
@@ -679,6 +710,9 @@ async def get_user_details(
         
         user = user_response.data[0]
         
+        # Auth.users bilgileri
+        auth_info = await get_auth_user_info(user_id)
+        
         # Kredi bilgilerini al
         credit_response = supabase_client.supabase.table('user_credit_balance').select('current_balance, total_used').eq('user_id', user_id).execute()
         current_balance = credit_response.data[0]['current_balance'] if credit_response.data else 0
@@ -701,7 +735,12 @@ async def get_user_details(
             "updated_at": user.get('updated_at'),
             "current_balance": current_balance,
             "total_used": total_used,
-            "search_count": search_count
+            "search_count": search_count,
+            # Auth.users bilgileri
+            "email_confirmed_at": auth_info["email_confirmed_at"],
+            "last_sign_in_at": auth_info["last_sign_in_at"],
+            "is_banned": auth_info["is_banned"],
+            "banned_until": auth_info["banned_until"]
         }
         
     except HTTPException:
@@ -913,8 +952,9 @@ async def delete_user(
             "documents_found": 0
         }
         
-        # Kredi kayıtlarını sil
-        credit_result = supabase_client.supabase.table('user_credits').delete().eq('user_id', user_id).execute()
+        # 1. İlişkili verileri sil (foreign key constraints nedeniyle)
+        # Kredi bakiye kayıtlarını sil
+        credit_result = supabase_client.supabase.table('user_credit_balance').delete().eq('user_id', user_id).execute()
         deletion_stats["credits_deleted"] = len(credit_result.data) if credit_result.data else 0
         
         # Kredi transaction kayıtlarını sil
@@ -925,21 +965,32 @@ async def delete_user(
         search_logs_result = supabase_client.supabase.table('search_logs').delete().eq('user_id', user_id).execute()
         deletion_stats["search_logs_deleted"] = len(search_logs_result.data) if search_logs_result.data else 0
         
+        # Destek biletlerini sil
+        supabase_client.supabase.table('support_tickets').delete().eq('user_id', user_id).execute()
+        supabase_client.supabase.table('user_feedback').delete().eq('user_id', user_id).execute()
+        
         # Kullanıcının yüklediği dökümanları kontrol et (silmek yerine uyarı ver)
         documents_result = supabase_client.supabase.table('mevzuat_documents').select('id, title').eq('uploaded_by', user_id).execute()
         deletion_stats["documents_found"] = len(documents_result.data) if documents_result.data else 0
         
-        # Kullanıcı profilini sil
+        # 2. User_profiles'dan sil
         user_delete_result = supabase_client.supabase.table('user_profiles').delete().eq('id', user_id).execute()
         
         if not user_delete_result.data:
-            raise HTTPException(status_code=400, detail="Kullanıcı silinemedi")
+            raise HTTPException(status_code=400, detail="Kullanıcı profilinden silinemedi")
+        
+        # 3. Auth.users'dan sil
+        try:
+            supabase_client.supabase.auth.admin.delete_user(user_id)
+            logger.info(f"Kullanıcı auth.users'dan silindi: {user_id}")
+        except Exception as auth_error:
+            logger.warning(f"Auth.users'dan silme hatası (profil zaten silindi): {auth_error}")
         
         logger.warning(f"Kullanıcı silindi: {user_email} - Admin: {current_user.email} - Stats: {deletion_stats}")
         
         return {
             "success": True,
-            "message": "Kullanıcı ve ilişkili verileri başarıyla silindi",
+            "message": "Kullanıcı her iki tablodan da (auth.users + user_profiles) başarıyla silindi",
             "data": {
                 "user_id": user_id,
                 "user_email": user_email,
@@ -955,6 +1006,100 @@ async def delete_user(
     except Exception as e:
         logger.error(f"Kullanıcı silme hatası {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Kullanıcı silme başarısız: {str(e)}")
+
+# ========================= BAN/UNBAN ENDPOINTS =========================
+
+@router.put("/users/{user_id}/ban")
+async def ban_user(
+    user_id: str,
+    ban_request: UserBanRequest,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Ban user by setting banned_until in auth.users (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} kullanıcıyı banladı: {user_id}")
+        
+        # Kullanıcının var olduğunu kontrol et
+        user_response = supabase_client.supabase.table('user_profiles').select('email').eq('id', user_id).execute()
+        if not user_response.data:
+            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+        
+        # Admin'in kendisini banlamasını engelle
+        if user_id == str(current_user.id):
+            raise HTTPException(status_code=400, detail="Kendi hesabınızı banlayamazsınız")
+        
+        # Ban süresi hesapla
+        ban_until = None
+        if ban_request.ban_duration_hours:
+            from datetime import datetime, timedelta
+            ban_until = (datetime.now() + timedelta(hours=ban_request.ban_duration_hours)).isoformat()
+        
+        # Auth.users'da ban işlemi
+        try:
+            if ban_until:
+                # Geçici ban
+                supabase_client.supabase.auth.admin.update_user_by_id(
+                    user_id, 
+                    {"ban_duration": ban_request.ban_duration_hours * 3600}  # saniye cinsinden
+                )
+            else:
+                # Kalıcı ban
+                supabase_client.supabase.auth.admin.update_user_by_id(
+                    user_id,
+                    {"ban_duration": "indefinite"}
+                )
+            
+            logger.info(f"Kullanıcı banlandı: {user_id}, süre: {ban_request.ban_duration_hours} saat")
+            
+            return success_response(
+                f"Kullanıcı başarıyla banlandı" + 
+                (f" ({ban_request.ban_duration_hours} saat)" if ban_request.ban_duration_hours else " (kalıcı)")
+            )
+            
+        except Exception as auth_error:
+            logger.error(f"Auth ban işlemi başarısız: {auth_error}")
+            raise HTTPException(status_code=500, detail=f"Ban işlemi başarısız: {auth_error}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kullanıcı banlanırken hata: {e}")
+        raise HTTPException(status_code=500, detail=f"Ban işlemi sırasında hata: {e}")
+
+@router.put("/users/{user_id}/unban")
+async def unban_user(
+    user_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Unban user by removing ban from auth.users (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} kullanıcının banını kaldırdı: {user_id}")
+        
+        # Kullanıcının var olduğunu kontrol et
+        user_response = supabase_client.supabase.table('user_profiles').select('email').eq('id', user_id).execute()
+        if not user_response.data:
+            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+        
+        # Auth.users'da unban işlemi
+        try:
+            supabase_client.supabase.auth.admin.update_user_by_id(
+                user_id,
+                {"ban_duration": "none"}
+            )
+            
+            logger.info(f"Kullanıcı banı kaldırıldı: {user_id}")
+            
+            return success_response("Kullanıcı banı başarıyla kaldırıldı")
+            
+        except Exception as auth_error:
+            logger.error(f"Auth unban işlemi başarısız: {auth_error}")
+            raise HTTPException(status_code=500, detail=f"Ban kaldırma işlemi başarısız: {auth_error}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ban kaldırılırken hata: {e}")
+        raise HTTPException(status_code=500, detail=f"Ban kaldırma sırasında hata: {e}")
 
 @router.post("/documents/{document_id}/reprocess")
 async def reprocess_document(
