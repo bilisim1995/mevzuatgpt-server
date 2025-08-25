@@ -1305,6 +1305,9 @@ async def unban_user(
                 "app_metadata": {
                     "banned": False,
                     "is_banned": False,
+                    "banned_until": None,  # ✅ Ban süresini temizle
+                    "ban_reason": None,    # ✅ Ban sebebini temizle
+                    "ban_duration_hours": None,  # ✅ Ban süresini temizle
                     "unbanned_at": datetime.now().isoformat(),
                     "unbanned_by": str(current_user.id)
                 }
