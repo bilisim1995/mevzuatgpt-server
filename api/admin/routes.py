@@ -572,36 +572,37 @@ async def get_auth_user_info(user_id: str):
         if auth_response.user:
             user = auth_response.user
             
-            # Debug: Supabase user objesinin tüm fieldlarını logla
-            logger.info(f"Debug - User object fields for {user_id}: {dir(user)}")
-            logger.info(f"Debug - User data: {user.__dict__ if hasattr(user, '__dict__') else 'No __dict__'}")
-            
-            # Farklı ban field isimlerini dene
-            banned_until = None
-            ban_fields_to_check = ['banned_until', 'ban_duration', 'is_banned', 'user_metadata', 'raw_user_meta_data']
-            
-            for field in ban_fields_to_check:
-                field_value = getattr(user, field, None)
-                if field_value:
-                    logger.info(f"Debug - {field}: {field_value}")
-                    if field == 'banned_until':
-                        banned_until = field_value
-            
-            # User metadata'da ban durumu olabilir
-            user_metadata = getattr(user, 'user_metadata', {}) or {}
-            raw_metadata = getattr(user, 'raw_user_meta_data', {}) or {}
-            
-            logger.info(f"Debug - user_metadata: {user_metadata}")
-            logger.info(f"Debug - raw_user_meta_data: {raw_metadata}")
-            
-            # Ban durumunu kontrol et
+            # Supabase Auth'da ban durumu kontrol etmek için alternatif yöntemler
             is_banned = False
-            if banned_until:
+            banned_until = None
+            
+            # 1. app_metadata'da ban bilgisi kontrol et
+            app_metadata = getattr(user, 'app_metadata', {}) or {}
+            if app_metadata.get('banned') or app_metadata.get('is_banned'):
                 is_banned = True
-            elif user_metadata.get('banned') or raw_metadata.get('banned'):
+                banned_until = app_metadata.get('banned_until')
+            
+            # 2. user_metadata'da ban bilgisi kontrol et  
+            user_metadata = getattr(user, 'user_metadata', {}) or {}
+            if user_metadata.get('banned') or user_metadata.get('is_banned'):
                 is_banned = True
-            elif user_metadata.get('ban_duration') or raw_metadata.get('ban_duration'):
+                banned_until = user_metadata.get('banned_until')
+            
+            # 3. Role-based ban kontrolü (role 'banned' ise)
+            user_role = getattr(user, 'role', 'authenticated')
+            if user_role == 'banned' or user_role == 'disabled':
                 is_banned = True
+            
+            # 4. Direct SQL sorgusu ile auth.users tablosundan ban durumu kontrol et
+            try:
+                # Supabase'de raw SQL ile auth.users tablosunu kontrol edelim
+                ban_check_response = supabase_client.supabase.rpc('check_user_ban_status', {'user_id': user_id}).execute()
+                if ban_check_response.data:
+                    ban_data = ban_check_response.data
+                    is_banned = ban_data.get('is_banned', False)
+                    banned_until = ban_data.get('banned_until')
+            except Exception as sql_error:
+                logger.info(f"RPC ban kontrolü çalışmadı (normal): {sql_error}")
             
             return {
                 "email_confirmed_at": getattr(user, 'email_confirmed_at', None),
@@ -1064,22 +1065,28 @@ async def ban_user(
             from datetime import datetime, timedelta
             ban_until = (datetime.now() + timedelta(hours=ban_request.ban_duration_hours)).isoformat()
         
-        # Auth.users'da ban işlemi
+        # Auth.users'da ban işlemi - metadata ile yapacağız
         try:
-            if ban_until:
-                # Geçici ban
-                supabase_client.supabase.auth.admin.update_user_by_id(
-                    user_id, 
-                    {"ban_duration": ban_request.ban_duration_hours * 3600}  # saniye cinsinden
-                )
-            else:
-                # Kalıcı ban
-                supabase_client.supabase.auth.admin.update_user_by_id(
-                    user_id,
-                    {"ban_duration": "indefinite"}
-                )
+            # Ban bilgisini app_metadata'ya kaydet
+            ban_data = {
+                "app_metadata": {
+                    "banned": True,
+                    "is_banned": True,
+                    "banned_at": datetime.now().isoformat(),
+                    "banned_by": str(current_user.id),
+                    "ban_reason": ban_request.reason or "Admin tarafından banlandı"
+                }
+            }
             
-            logger.info(f"Kullanıcı banlandı: {user_id}, süre: {ban_request.ban_duration_hours} saat")
+            if ban_request.ban_duration_hours:
+                ban_until = (datetime.now() + timedelta(hours=ban_request.ban_duration_hours)).isoformat()
+                ban_data["app_metadata"]["banned_until"] = ban_until
+                ban_data["app_metadata"]["ban_duration_hours"] = ban_request.ban_duration_hours
+            
+            # User metadata'yı güncelle
+            supabase_client.supabase.auth.admin.update_user_by_id(user_id, ban_data)
+            
+            logger.info(f"Kullanıcı metadata ile banlandı: {user_id}, süre: {ban_request.ban_duration_hours} saat")
             
             return success_response(
                 f"Kullanıcı başarıyla banlandı" + 
@@ -1110,14 +1117,22 @@ async def unban_user(
         if not user_response.data:
             raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
         
-        # Auth.users'da unban işlemi
+        # Auth.users'da unban işlemi - metadata'yı temizle
         try:
-            supabase_client.supabase.auth.admin.update_user_by_id(
-                user_id,
-                {"ban_duration": "none"}
-            )
+            # Ban bilgilerini app_metadata'dan kaldır
+            unban_data = {
+                "app_metadata": {
+                    "banned": False,
+                    "is_banned": False,
+                    "unbanned_at": datetime.now().isoformat(),
+                    "unbanned_by": str(current_user.id)
+                }
+            }
             
-            logger.info(f"Kullanıcı banı kaldırıldı: {user_id}")
+            # User metadata'yı güncelle
+            supabase_client.supabase.auth.admin.update_user_by_id(user_id, unban_data)
+            
+            logger.info(f"Kullanıcı metadata'dan unbanlandı: {user_id}")
             
             return success_response("Kullanıcı banı başarıyla kaldırıldı")
             
