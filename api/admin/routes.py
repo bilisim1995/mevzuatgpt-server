@@ -571,12 +571,42 @@ async def get_auth_user_info(user_id: str):
         auth_response = supabase_client.supabase.auth.admin.get_user_by_id(user_id)
         if auth_response.user:
             user = auth_response.user
-            # Supabase user object fieldlarını kontrol et
-            banned_until = getattr(user, 'banned_until', None)
+            
+            # Debug: Supabase user objesinin tüm fieldlarını logla
+            logger.info(f"Debug - User object fields for {user_id}: {dir(user)}")
+            logger.info(f"Debug - User data: {user.__dict__ if hasattr(user, '__dict__') else 'No __dict__'}")
+            
+            # Farklı ban field isimlerini dene
+            banned_until = None
+            ban_fields_to_check = ['banned_until', 'ban_duration', 'is_banned', 'user_metadata', 'raw_user_meta_data']
+            
+            for field in ban_fields_to_check:
+                field_value = getattr(user, field, None)
+                if field_value:
+                    logger.info(f"Debug - {field}: {field_value}")
+                    if field == 'banned_until':
+                        banned_until = field_value
+            
+            # User metadata'da ban durumu olabilir
+            user_metadata = getattr(user, 'user_metadata', {}) or {}
+            raw_metadata = getattr(user, 'raw_user_meta_data', {}) or {}
+            
+            logger.info(f"Debug - user_metadata: {user_metadata}")
+            logger.info(f"Debug - raw_user_meta_data: {raw_metadata}")
+            
+            # Ban durumunu kontrol et
+            is_banned = False
+            if banned_until:
+                is_banned = True
+            elif user_metadata.get('banned') or raw_metadata.get('banned'):
+                is_banned = True
+            elif user_metadata.get('ban_duration') or raw_metadata.get('ban_duration'):
+                is_banned = True
+            
             return {
                 "email_confirmed_at": getattr(user, 'email_confirmed_at', None),
                 "last_sign_in_at": getattr(user, 'last_sign_in_at', None),
-                "is_banned": banned_until is not None,
+                "is_banned": is_banned,
                 "banned_until": banned_until
             }
     except Exception as e:
