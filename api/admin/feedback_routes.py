@@ -59,7 +59,7 @@ async def get_all_feedback(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Get all feedback error for admin {current_user_id}: {e}")
+        logger.error(f"Get all feedback error for admin {current_user.id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Feedback listesi getirilemedi"
