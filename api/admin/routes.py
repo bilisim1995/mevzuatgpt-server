@@ -782,30 +782,15 @@ async def list_users(
             # Kredi bilgilerini al
             credit_response = supabase_client.supabase.table('user_credit_balance').select('current_balance, total_used').eq('user_id', user['id']).execute()
             
-            if credit_response.data:
-                current_balance = credit_response.data[0]['current_balance'] or 0
-                total_used = credit_response.data[0]['total_used'] or 0
+            # Basit null kontrolü - kaydı yoksa 0 değerler döndür
+            if credit_response.data and len(credit_response.data) > 0:
+                credit_data = credit_response.data[0]
+                current_balance = credit_data.get('current_balance') if credit_data.get('current_balance') is not None else 0
+                total_used = credit_data.get('total_used') if credit_data.get('total_used') is not None else 0
             else:
-                # Kullanıcının kredi kaydı yok, başlangıç kredisi ver
-                logger.info(f"Kullanıcı {user['id']} için kredi kaydı oluşturuluyor")
-                initial_credit_data = {
-                    'user_id': user['id'],
-                    'current_balance': 30,
-                    'total_used': 0
-                }
-                try:
-                    insert_response = supabase_client.supabase.table('user_credit_balance').insert(initial_credit_data).execute()
-                    if insert_response.data:
-                        current_balance = 30
-                        total_used = 0
-                        logger.info(f"Kullanıcı {user['id']} için başlangıç kredisi oluşturuldu")
-                    else:
-                        current_balance = 0
-                        total_used = 0
-                except Exception as e:
-                    logger.error(f"Kullanıcı {user['id']} için kredi kaydı oluşturulamadı: {e}")
-                    current_balance = 0
-                    total_used = 0
+                # Kredi kaydı yok, 0 değerler döndür
+                current_balance = 0
+                total_used = 0
             
             # Toplam satın alınan krediyi hesapla
             try:
@@ -890,30 +875,15 @@ async def get_user_details(
         # Kredi bilgilerini al
         credit_response = supabase_client.supabase.table('user_credit_balance').select('current_balance, total_used').eq('user_id', user_id).execute()
         
-        if credit_response.data:
-            current_balance = credit_response.data[0]['current_balance'] or 0
-            total_used = credit_response.data[0]['total_used'] or 0
+        # Basit null kontrolü - kaydı yoksa 0 değerler döndür
+        if credit_response.data and len(credit_response.data) > 0:
+            credit_data = credit_response.data[0]
+            current_balance = credit_data.get('current_balance') if credit_data.get('current_balance') is not None else 0
+            total_used = credit_data.get('total_used') if credit_data.get('total_used') is not None else 0
         else:
-            # Kullanıcının kredi kaydı yok, başlangıç kredisi ver
-            logger.info(f"Kullanıcı {user_id} için kredi kaydı oluşturuluyor")
-            initial_credit_data = {
-                'user_id': user_id,
-                'current_balance': 30,
-                'total_used': 0
-            }
-            try:
-                insert_response = supabase_client.supabase.table('user_credit_balance').insert(initial_credit_data).execute()
-                if insert_response.data:
-                    current_balance = 30
-                    total_used = 0
-                    logger.info(f"Kullanıcı {user_id} için başlangıç kredisi oluşturuldu")
-                else:
-                    current_balance = 0
-                    total_used = 0
-            except Exception as e:
-                logger.error(f"Kullanıcı {user_id} için kredi kaydı oluşturulamadı: {e}")
-                current_balance = 0
-                total_used = 0
+            # Kredi kaydı yok, 0 değerler döndür
+            current_balance = 0
+            total_used = 0
         
         # Toplam satın alınan krediyi hesapla
         try:
