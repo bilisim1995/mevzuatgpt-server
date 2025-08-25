@@ -337,7 +337,6 @@ class AdminUserResponse(BaseModel):
     last_login_at: Optional[datetime] = None
     total_credits: Optional[int] = None
     credits_used: Optional[int] = None
-    document_count: Optional[int] = None
     search_count: Optional[int] = None
     
     class Config:

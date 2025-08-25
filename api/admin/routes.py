@@ -628,10 +628,6 @@ async def list_users(
             spent_response = supabase_client.supabase.table('credit_transactions').select('amount').eq('user_id', user['id']).eq('transaction_type', 'debit').execute()
             credits_used = sum([t['amount'] for t in spent_response.data]) if spent_response.data else 0
             
-            # Döküman sayısı
-            doc_response = supabase_client.supabase.table('mevzuat_documents').select('id', count='exact').eq('uploaded_by', user['id']).execute()
-            document_count = doc_response.count
-            
             # Arama sayısı
             search_response = supabase_client.supabase.table('search_logs').select('id', count='exact').eq('user_id', user['id']).execute()
             search_count = search_response.count
@@ -651,7 +647,6 @@ async def list_users(
                 "last_login_at": user.get('last_login_at'),
                 "total_credits": total_credits,
                 "credits_used": credits_used,
-                "document_count": document_count,
                 "search_count": search_count
             })
         
@@ -702,10 +697,6 @@ async def get_user_details(
         spent_response = supabase_client.supabase.table('credit_transactions').select('amount').eq('user_id', user_id).eq('transaction_type', 'debit').execute()
         credits_used = sum([t['amount'] for t in spent_response.data]) if spent_response.data else 0
         
-        # Döküman sayısı
-        doc_response = supabase_client.supabase.table('mevzuat_documents').select('id', count='exact').eq('uploaded_by', user_id).execute()
-        document_count = doc_response.count
-        
         # Arama sayısı
         search_response = supabase_client.supabase.table('search_logs').select('id', count='exact').eq('user_id', user_id).execute()
         search_count = search_response.count
@@ -725,7 +716,6 @@ async def get_user_details(
             "last_login_at": user.get('last_login_at'),
             "total_credits": total_credits,
             "credits_used": credits_used,
-            "document_count": document_count,
             "search_count": search_count
         }
         
