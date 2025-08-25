@@ -1620,3 +1620,254 @@ async def reprocess_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="REPROCESS_FAILED"
         )
+
+
+# ============ SEARCH LOGS ADMIN ENDPOINTS ============
+
+@router.get("/search-logs", response_model=Dict[str, Any])
+async def get_search_logs(
+    page: int = Query(1, ge=1, description="Sayfa numarası"),
+    limit: int = Query(50, ge=1, le=200, description="Sayfa başına kayıt"),
+    user_id: Optional[str] = Query(None, description="Kullanıcı ID filtresi"),
+    current_user: dict = Depends(get_admin_user)
+):
+    """
+    Tüm arama loglarını listele (Admin)
+    """
+    try:
+        # Base query
+        query = supabase_client.supabase.table('search_logs').select('*')
+        
+        # Kullanıcı filtresi
+        if user_id:
+            query = query.eq('user_id', user_id)
+        
+        # Toplam sayı
+        count_response = query.execute()
+        total_count = len(count_response.data) if count_response.data else 0
+        
+        # Sayfalama
+        offset = (page - 1) * limit
+        response = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+        
+        # Kullanıcı bilgilerini ekle
+        logs_with_user = []
+        if response.data:
+            for log in response.data:
+                if log.get('user_id'):
+                    user_response = supabase_client.supabase.table('user_profiles') \
+                        .select('full_name, email') \
+                        .eq('id', log['user_id']) \
+                        .single() \
+                        .execute()
+                    
+                    log_with_user = log.copy()
+                    if user_response.data:
+                        log_with_user['user_name'] = user_response.data.get('full_name', 'Bilinmiyor')
+                        log_with_user['user_email'] = user_response.data.get('email', 'Bilinmiyor')
+                    else:
+                        log_with_user['user_name'] = 'Silinmiş Kullanıcı'
+                        log_with_user['user_email'] = 'Silinmiş'
+                else:
+                    log_with_user = log.copy()
+                    log_with_user['user_name'] = 'Anonim'
+                    log_with_user['user_email'] = 'Anonim'
+                
+                logs_with_user.append(log_with_user)
+        
+        return {
+            "success": True,
+            "data": {
+                "search_logs": logs_with_user,
+                "total_count": total_count,
+                "has_more": total_count > offset + limit,
+                "page": page,
+                "limit": limit,
+                "filters": {
+                    "user_id": user_id
+                }
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Arama logları alınırken hata: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Arama logları alınamadı"
+        )
+
+@router.get("/search-logs/stats", response_model=Dict[str, Any])
+async def get_search_logs_stats(
+    current_user: dict = Depends(get_admin_user)
+):
+    """
+    Arama logları istatistikleri (Admin)
+    """
+    try:
+        # Tüm search logs
+        all_logs = supabase_client.supabase.table('search_logs') \
+            .select('*') \
+            .execute()
+        
+        stats = {
+            "total_searches": 0,
+            "total_users": 0,
+            "avg_execution_time": 0,
+            "avg_results_count": 0,
+            "avg_credits_used": 0,
+            "avg_reliability_score": 0,
+            "top_queries": [],
+            "today_searches": 0,
+            "successful_searches": 0,  # results_count > 0
+            "failed_searches": 0       # results_count = 0
+        }
+        
+        if all_logs.data:
+            stats["total_searches"] = len(all_logs.data)
+            
+            # Unique users
+            unique_users = set()
+            execution_times = []
+            results_counts = []
+            credits_used_list = []
+            reliability_scores = []
+            query_counts = {}
+            today_count = 0
+            successful = 0
+            failed = 0
+            
+            from datetime import datetime, timezone
+            today = datetime.now(timezone.utc).date()
+            
+            for log in all_logs.data:
+                # Unique users
+                if log.get('user_id'):
+                    unique_users.add(log['user_id'])
+                
+                # Execution time
+                if log.get('execution_time'):
+                    execution_times.append(log['execution_time'])
+                
+                # Results count
+                results_count = log.get('results_count', 0)
+                results_counts.append(results_count)
+                
+                if results_count > 0:
+                    successful += 1
+                else:
+                    failed += 1
+                
+                # Credits
+                if log.get('credits_used'):
+                    credits_used_list.append(log['credits_used'])
+                
+                # Reliability
+                if log.get('reliability_score'):
+                    reliability_scores.append(log['reliability_score'])
+                
+                # Top queries
+                query = log.get('query', '').strip()
+                if query:
+                    query_counts[query] = query_counts.get(query, 0) + 1
+                
+                # Today's searches
+                if log.get('created_at'):
+                    try:
+                        log_date = datetime.fromisoformat(log['created_at'].replace('Z', '+00:00')).date()
+                        if log_date == today:
+                            today_count += 1
+                    except:
+                        pass
+            
+            # Calculations
+            stats["total_users"] = len(unique_users)
+            stats["today_searches"] = today_count
+            stats["successful_searches"] = successful
+            stats["failed_searches"] = failed
+            
+            if execution_times:
+                stats["avg_execution_time"] = sum(execution_times) / len(execution_times)
+            
+            if results_counts:
+                stats["avg_results_count"] = sum(results_counts) / len(results_counts)
+            
+            if credits_used_list:
+                stats["avg_credits_used"] = sum(credits_used_list) / len(credits_used_list)
+            
+            if reliability_scores:
+                stats["avg_reliability_score"] = sum(reliability_scores) / len(reliability_scores)
+            
+            # Top 10 queries
+            sorted_queries = sorted(query_counts.items(), key=lambda x: x[1], reverse=True)
+            stats["top_queries"] = [{"query": q, "count": c} for q, c in sorted_queries[:10]]
+        
+        return {
+            "success": True,
+            "data": stats
+        }
+        
+    except Exception as e:
+        logger.error(f"Arama istatistikleri alınırken hata: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="İstatistikler alınamadı"
+        )
+
+@router.get("/search-logs/user/{user_id}", response_model=Dict[str, Any])
+async def get_user_search_logs(
+    user_id: str,
+    page: int = Query(1, ge=1, description="Sayfa numarası"),
+    limit: int = Query(50, ge=1, le=200, description="Sayfa başına kayıt"),
+    current_user: dict = Depends(get_admin_user)
+):
+    """
+    Belirli kullanıcının arama logları (Admin)
+    """
+    try:
+        # Kullanıcı varlığını kontrol et
+        user_check = supabase_client.supabase.table('user_profiles') \
+            .select('full_name, email') \
+            .eq('id', user_id) \
+            .single() \
+            .execute()
+        
+        if not user_check.data:
+            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+        
+        # Search logs
+        query = supabase_client.supabase.table('search_logs') \
+            .select('*') \
+            .eq('user_id', user_id)
+        
+        # Toplam sayı
+        count_response = query.execute()
+        total_count = len(count_response.data) if count_response.data else 0
+        
+        # Sayfalama
+        offset = (page - 1) * limit
+        response = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+        
+        return {
+            "success": True,
+            "data": {
+                "user_info": {
+                    "user_id": user_id,
+                    "user_name": user_check.data.get('full_name', 'Bilinmiyor'),
+                    "user_email": user_check.data.get('email', 'Bilinmiyor')
+                },
+                "search_logs": response.data or [],
+                "total_count": total_count,
+                "has_more": total_count > offset + limit,
+                "page": page,
+                "limit": limit
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kullanıcı arama logları alınırken hata {user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Kullanıcı arama logları alınamadı"
+        )
