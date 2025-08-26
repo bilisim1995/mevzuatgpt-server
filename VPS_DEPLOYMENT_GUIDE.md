@@ -88,40 +88,69 @@ pip install --upgrade pip
 ```
 
 ### Dependencies Kurulumu
-```bash
-# pyproject.toml veya requirements.txt varsa:
-pip install -e .
 
-# Eksik paketler varsa manuel kurulum:
-pip install fastapi==0.104.1
-pip install uvicorn[standard]==0.24.0
-pip install sqlalchemy==2.0.23
-pip install asyncpg==0.29.0
-pip install psycopg2-binary==2.9.9
-pip install celery==5.3.4
-pip install redis==5.0.1
-pip install pydantic==2.5.2
-pip install pydantic-settings==2.1.0
-pip install openai==1.35.0
-pip install groq==0.4.1
-pip install langchain==0.1.0
-pip install langchain-text-splitters==0.0.1
-pip install pdfplumber==0.9.0
-pip install pypdf2==3.0.1
-pip install python-multipart==0.0.6
-pip install supabase==2.3.0
-pip install elasticsearch==8.11.1
-pip install httpx==0.25.2
-pip install aiohttp==3.9.1
-pip install python-dotenv==1.0.0
-pip install python-jose[cryptography]==3.3.0
-pip install passlib[bcrypt]==1.7.4
-pip install sendgrid==6.11.0
-pip install email-validator==2.1.0
-pip install python-json-logger==2.0.7
-pip install alembic==1.13.1
-pip install pgvector==0.2.4
-pip install numpy==1.25.2
+#### Yöntem 1: pyproject.toml ile otomatik kurulum (Önerilen)
+```bash
+# Tüm dependencies'leri otomatik kur
+pip install -e .
+```
+
+#### Yöntem 2: requirements.txt ile kurulum
+```bash
+# Eğer requirements.txt varsa:
+pip install -r requirements.txt
+
+# requirements.txt yoksa dependencies.txt'den oluşturun:
+cp dependencies.txt requirements.txt
+pip install -r requirements.txt
+```
+
+#### Yöntem 3: Manuel kurulum (sadece gerekirse)
+```bash
+# Temel paketler
+pip install fastapi>=0.104.0
+pip install uvicorn[standard]>=0.24.0
+pip install pydantic>=2.4.0
+pip install pydantic-settings>=2.0.3
+
+# Database
+pip install sqlalchemy>=2.0.23
+pip install asyncpg>=0.29.0
+pip install psycopg2-binary>=2.9.10
+pip install alembic>=1.12.1
+
+# Task Queue
+pip install celery>=5.3.4
+pip install redis>=5.0.1
+
+# AI Services
+pip install openai>=1.99.1
+pip install groq>=0.31.0
+pip install langchain>=0.0.350
+
+# External Services
+pip install supabase>=2.18.0
+pip install elasticsearch>=9.1.0
+pip install sendgrid>=6.12.4
+
+# Security & Auth
+pip install python-jose[cryptography]>=3.3.0
+pip install passlib[bcrypt]>=1.7.4
+pip install pyjwt>=2.10.1
+
+# Utilities
+pip install python-dotenv>=1.0.0
+pip install httpx>=0.28.1
+pip install python-multipart>=0.0.6
+```
+
+#### Kurulum Doğrulama
+```bash
+# Test paketlerin kurulu olduğunu kontrol edin
+python -c "import fastapi; print('FastAPI:', fastapi.__version__)"
+python -c "import uvicorn; print('Uvicorn:', uvicorn.__version__)"
+python -c "import celery; print('Celery:', celery.__version__)"
+python -c "import pydantic_settings; print('Pydantic Settings: OK')"
 ```
 
 ---
@@ -236,7 +265,8 @@ Type=simple
 User=www-data
 Group=www-data
 WorkingDirectory=/opt/mevzuatgpt-server/MevzuatGPT
-Environment=PATH=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin
+Environment="PATH=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="VIRTUAL_ENV=/opt/mevzuatgpt-server/MevzuatGPT/venv"
 EnvironmentFile=/opt/mevzuatgpt-server/MevzuatGPT/.env
 ExecStart=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin/python app.py server
 Restart=always
@@ -268,9 +298,10 @@ Type=simple
 User=www-data
 Group=www-data
 WorkingDirectory=/opt/mevzuatgpt-server/MevzuatGPT
-Environment=PATH=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin
+Environment="PATH=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="VIRTUAL_ENV=/opt/mevzuatgpt-server/MevzuatGPT/venv"
 EnvironmentFile=/opt/mevzuatgpt-server/MevzuatGPT/.env
-ExecStart=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin/celery -A tasks.celery_app worker --loglevel=info --concurrency=2
+ExecStart=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin/python -m celery -A tasks.celery_app worker --loglevel=info --concurrency=2
 Restart=always
 RestartSec=5
 
@@ -288,7 +319,12 @@ sudo chown -R www-data:www-data /opt/mevzuatgpt-server/MevzuatGPT
 
 # Virtual environment izinleri
 sudo chmod +x /opt/mevzuatgpt-server/MevzuatGPT/venv/bin/python
-sudo chmod +x /opt/mevzuatgpt-server/MevzuatGPT/venv/bin/celery
+
+# Celery binary'si yoksa python -m celery kullanılacak (service dosyasında zaten ayarlı)
+# Bu durumda ayrıca chmod gerekmez
+
+# .env dosyası izinleri
+sudo chmod 600 /opt/mevzuatgpt-server/MevzuatGPT/.env
 
 # Systemd reload
 sudo systemctl daemon-reload
@@ -304,6 +340,10 @@ sudo systemctl start mevzuat-celery
 # Status kontrol
 sudo systemctl status mevzuat-api
 sudo systemctl status mevzuat-celery
+
+# Log'ları kontrol et (sorun varsa)
+sudo journalctl -u mevzuat-api -n 10
+sudo journalctl -u mevzuat-celery -n 10
 ```
 
 ---
@@ -818,14 +858,43 @@ sudo certbot renew --force-renewal
 ```bash
 sudo chown -R www-data:www-data /opt/mevzuatgpt-server/MevzuatGPT
 sudo chmod +x /opt/mevzuatgpt-server/MevzuatGPT/venv/bin/python
-sudo chmod +x /opt/mevzuatgpt-server/MevzuatGPT/venv/bin/celery
+sudo chmod 600 /opt/mevzuatgpt-server/MevzuatGPT/.env
 ```
 
-**7. Python path issues:**
+**7. Python dependencies eksik (ModuleNotFoundError):**
 ```bash
-# Service dosyasında doğru path kontrol edin:
-which python3
-/opt/mevzuatgpt-server/MevzuatGPT/venv/bin/python --version
+# Virtual environment'ı aktifleştir ve paketleri yükle
+cd /opt/mevzuatgpt-server/MevzuatGPT
+source venv/bin/activate
+pip install -e .
+
+# Eksik paketleri kontrol et
+python -c "import uvicorn; print('uvicorn OK')"
+python -c "import pydantic_settings; print('pydantic_settings OK')"
+python -c "import celery; print('celery OK')"
+```
+
+**8. Celery binary bulunamıyor:**
+```bash
+# Service dosyasında python -m celery kullanın:
+ExecStart=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin/python -m celery -A tasks.celery_app worker --loglevel=info --concurrency=2
+```
+
+**9. Environment variables yüklenmiyor:**
+```bash
+# .env dosyası kontrolü
+ls -la /opt/mevzuatgpt-server/MevzuatGPT/.env
+cat /opt/mevzuatgpt-server/MevzuatGPT/.env | head -5
+
+# Service dosyasında EnvironmentFile doğru mu kontrol et
+sudo systemctl cat mevzuat-api.service | grep EnvironmentFile
+```
+
+**10. Virtual environment PATH sorunu:**
+```bash
+# Service dosyasında Environment değişkenlerini kontrol et:
+Environment="PATH=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="VIRTUAL_ENV=/opt/mevzuatgpt-server/MevzuatGPT/venv"
 ```
 
 ---
@@ -871,4 +940,4 @@ sudo systemctl restart mevzuat-api && sudo systemctl restart mevzuat-celery
 
 **🎯 Bu güncel rehberle MevzuatGPT projeniz production VPS'de güvenli ve performanslı çalışacak!**
 
-> **Son Güncelleme**: Ağustos 2025 - Ubuntu 24.04 LTS için optimize edilmiştir.
+> **Son Güncelleme**: 26 Ağustos 2025 - Systemd service sorunları çözüldü, dependencies kurulumu güncellendi, troubleshooting genişletildi.
