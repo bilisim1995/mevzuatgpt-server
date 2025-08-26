@@ -84,10 +84,13 @@ class FeedbackService:
             if response.data:
                 logger.info(f"Feedback kaydedildi: {user_id} - {search_log_id} - {feedback_type}")
                 
+                # Response'u temizle - metadata'yı parse et
+                feedback_result = self._clean_feedback_response(response.data[0])
+                
                 return {
                     'success': True,
                     'message': 'Feedback başarıyla kaydedildi',
-                    'feedback': response.data[0]  # Doğrudan response döndür
+                    'feedback': feedback_result
                 }
             else:
                 logger.error(f"Feedback kaydetme başarısız: {user_id} - {search_log_id}")
@@ -128,7 +131,9 @@ class FeedbackService:
                 .range(offset, offset + limit - 1) \
                 .execute()
             
-            return response.data or []
+            # User feedback'lerini temizle
+            raw_feedback_list = response.data or []
+            return [self._clean_feedback_response(fb) for fb in raw_feedback_list]
             
         except Exception as e:
             logger.error(f"Kullanıcı feedback getirme hatası {user_id}: {e}")
@@ -157,7 +162,9 @@ class FeedbackService:
                 .single() \
                 .execute()
             
-            return response.data if response.data else None
+            if response.data:
+                return self._clean_feedback_response(response.data)
+            return None
             
         except Exception as e:
             logger.debug(f"Feedback bulunamadı {user_id} - {search_log_id}: {e}")
@@ -194,8 +201,12 @@ class FeedbackService:
                 .range(offset, offset + limit - 1) \
                 .execute()
             
+            # Admin feedback'lerini temizle 
+            raw_feedback_list = response.data or []
+            clean_feedback_list = [self._clean_feedback_response(fb) for fb in raw_feedback_list]
+            
             return {
-                'feedback_list': response.data or [],
+                'feedback_list': clean_feedback_list,
                 'total_count': response.count or 0,
                 'has_more': (response.count or 0) > (offset + limit)
             }
@@ -240,6 +251,38 @@ class FeedbackService:
         except Exception as e:
             logger.error(f"Feedback silme hatası {feedback_id}: {e}")
             return False
+
+    def _clean_feedback_response(self, raw_feedback: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Internal feedback response'unu temizle - metadata'yı parse et
+        
+        Args:
+            raw_feedback: Supabase'den gelen ham feedback
+            
+        Returns:
+            Temizlenmiş feedback response
+        """
+        feedback = raw_feedback.copy()
+        
+        # Metadata'yı parse et: "_type:like|user comment"
+        comment = feedback.get('feedback_comment', '')
+        actual_type = 'like'  # default
+        actual_comment = None
+        
+        if comment and comment.startswith('_type:'):
+            # _type:like|comment formatını parse et
+            if '|' in comment:
+                type_part, comment_part = comment.split('|', 1)
+                actual_type = type_part.replace('_type:', '')
+                actual_comment = comment_part if comment_part else None
+            else:
+                actual_type = comment.replace('_type:', '')
+        
+        # Temiz response döndür
+        feedback['feedback_type'] = actual_type
+        feedback['feedback_comment'] = actual_comment
+        
+        return feedback
 
 # Global instance
 feedback_service = FeedbackService()
