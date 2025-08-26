@@ -45,14 +45,21 @@ class FeedbackService:
             if feedback_type not in ['like', 'dislike']:
                 raise ValueError("feedback_type 'like' veya 'dislike' olmalı")
             
+            # Supabase constraint workaround: 
+            # Constraint sadece 'search_quality' kabul ediyor
+            # Gerçek feedback_type'ı comment'e ekliyoruz
+            actual_feedback_comment = f"[{feedback_type}]"
+            if feedback_comment:
+                actual_feedback_comment += f" {feedback_comment}"
+            
             # Feedback data
             feedback_data = {
                 'user_id': user_id,
                 'search_log_id': search_log_id,
                 'query_text': query_text,
                 'answer_text': answer_text,
-                'feedback_type': feedback_type,
-                'feedback_comment': feedback_comment
+                'feedback_type': 'search_quality',  # Constraint için sabit değer
+                'feedback_comment': actual_feedback_comment
             }
             
             # UPSERT: Mevcut feedback varsa güncelle, yoksa ekle
@@ -78,10 +85,16 @@ class FeedbackService:
             
             if response.data:
                 logger.info(f"Feedback kaydedildi: {user_id} - {search_log_id} - {feedback_type}")
+                
+                # Response'da gerçek feedback_type'ı gösterelim
+                feedback_result = response.data[0].copy()
+                feedback_result['feedback_type'] = feedback_type  # Gerçek değer
+                feedback_result['feedback_comment'] = feedback_comment  # Orijinal comment
+                
                 return {
                     'success': True,
                     'message': 'Feedback başarıyla kaydedildi',
-                    'feedback': response.data[0]
+                    'feedback': feedback_result
                 }
             else:
                 logger.error(f"Feedback kaydetme başarısız: {user_id} - {search_log_id}")
@@ -151,7 +164,22 @@ class FeedbackService:
                 .single() \
                 .execute()
             
-            return response.data
+            if response.data:
+                feedback = response.data.copy()
+                
+                # Gerçek feedback_type'ı parse et
+                comment = feedback.get('feedback_comment', '')
+                if comment and comment.startswith('[') and ']' in comment:
+                    # [like] veya [dislike] formatından parse et
+                    end_bracket = comment.find(']')
+                    actual_type = comment[1:end_bracket]
+                    actual_comment = comment[end_bracket+1:].strip() if len(comment) > end_bracket+1 else None
+                    
+                    feedback['feedback_type'] = actual_type
+                    feedback['feedback_comment'] = actual_comment
+                
+                return feedback
+            return None
             
         except Exception as e:
             logger.debug(f"Feedback bulunamadı {user_id} - {search_log_id}: {e}")
