@@ -14,13 +14,13 @@ class FeedbackSubmit(BaseModel):
     
     @validator('feedback_type')
     def validate_feedback_type(cls, v):
-        if v not in ['positive', 'negative']:
-            raise ValueError('feedback_type must be positive or negative')
+        if v not in ['like', 'dislike']:
+            raise ValueError('feedback_type must be like or dislike')
         return v
     
     @validator('feedback_comment')
     def validate_comment(cls, v, values):
-        # Negative feedback için comment zorunlu değil ama önerilir
+        # Dislike feedback için comment zorunlu değil ama önerilir
         if v is not None and len(v.strip()) == 0:
             return None
         return v

@@ -17,7 +17,7 @@ router = APIRouter(prefix="/feedback", tags=["Admin Feedback"])
 @router.get("", response_model=FeedbackListResponse)
 @router.get("/", response_model=FeedbackListResponse)
 async def get_all_feedback(
-    feedback_type: Optional[str] = Query(None, description="Feedback tipi: positive veya negative"),
+    feedback_type: Optional[str] = Query(None, description="Feedback tipi: like veya dislike"),
     page: int = Query(1, ge=1, description="Sayfa numarası"),
     limit: int = Query(50, ge=1, le=200, description="Sayfa başına kayıt sayısı"),
     current_user = Depends(get_admin_user)
@@ -36,10 +36,10 @@ async def get_all_feedback(
     """
     try:
         # Feedback type validation
-        if feedback_type and feedback_type not in ['positive', 'negative']:
+        if feedback_type and feedback_type not in ['like', 'dislike']:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="feedback_type 'positive' veya 'negative' olmalı"
+                detail="feedback_type 'like' veya 'dislike' olmalı"
             )
         
         offset = (page - 1) * limit
@@ -132,20 +132,20 @@ async def get_feedback_stats(
         total_response = supabase_client.supabase.table('user_feedback').select('id').execute()
         total_count = len(total_response.data) if total_response.data else 0
         
-        # Pozitif feedback sayısı
-        positive_response = supabase_client.supabase.table('user_feedback').select('id').eq('feedback_type', 'positive').execute()
-        positive_count = len(positive_response.data) if positive_response.data else 0
+        # Like feedback sayısı
+        like_response = supabase_client.supabase.table('user_feedback').select('id').eq('feedback_type', 'like').execute()
+        like_count = len(like_response.data) if like_response.data else 0
         
-        # Negatif feedback sayısı
-        negative_response = supabase_client.supabase.table('user_feedback').select('id').eq('feedback_type', 'negative').execute()
-        negative_count = len(negative_response.data) if negative_response.data else 0
+        # Dislike feedback sayısı
+        dislike_response = supabase_client.supabase.table('user_feedback').select('id').eq('feedback_type', 'dislike').execute()
+        dislike_count = len(dislike_response.data) if dislike_response.data else 0
         
         return {
             "total_feedback": total_count,
-            "positive_feedback": positive_count,
-            "negative_feedback": negative_count,
-            "positive_percentage": round((positive_count / total_count * 100) if total_count > 0 else 0, 1),
-            "negative_percentage": round((negative_count / total_count * 100) if total_count > 0 else 0, 1)
+            "like_feedback": like_count,
+            "dislike_feedback": dislike_count,
+            "like_percentage": round((like_count / total_count * 100) if total_count > 0 else 0, 1),
+            "dislike_percentage": round((dislike_count / total_count * 100) if total_count > 0 else 0, 1)
         }
         
     except Exception as e:

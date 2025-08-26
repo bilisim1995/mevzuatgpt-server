@@ -34,7 +34,7 @@ class FeedbackService:
             search_log_id: Search log referansı
             query_text: Orijinal soru
             answer_text: Verilen cevap
-            feedback_type: 'positive' veya 'negative'
+            feedback_type: 'like' veya 'dislike'
             feedback_comment: Opsiyonel açıklama
             
         Returns:
@@ -42,8 +42,8 @@ class FeedbackService:
         """
         try:
             # Validation
-            if feedback_type not in ['positive', 'negative']:
-                raise ValueError("feedback_type 'positive' veya 'negative' olmalı")
+            if feedback_type not in ['like', 'dislike']:
+                raise ValueError("feedback_type 'like' veya 'dislike' olmalı")
             
             # Feedback data
             feedback_data = {
@@ -167,7 +167,7 @@ class FeedbackService:
         Tüm feedback'leri getir (admin için)
         
         Args:
-            feedback_type: Filtre ('positive', 'negative' veya None)
+            feedback_type: Filtre ('like', 'dislike' veya None)
             limit: Maksimum kayıt sayısı
             offset: Başlangıç pozisyonu
             
