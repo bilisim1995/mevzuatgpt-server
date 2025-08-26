@@ -45,11 +45,13 @@ class RedisService:
                 )
         return self.redis_client
     
-    def _generate_query_hash(self, query: str, filters: Dict = None) -> str:
-        """Generate consistent hash for query and filters"""
+    def _generate_query_hash(self, query: str, filters: Dict = None, limit: int = None, similarity_threshold: float = None) -> str:
+        """Generate consistent hash for query, filters, limit and similarity threshold"""
         query_data = {
             "query": query.strip().lower(),
-            "filters": filters or {}
+            "filters": filters or {},
+            "limit": limit,
+            "similarity_threshold": similarity_threshold
         }
         query_json = json.dumps(query_data, sort_keys=True)
         return hashlib.md5(query_json.encode()).hexdigest()
@@ -93,12 +95,14 @@ class RedisService:
     async def get_cached_search_results(
         self, 
         query: str, 
-        filters: Dict = None
+        filters: Dict = None,
+        limit: int = None,
+        similarity_threshold: float = None
     ) -> Optional[List[Dict]]:
         """Get cached search results"""
         try:
             client = await self.get_redis_client()
-            cache_key = f"search:{self._generate_query_hash(query, filters)}"
+            cache_key = f"search:{self._generate_query_hash(query, filters, limit, similarity_threshold)}"
             
             cached_data = await client.get(cache_key)
             if cached_data:
@@ -117,12 +121,14 @@ class RedisService:
         query: str, 
         results: List[Dict], 
         filters: Dict = None,
+        limit: int = None,
+        similarity_threshold: float = None,
         ttl: int = 1800
     ):
         """Cache search results with TTL (default 30 minutes)"""
         try:
             client = await self.get_redis_client()
-            cache_key = f"search:{self._generate_query_hash(query, filters)}"
+            cache_key = f"search:{self._generate_query_hash(query, filters, limit, similarity_threshold)}"
             
             await client.setex(
                 cache_key,

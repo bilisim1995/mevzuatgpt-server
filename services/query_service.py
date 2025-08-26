@@ -94,7 +94,9 @@ class QueryService:
             if use_cache:
                 cached_results = await redis_service.get_cached_search_results(
                     query=query,
-                    filters=search_filters or {}
+                    filters=search_filters or {},
+                    limit=limit,
+                    similarity_threshold=similarity_threshold
                 )
             
             # 3. Generate embedding (with cache)
@@ -152,6 +154,8 @@ class QueryService:
                         query=query,
                         results=search_results,
                         filters=search_filters or {},
+                        limit=limit,
+                        similarity_threshold=similarity_threshold,
                         ttl=1800  # 30 minutes
                     )
             
