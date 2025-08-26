@@ -23,7 +23,6 @@ share/python-wheels/
 MANIFEST
 
 # Virtual Environment
-.env
 .venv
 env/
 venv/
@@ -31,12 +30,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# Environment Variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
 # IDE
 .vscode/
