@@ -1,13 +1,14 @@
-# 🚀 MevzuatGPT VPS Ubuntu 24.04 Deployment Rehberi
+# 🚀 MevzuatGPT VPS Deployment Rehberi - 2025
 
-> **Not**: Bu rehber mevcut uzak Redis, Supabase ve Elasticsearch servislerinizi kullanarak basitleştirilmiş deployment içindir.
+> **Not**: Bu rehber Ubuntu 24.04 LTS VPS sunucusunda production deployment için hazırlanmıştır.
 
 ## 📋 Gerekli VPS Kaynakları
 
 - **RAM**: 4GB minimum (8GB önerilen)
 - **CPU**: 2 vCPU (4 vCPU önerilen)  
-- **Disk**: 20GB SSD (PostgreSQL yok, sadece kod)
-- **Bant Genişliği**: 500GB/ay
+- **Disk**: 30GB SSD minimum
+- **Bant Genişliği**: 1TB/ay
+- **İşletim Sistemi**: Ubuntu 24.04 LTS
 
 ---
 
@@ -47,28 +48,29 @@ sudo systemctl status nginx
 ### Yöntem A: Git ile (Önerilen)
 ```bash
 cd /opt
-sudo mkdir mevzuatgpt && sudo chown $USER:$USER mevzuatgpt
-cd mevzuatgpt
+sudo mkdir -p mevzuatgpt-server && sudo chown $USER:$USER mevzuatgpt-server
+cd mevzuatgpt-server
 
-# GitHub'dan clone (eğer private repo ise SSH key gerekli)
-git clone https://github.com/kullanici_adi/mevzuat-gpt.git .
+# GitHub'dan clone
+git clone https://github.com/kullanici_adi/MevzuatGPT.git
+cd MevzuatGPT
 ```
 
 ### Yöntem B: SCP/SFTP ile dosya yükleme
 ```bash
 # Lokal makinenizden:
-scp -r ./mevzuat-gpt/ user@vps_ip:/opt/mevzuatgpt/
+scp -r ./MevzuatGPT/ user@vps_ip:/opt/mevzuatgpt-server/
 
 # VPS'de:
-sudo chown -R $USER:$USER /opt/mevzuatgpt/
+sudo chown -R $USER:$USER /opt/mevzuatgpt-server/
 ```
 
-### Yöntem C: ZIP upload
+### Yöntem C: ZIP upload ve extract
 ```bash
-# ZIP'i sunucuya yükleyin, sonra:
-cd /opt
-sudo unzip mevzuat-gpt.zip -d mevzuatgpt/
-sudo chown -R $USER:$USER /opt/mevzuatgpt/
+cd /opt/mevzuatgpt-server
+# ZIP dosyasını yükleyin, sonra:
+unzip MevzuatGPT.zip
+sudo chown -R $USER:$USER /opt/mevzuatgpt-server/MevzuatGPT/
 ```
 
 ---
@@ -77,7 +79,7 @@ sudo chown -R $USER:$USER /opt/mevzuatgpt/
 
 ### Virtual Environment Oluşturma
 ```bash
-cd /opt/mevzuatgpt
+cd /opt/mevzuatgpt-server/MevzuatGPT
 python3 -m venv venv
 source venv/bin/activate
 
@@ -85,12 +87,12 @@ source venv/bin/activate
 pip install --upgrade pip
 ```
 
-### Requirements Kurulumu
+### Dependencies Kurulumu
 ```bash
-# Eğer requirements.txt varsa:
-pip install -r requirements.txt
+# pyproject.toml veya requirements.txt varsa:
+pip install -e .
 
-# Manuel kurulum (requirements.txt yoksa):
+# Eksik paketler varsa manuel kurulum:
 pip install fastapi==0.104.1
 pip install uvicorn[standard]==0.24.0
 pip install sqlalchemy==2.0.23
@@ -100,7 +102,7 @@ pip install celery==5.3.4
 pip install redis==5.0.1
 pip install pydantic==2.5.2
 pip install pydantic-settings==2.1.0
-pip install openai==1.3.8
+pip install openai==1.35.0
 pip install groq==0.4.1
 pip install langchain==0.1.0
 pip install langchain-text-splitters==0.0.1
@@ -128,56 +130,56 @@ pip install numpy==1.25.2
 
 ### .env Dosyası Oluşturma
 ```bash
-cd /opt/mevzuatgpt
+cd /opt/mevzuatgpt-server/MevzuatGPT
+cp env.example .env
 nano .env
 ```
 
-### Environment Variables İçeriği
+### Production Environment Variables
 ```env
 # ===========================================
 # UZAK SERVİSLER (Mevcut)
 # ===========================================
 
 # Supabase (Uzak - Mevcut)
-SUPABASE_URL=https://supabase.mevzuatgpt.org
+SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 SUPABASE_ANON_KEY=your_anon_key_here
 
 # Elasticsearch (Uzak - Mevcut) 
-ELASTICSEARCH_URL=https://elastic.mevzuatgpt.org/
+ELASTICSEARCH_URL=https://your-elasticsearch.es.us-east-1.aws.found.io:9243/
 ELASTICSEARCH_USERNAME=elastic
 ELASTICSEARCH_PASSWORD=your_elastic_password_here
+ELASTICSEARCH_INDEX=mevzuat_documents
 
 # Redis (Uzak - Mevcut)
-REDIS_URL=redis://your_redis_host:6379/0
-# Eğer Redis Cloud kullanıyorsanız:
-# REDIS_URL=redis://default:password@redis-host:port/0
+REDIS_URL=redis://default:password@redis-host:port/0
 
 # ===========================================
 # AI SERVİSLERİ
 # ===========================================
 
 # OpenAI
-OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_API_KEY=sk-your_openai_api_key_here
 
 # Groq
-GROQ_API_KEY=your_groq_api_key_here
+GROQ_API_KEY=gsk_your_groq_api_key_here
 
 # ===========================================
 # DOSYA DEPOLAMA
 # ===========================================
 
 # Bunny.net CDN (Mevcut)
-BUNNY_STORAGE_URL=your_bunny_storage_url
+BUNNY_STORAGE_URL=https://storage.bunnycdn.com/your-storage-zone/
 BUNNY_API_KEY=your_bunny_api_key_here
-BUNNY_CDN_URL=https://cdn.mevzuatgpt.org
+BUNNY_CDN_URL=https://your-cdn-zone.b-cdn.net
 
 # ===========================================
 # EMAIL SERVİSİ
 # ===========================================
 
 # SendGrid
-SENDGRID_API_KEY=your_sendgrid_api_key_here
+SENDGRID_API_KEY=SG.your_sendgrid_api_key_here
 SENDGRID_FROM_EMAIL=noreply@yourdomain.com
 
 # ===========================================
@@ -185,7 +187,7 @@ SENDGRID_FROM_EMAIL=noreply@yourdomain.com
 # ===========================================
 
 # JWT Security
-JWT_SECRET_KEY=super_secure_random_jwt_secret_key_here_change_this
+JWT_SECRET_KEY=your_super_secure_random_jwt_secret_key_change_this_in_production
 JWT_ALGORITHM=HS256
 JWT_EXPIRE_MINUTES=60
 
@@ -198,12 +200,15 @@ ENVIRONMENT=production
 DEBUG=False
 
 # Domain ve CORS
-ALLOWED_HOSTS=your_domain.com,www.your_domain.com,vps_ip_address
-CORS_ORIGINS=https://your_domain.com,https://www.your_domain.com
+ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com,vps_ip_address
+CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 
 # Server ayarları
 HOST=0.0.0.0
 PORT=5000
+
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/mevzuatgpt
 ```
 
 ### Dosya İzinleri
@@ -230,10 +235,10 @@ Wants=network.target
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/opt/mevzuatgpt
-Environment=PATH=/opt/mevzuatgpt/venv/bin
-EnvironmentFile=/opt/mevzuatgpt/.env
-ExecStart=/opt/mevzuatgpt/venv/bin/python app.py server
+WorkingDirectory=/opt/mevzuatgpt-server/MevzuatGPT
+Environment=PATH=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin
+EnvironmentFile=/opt/mevzuatgpt-server/MevzuatGPT/.env
+ExecStart=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin/python app.py server
 Restart=always
 RestartSec=3
 StandardOutput=journal
@@ -262,10 +267,10 @@ Wants=network.target
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/opt/mevzuatgpt
-Environment=PATH=/opt/mevzuatgpt/venv/bin
-EnvironmentFile=/opt/mevzuatgpt/.env
-ExecStart=/opt/mevzuatgpt/venv/bin/celery -A tasks.celery_app worker --loglevel=info --concurrency=2
+WorkingDirectory=/opt/mevzuatgpt-server/MevzuatGPT
+Environment=PATH=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin
+EnvironmentFile=/opt/mevzuatgpt-server/MevzuatGPT/.env
+ExecStart=/opt/mevzuatgpt-server/MevzuatGPT/venv/bin/celery -A tasks.celery_app worker --loglevel=info --concurrency=2
 Restart=always
 RestartSec=5
 
@@ -279,7 +284,11 @@ WantedBy=multi-user.target
 ### Dosya İzinleri ve Service Aktivasyonu
 ```bash
 # Klasör sahipliğini değiştir
-sudo chown -R www-data:www-data /opt/mevzuatgpt
+sudo chown -R www-data:www-data /opt/mevzuatgpt-server/MevzuatGPT
+
+# Virtual environment izinleri
+sudo chmod +x /opt/mevzuatgpt-server/MevzuatGPT/venv/bin/python
+sudo chmod +x /opt/mevzuatgpt-server/MevzuatGPT/venv/bin/celery
 
 # Systemd reload
 sudo systemctl daemon-reload
@@ -309,7 +318,7 @@ sudo nano /etc/nginx/sites-available/mevzuatgpt
 ```nginx
 server {
     listen 80;
-    server_name your_domain.com www.your_domain.com;
+    server_name yourdomain.com www.yourdomain.com;
     
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
@@ -334,8 +343,8 @@ server {
         application/atom+xml
         image/svg+xml;
     
-    # API routes
-    location /api/ {
+    # Root API routes
+    location / {
         proxy_pass http://127.0.0.1:5000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -356,6 +365,24 @@ server {
         proxy_buffer_size 128k;
         proxy_buffers 4 256k;
         proxy_busy_buffers_size 256k;
+    }
+    
+    # API routes
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        
+        # Timeout ayarları
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 300s;
     }
     
     # FastAPI docs
@@ -384,7 +411,7 @@ server {
     
     # Static files (if any)
     location /static/ {
-        root /opt/mevzuatgpt;
+        root /opt/mevzuatgpt-server/MevzuatGPT;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
@@ -393,15 +420,7 @@ server {
     client_max_body_size 50M;
     client_body_timeout 60s;
     client_header_timeout 60s;
-    
-    # Rate limiting (opsiyonel)
-    # limit_req zone=api burst=20 nodelay;
 }
-
-# Rate limiting zone tanımı (opsiyonel)
-# http {
-#     limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
-# }
 ```
 
 ### Site'i Aktifleştir
@@ -436,10 +455,10 @@ sudo ln -s /snap/bin/certbot /usr/bin/certbot
 ### SSL Sertifikası Alma
 ```bash
 # Otomatik nginx konfigürasyonu ile
-sudo certbot --nginx -d your_domain.com -d www.your_domain.com
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 
-# Manuel olarak (sadece sertifika):
-# sudo certbot certonly --nginx -d your_domain.com -d www.your_domain.com
+# Manual verification (eğer otomatik çalışmazsa):
+sudo certbot certonly --webroot -w /var/www/html -d yourdomain.com -d www.yourdomain.com
 ```
 
 ### Otomatik Yenileme
@@ -467,9 +486,10 @@ sudo ufw --force enable
 sudo ufw allow OpenSSH
 sudo ufw allow 'Nginx Full'
 
-# HTTP ve HTTPS'yi ayrı ayrı da açabilirsiniz:
-# sudo ufw allow 80/tcp
-# sudo ufw allow 443/tcp
+# Specific ports (alternatif)
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
 
 # Status kontrol
 sudo ufw status verbose
@@ -527,8 +547,8 @@ systemctl status mevzuat-api mevzuat-celery nginx
 
 ### Otomatik Deployment Script'i
 ```bash
-nano /opt/mevzuatgpt/deploy.sh
-chmod +x /opt/mevzuatgpt/deploy.sh
+nano /opt/mevzuatgpt-server/MevzuatGPT/deploy.sh
+chmod +x /opt/mevzuatgpt-server/MevzuatGPT/deploy.sh
 ```
 
 ```bash
@@ -544,7 +564,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Change to project directory
-cd /opt/mevzuatgpt
+cd /opt/mevzuatgpt-server/MevzuatGPT
 
 echo -e "${YELLOW}📥 Updating code from repository...${NC}"
 # Git pull (if using git)
@@ -555,7 +575,7 @@ source venv/bin/activate
 
 echo -e "${YELLOW}📦 Installing/updating dependencies...${NC}"
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -e .
 
 echo -e "${YELLOW}🔄 Restarting services...${NC}"
 sudo systemctl restart mevzuat-api
@@ -593,9 +613,9 @@ fi
 
 echo -e "${GREEN}✅ Deployment completed successfully!${NC}"
 echo "=================================================="
-echo "🔗 API: https://your_domain.com/api/"
-echo "📚 Docs: https://your_domain.com/docs"
-echo "🏥 Health: https://your_domain.com/health"
+echo "🔗 API: https://yourdomain.com/api/"
+echo "📚 Docs: https://yourdomain.com/docs"
+echo "🏥 Health: https://yourdomain.com/health"
 echo "=================================================="
 ```
 
@@ -609,13 +629,13 @@ echo "=================================================="
 curl -X GET http://localhost:5000/health
 
 # 2. Domain üzerinden test  
-curl -X GET https://your_domain.com/health
+curl -X GET https://yourdomain.com/health
 
 # 3. SSL certificate kontrolü
-curl -I https://your_domain.com
+curl -I https://yourdomain.com
 
 # 4. API endpoints test
-curl -X GET https://your_domain.com/api/health
+curl -X GET https://yourdomain.com/api/auth/health
 
 # 5. Service status kontrolü
 sudo systemctl status mevzuat-api
@@ -625,8 +645,8 @@ sudo systemctl status nginx
 
 ### Automated Test Script
 ```bash
-nano /opt/mevzuatgpt/health_check.sh
-chmod +x /opt/mevzuatgpt/health_check.sh
+nano /opt/mevzuatgpt-server/MevzuatGPT/health_check.sh
+chmod +x /opt/mevzuatgpt-server/MevzuatGPT/health_check.sh
 ```
 
 ```bash
@@ -637,8 +657,8 @@ echo "🏥 MevzuatGPT Health Check Starting..."
 # Test endpoints
 ENDPOINTS=(
     "http://localhost:5000/health"
-    "https://your_domain.com/health"
-    "https://your_domain.com/api/health"
+    "https://yourdomain.com/health"
+    "https://yourdomain.com/api/auth/health"
 )
 
 for endpoint in "${ENDPOINTS[@]}"; do
@@ -668,21 +688,21 @@ done
 ### DNS Records (Örnek)
 ```
 # A Records
-your_domain.com        A    123.456.789.123  (VPS IP)
-www.your_domain.com    A    123.456.789.123  (VPS IP)
+yourdomain.com        A    123.456.789.123  (VPS IP)
+www.yourdomain.com    A    123.456.789.123  (VPS IP)
 
 # CNAME Records (alternatif)
-www.your_domain.com    CNAME    your_domain.com
+www.yourdomain.com    CNAME    yourdomain.com
 ```
 
 ### DNS Propagation Test
 ```bash
 # DNS kontrolü
-nslookup your_domain.com
-dig your_domain.com
+nslookup yourdomain.com
+dig yourdomain.com
 
 # SSL kontrolü
-openssl s_client -connect your_domain.com:443 -servername your_domain.com
+openssl s_client -connect yourdomain.com:443 -servername yourdomain.com
 ```
 
 ---
@@ -769,29 +789,43 @@ sudo journalctl -u mevzuat-api -f
 sudo systemctl status mevzuat-api
 ```
 
-**2. Port 5000 kullanımda:**
+**2. Environment file not found:**
+```bash
+ls -la /opt/mevzuatgpt-server/MevzuatGPT/.env
+sudo chown www-data:www-data /opt/mevzuatgpt-server/MevzuatGPT/.env
+```
+
+**3. Port 5000 kullanımda:**
 ```bash
 sudo lsof -i :5000
 sudo netstat -tlnp | grep :5000
 ```
 
-**3. Nginx 502 Bad Gateway:**
+**4. Nginx 502 Bad Gateway:**
 ```bash
 sudo nginx -t
 sudo systemctl status nginx
 curl http://localhost:5000/health
 ```
 
-**4. SSL sertifikası sorunu:**
+**5. SSL sertifikası sorunu:**
 ```bash
 sudo certbot certificates
 sudo certbot renew --force-renewal
 ```
 
-**5. Permission errors:**
+**6. Permission errors:**
 ```bash
-sudo chown -R www-data:www-data /opt/mevzuatgpt
-sudo chmod +x /opt/mevzuatgpt/venv/bin/python
+sudo chown -R www-data:www-data /opt/mevzuatgpt-server/MevzuatGPT
+sudo chmod +x /opt/mevzuatgpt-server/MevzuatGPT/venv/bin/python
+sudo chmod +x /opt/mevzuatgpt-server/MevzuatGPT/venv/bin/celery
+```
+
+**7. Python path issues:**
+```bash
+# Service dosyasında doğru path kontrol edin:
+which python3
+/opt/mevzuatgpt-server/MevzuatGPT/venv/bin/python --version
 ```
 
 ---
@@ -816,6 +850,25 @@ sudo journalctl -u mevzuat-api -u mevzuat-celery -f
 htop
 df -h
 free -h
+
+# Service status
+systemctl status mevzuat-api mevzuat-celery nginx
 ```
 
-**🎯 Bu rehberle MevzuatGPT projeniz production VPS'de sorunsuz çalışacak!**
+### Emergency Commands
+```bash
+# Tüm servisleri durdur
+sudo systemctl stop mevzuat-api mevzuat-celery
+
+# Tüm servisleri başlat
+sudo systemctl start mevzuat-api mevzuat-celery
+
+# Hızlı restart
+sudo systemctl restart mevzuat-api && sudo systemctl restart mevzuat-celery
+```
+
+---
+
+**🎯 Bu güncel rehberle MevzuatGPT projeniz production VPS'de güvenli ve performanslı çalışacak!**
+
+> **Son Güncelleme**: Ağustos 2025 - Ubuntu 24.04 LTS için optimize edilmiştir.
