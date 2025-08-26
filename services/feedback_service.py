@@ -45,14 +45,19 @@ class FeedbackService:
             if feedback_type not in ['like', 'dislike']:
                 raise ValueError("feedback_type 'like' veya 'dislike' olmalı")
             
-            # Feedback data - artık doğrudan like/dislike kaydediyoruz
+            # Supabase constraint workaround - sadece 'search_quality' kabul ediyor
+            # Gerçek feedback_type'ı metadata olarak comment'te saklayıp sonra temiz döndüreceğiz
+            internal_comment = f"_type:{feedback_type}"
+            if feedback_comment:
+                internal_comment += f"|{feedback_comment}"
+                
             feedback_data = {
                 'user_id': user_id,
                 'search_log_id': search_log_id,
                 'query_text': query_text,
                 'answer_text': answer_text,
-                'feedback_type': feedback_type,  # Doğrudan like/dislike
-                'feedback_comment': feedback_comment  # Sadece temiz comment
+                'feedback_type': 'search_quality',  # Constraint için
+                'feedback_comment': internal_comment  # Metadata + user comment
             }
             
             # UPSERT: Mevcut feedback varsa güncelle, yoksa ekle
