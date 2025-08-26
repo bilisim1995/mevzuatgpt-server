@@ -1,0 +1,125 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Logs
+logs/
+*.log
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Database
+*.db
+*.sqlite3
+*.sqlite
+
+# Redis dump file
+dump.rdb
+
+# Cache
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Alembic - sadece migration dosyalarını tutun, diğerlerini hariç tutun
+alembic/versions/__pycache__/
+
+# Test coverage
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# PyCharm
+.idea/
+
+# Node modules (eğer frontend varsa)
+node_modules/
+
+# UV lock dosyası hariç (bunu dahil edin)
+# uv.lock
+
+# Replit specific
+.replit
+.upm/
+
+# Backup files
+*.bak
+*.backup
+
+# Attached assets (geçici dosyalar)
+attached_assets/
+
+# Secrets and API keys
+secrets.json
+keys.json
+
+# Production files
+production.env
+
+# Temporary uploads
+uploads/
+tmp/
