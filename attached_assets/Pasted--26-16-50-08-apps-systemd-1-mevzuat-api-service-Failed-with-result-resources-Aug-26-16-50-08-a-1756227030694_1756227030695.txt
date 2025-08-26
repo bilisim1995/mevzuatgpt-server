@@ -1,0 +1,22 @@
+ 26 16:50:08 apps systemd[1]: mevzuat-api.service: Failed with result 'resources'.
+Aug 26 16:50:08 apps systemd[1]: Failed to start mevzuat-api.service - MevzuatGPT FastAPI Server.
+Aug 26 16:50:11 apps systemd[1]: mevzuat-api.service: Scheduled restart job, restart counter is at 102.
+Aug 26 16:50:11 apps systemd[1]: mevzuat-api.service: Failed to load environment files: No such file or directory
+Aug 26 16:50:11 apps systemd[1]: mevzuat-api.service: Failed to spawn 'start' task: No such file or directory
+Aug 26 16:50:11 apps systemd[1]: mevzuat-api.service: Failed with result 'resources'.
+Aug 26 16:50:11 apps systemd[1]: Failed to start mevzuat-api.service - MevzuatGPT FastAPI Server.
+Aug 26 16:50:15 apps systemd[1]: mevzuat-api.service: Scheduled restart job, restart counter is at 103.
+Aug 26 16:50:15 apps systemd[1]: mevzuat-api.service: Failed to load environment files: No such file or directory
+Aug 26 16:50:15 apps systemd[1]: mevzuat-api.service: Failed to spawn 'start' task: No such file or directory
+Aug 26 16:50:15 apps systemd[1]: mevzuat-api.service: Failed with result 'resources'.
+Aug 26 16:50:15 apps systemd[1]: Failed to start mevzuat-api.service - MevzuatGPT FastAPI Server.
+Aug 26 16:50:18 apps systemd[1]: mevzuat-api.service: Scheduled restart job, restart counter is at 104.
+Aug 26 16:50:18 apps systemd[1]: mevzuat-api.service: Failed to load environment files: No such file or directory
+Aug 26 16:50:18 apps systemd[1]: mevzuat-api.service: Failed to spawn 'start' task: No such file or directory
+Aug 26 16:50:18 apps systemd[1]: mevzuat-api.service: Failed with result 'resources'.
+Aug 26 16:50:18 apps systemd[1]: Failed to start mevzuat-api.service - MevzuatGPT FastAPI Server.
+Aug 26 16:50:21 apps systemd[1]: mevzuat-api.service: Scheduled restart job, restart counter is at 105.
+Aug 26 16:50:21 apps systemd[1]: mevzuat-api.service: Failed to load environment files: No such file or directory
+Aug 26 16:50:21 apps systemd[1]: mevzuat-api.service: Failed to spawn 'start' task: No such file or directory
+Aug 26 16:50:21 apps systemd[1]: mevzuat-api.service: Failed with result 'resources'.
+Aug 26 16:50:21 apps systemd[1]: Failed to start mevzuat-api.service - MevzuatGPT FastAPI Server.
