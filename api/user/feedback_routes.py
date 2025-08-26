@@ -84,54 +84,6 @@ async def submit_feedback(
             detail="Feedback gönderilirken hata oluştu"
         )
 
-@router.get("/my", response_model=FeedbackListResponse)
-async def get_my_feedback(
-    page: int = Query(1, ge=1, description="Sayfa numarası"),
-    limit: int = Query(20, ge=1, le=100, description="Sayfa başına kayıt sayısı"),
-    current_user = Depends(get_current_user)
-):
-    """
-    Kullanıcının kendi feedback geçmişini getir
-    
-    Args:
-        page: Sayfa numarası (1'den başlar)
-        limit: Sayfa başına kayıt sayısı
-        current_user_id: Mevcut kullanıcı ID'si
-    
-    Returns:
-        Kullanıcının feedback listesi
-    """
-    try:
-        current_user_id = str(current_user.id)
-        offset = (page - 1) * limit
-        feedback_list = await feedback_service.get_user_feedback(
-            user_id=current_user_id,
-            limit=limit,
-            offset=offset
-        )
-        
-        # Total count için ayrı sorgu (basit implementasyon)
-        total_feedback = await feedback_service.get_user_feedback(
-            user_id=current_user_id,
-            limit=1000000  # Büyük sayı ile tüm kayıtları say
-        )
-        total_count = len(total_feedback)
-        
-        return FeedbackListResponse(
-            feedback_list=[FeedbackResponse(**fb) for fb in feedback_list],
-            total_count=total_count,
-            has_more=total_count > (offset + limit),
-            page=page,
-            limit=limit
-        )
-        
-    except Exception as e:
-        current_user_id = str(current_user.id) if hasattr(current_user, 'id') else 'unknown'
-        logger.error(f"Get user feedback error for user {current_user_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Feedback geçmişi getirilemedi"
-        )
 
 @router.get("/search/{search_log_id}", response_model=Optional[FeedbackResponse])
 async def get_feedback_by_search(
