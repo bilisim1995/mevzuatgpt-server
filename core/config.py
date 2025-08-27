@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     
     # Email Service (SendGrid)
     SENDGRID_API_KEY: Optional[str] = None  # Optional email service
+    SENDGRID_FROM_EMAIL: Optional[str] = None  # SendGrid from email address
     
     # AI Provider Selection
     AI_PROVIDER: str = Field(default="groq", description="AI provider: groq, ollama, or openai")
