@@ -53,7 +53,9 @@ app.add_middleware(
 allowed_origins = [
     "https://app.mevzuatgpt.org",
     "https://yonetim.mevzuatgpt.org",  # Admin subdomain
+    "https://uygulama.mevzuatgpt.org",  # Kullanıcı uygulaması
     "http://localhost:3000",  # Development
+    "http://localhost:3001",  # Development - Client App
 ]
 
 # Override if * specified in settings
