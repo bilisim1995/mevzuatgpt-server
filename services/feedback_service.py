@@ -45,19 +45,14 @@ class FeedbackService:
             if feedback_type not in ['like', 'dislike']:
                 raise ValueError("feedback_type 'like' veya 'dislike' olmalı")
             
-            # Supabase constraint workaround - sadece 'search_quality' kabul ediyor
-            # Gerçek feedback_type'ı metadata olarak comment'te saklayıp sonra temiz döndüreceğiz
-            internal_comment = f"_type:{feedback_type}"
-            if feedback_comment:
-                internal_comment += f"|{feedback_comment}"
-                
+            # Direkt feedback_type'ı kaydet - constraint güncellenmiş olmalı
             feedback_data = {
                 'user_id': user_id,
                 'search_log_id': search_log_id,
                 'query_text': query_text,
                 'answer_text': answer_text,
-                'feedback_type': 'search_quality',  # Constraint için
-                'feedback_comment': internal_comment  # Metadata + user comment
+                'feedback_type': feedback_type,  # like/dislike direkt
+                'feedback_comment': feedback_comment  # Temiz comment
             }
             
             # UPSERT: Mevcut feedback varsa güncelle, yoksa ekle
@@ -254,7 +249,7 @@ class FeedbackService:
 
     def _clean_feedback_response(self, raw_feedback: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Internal feedback response'unu temizle - metadata'yı parse et
+        Feedback response'unu temizle - artık direkt kaydettiğimiz için basit
         
         Args:
             raw_feedback: Supabase'den gelen ham feedback
@@ -262,27 +257,8 @@ class FeedbackService:
         Returns:
             Temizlenmiş feedback response
         """
-        feedback = raw_feedback.copy()
-        
-        # Metadata'yı parse et: "_type:like|user comment"
-        comment = feedback.get('feedback_comment', '')
-        actual_type = 'like'  # default
-        actual_comment = None
-        
-        if comment and comment.startswith('_type:'):
-            # _type:like|comment formatını parse et
-            if '|' in comment:
-                type_part, comment_part = comment.split('|', 1)
-                actual_type = type_part.replace('_type:', '')
-                actual_comment = comment_part if comment_part else None
-            else:
-                actual_type = comment.replace('_type:', '')
-        
-        # Temiz response döndür
-        feedback['feedback_type'] = actual_type
-        feedback['feedback_comment'] = actual_comment
-        
-        return feedback
+        # Artık direkt kaydettiğimiz için cleaning'e gerek yok
+        return raw_feedback.copy()
 
 # Global instance
 feedback_service = FeedbackService()
