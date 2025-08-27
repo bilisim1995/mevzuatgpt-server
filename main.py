@@ -50,10 +50,17 @@ app.add_middleware(
 
 # CORS middleware for mobile/web integration
 # Parse ALLOWED_ORIGINS from string to list
-allowed_origins = []
+allowed_origins = [
+    "https://app.mevzuatgpt.org",
+    "https://yonetim.mevzuatgpt.org",  # Admin subdomain
+    "http://localhost:3000",  # Development
+]
+
+# Override if * specified in settings
 if settings.ALLOWED_ORIGINS == "*":
     allowed_origins = ["*"]
-else:
+elif settings.ALLOWED_ORIGINS:
+    # Use settings if provided
     allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
 
 app.add_middleware(
