@@ -223,11 +223,33 @@ class LLMStats(BaseModel):
     prompt_tokens: int
     response_tokens: int
 
+class ConfidenceCriteria(BaseModel):
+    """Individual confidence criteria details"""
+    score: int
+    weight: int
+    description: str
+    details: List[str]
+
+class ScoreRange(BaseModel):
+    """Score range information"""
+    min: int
+    max: int
+    desc: str
+
+class ConfidenceBreakdown(BaseModel):
+    """Detailed confidence score breakdown"""
+    overall_score: int
+    explanation: str
+    criteria: Dict[str, ConfidenceCriteria]
+    score_ranges: Dict[str, ScoreRange]
+
 class AskResponse(BaseModel):
     """Ask endpoint response model"""
     query: str
     answer: str
+    search_log_id: str
     confidence_score: float = Field(..., ge=0.0, le=1.0)
+    confidence_breakdown: Optional[ConfidenceBreakdown] = None
     sources: List[SourceItem]
     institution_filter: Optional[str]
     search_stats: AskSearchStats

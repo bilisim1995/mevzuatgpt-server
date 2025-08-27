@@ -252,6 +252,7 @@ class QueryService:
                 "answer": llm_response.get("answer", llm_response.get("response", "")),
                 "confidence_score": enhanced_confidence,
                 "search_log_id": search_log_id,  # Add search log ID for feedback
+                "confidence_breakdown": confidence_breakdown,  # Add detailed breakdown
                 "sources": self.source_enhancement_service.format_sources_for_response(search_results),
                 "institution_filter": institution_filter,
                 "search_stats": {
@@ -270,10 +271,6 @@ class QueryService:
                     "response_tokens": llm_response.get("response_tokens", 0)
                 }
             }
-            
-            # Add reliability data for frontend (confidence breakdown)
-            if confidence_breakdown:
-                response["reliabilityData"] = confidence_breakdown
             
             logger.info(f"Ask query processed: '{query[:50]}' - {len(search_results)} sources, {pipeline_time}ms")
             
