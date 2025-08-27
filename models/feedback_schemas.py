@@ -14,9 +14,8 @@ class FeedbackSubmit(BaseModel):
     
     @validator('feedback_type')
     def validate_feedback_type(cls, v):
-        allowed_types = ['like', 'dislike', 'search_quality', 'answer_quality', 'helpful', 'not_helpful']
-        if v not in allowed_types:
-            raise ValueError(f'feedback_type must be one of: {", ".join(allowed_types)}')
+        if v not in ['like', 'dislike']:
+            raise ValueError('feedback_type must be like or dislike')
         return v
     
     @validator('feedback_comment')
