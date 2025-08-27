@@ -1,6 +1,6 @@
 # Kullanıcı Uygulaması Environment Variables
 NEXT_PUBLIC_API_URL=https://app.mevzuatgpt.org
-NEXT_PUBLIC_API_BASE_URL=https://app.mevzuatgpt.org/api
+NEXT_PUBLIC_API_BASE_URL=https://app.mevzuatgpt.org
 
 # Kullanıcı Uygulaması Base URL
 NEXT_PUBLIC_BASE_URL=https://uygulama.mevzuatgpt.org
