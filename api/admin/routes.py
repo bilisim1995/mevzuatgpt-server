@@ -115,11 +115,13 @@ async def upload_document(
         
         # Trigger background processing
         logger.info(f"Triggering background processing for document {document_id}")
-        process_document_task.delay(str(document_id))
+        task = process_document_task.delay(str(document_id))
+        task_id = task.id
         
         return success_response(
             data={
                 "document_id": str(document_id),
+                "task_id": task_id,  # Progress tracking için gerekli
                 "message": "Document uploaded successfully and queued for processing",
                 "file_url": file_url,
                 "processing_status": "pending"
