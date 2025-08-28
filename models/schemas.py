@@ -396,3 +396,26 @@ class SystemStatus(BaseModel):
     storage: str
     openai: str
     overall: str
+
+# Progress Tracking Models
+class TaskProgress(BaseModel):
+    """Task progress information"""
+    task_id: str
+    document_id: str
+    document_title: str
+    status: str  # pending, processing, completed, failed
+    stage: str   # upload, extract, chunk, embed, store
+    progress_percent: int = Field(..., ge=0, le=100)
+    current_step: str
+    total_steps: int
+    completed_steps: int
+    error_message: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    estimated_remaining_seconds: Optional[int] = None
+
+class TaskProgressResponse(BaseModel):
+    """Task progress response"""
+    task_id: str
+    progress: TaskProgress
+    success: bool = True

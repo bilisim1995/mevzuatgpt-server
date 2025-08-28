@@ -19,6 +19,7 @@ from models.supabase_client import supabase_client
 from services.storage_service import StorageService
 from services.embedding_service import EmbeddingService
 from services.pdf_source_parser import PDFSourceParser
+from services.progress_service import progress_service
 from utils.exceptions import AppException
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,8 @@ def process_document_task(self, document_id: str):
         asyncio.set_event_loop(loop)
         
         try:
-            result = loop.run_until_complete(_process_document_async(document_id))
+            task_id = self.request.id if hasattr(self.request, 'id') else None
+            result = loop.run_until_complete(_process_document_async(document_id, task_id))
             return result
         finally:
             # Ensure all async connections are properly closed
@@ -87,12 +89,13 @@ def process_document_task(self, document_id: str):
         
         raise CeleryTaskError(f"Document processing failed after {self.max_retries} attempts: {str(e)}")
 
-async def _process_document_async(document_id: str) -> Dict[str, Any]:
+async def _process_document_async(document_id: str, task_id: str = None) -> Dict[str, Any]:
     """
-    Async document processing implementation
+    Async document processing implementation with progress tracking
     
     Args:
         document_id: Document UUID
+        task_id: Celery task ID for progress tracking
         
     Returns:
         Processing result
@@ -105,9 +108,6 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
         storage_service = StorageService()
         embedding_service = EmbeddingService()
         
-        # Update status to processing
-        await supabase_client.update_document_status(document_id, "processing")
-        
         # Step 1: Get document from database
         logger.info(f"Retrieving document metadata: {document_id}")
         document = await supabase_client.get_document(document_id)
@@ -118,9 +118,39 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
                 error_code="DOCUMENT_NOT_FOUND"
             )
         
+        # Initialize progress tracking
+        if task_id:
+            await progress_service.initialize_task_progress(
+                task_id=task_id,
+                document_id=document_id,
+                document_title=document.get('document_title', document.get('filename', 'Unknown')),
+                total_steps=5  # download, extract, chunk, embed, store
+            )
+        
+        # Update status to processing
+        await supabase_client.update_document_status(document_id, "processing")
+        
+        # Step 1 Progress: Download PDF
+        if task_id:
+            await progress_service.update_progress(
+                task_id=task_id,
+                stage="download",
+                current_step="PDF dosyası indiriliyor...",
+                completed_steps=1
+            )
+        
         # Step 2: Download PDF from storage
         logger.info(f"Downloading PDF from storage: {document['file_url']}")
         pdf_content = await storage_service.download_file(document['file_url'])
+        
+        # Step 2 Progress: Extract text
+        if task_id:
+            await progress_service.update_progress(
+                task_id=task_id,
+                stage="extract",
+                current_step="PDF'den metin çıkarılıyor...",
+                completed_steps=2
+            )
         
         # Step 3: Extract text from PDF with source tracking
         logger.info(f"Enhanced PDF parsing with source tracking: {document['filename']}")
@@ -137,8 +167,26 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
         chunks_with_sources = parsed_data["chunks"]
         logger.info(f"Generated {len(chunks_with_sources)} chunks with source information from {parsed_data['total_pages']} pages")
         
+        # Step 3 Progress: Text chunking completed
+        if task_id:
+            await progress_service.update_progress(
+                task_id=task_id,
+                stage="chunk",
+                current_step=f"{len(chunks_with_sources)} metin parçası oluşturuldu...",
+                completed_steps=3
+            )
+        
         # Step 4: Generate embeddings and store in Elasticsearch
         logger.info(f"Generating 2048D embeddings for {len(chunks_with_sources)} chunks")
+        
+        # Step 4 Progress: Start embedding generation
+        if task_id:
+            await progress_service.update_progress(
+                task_id=task_id,
+                stage="embed",
+                current_step=f"{len(chunks_with_sources)} parça için vektör oluşturuluyor...",
+                completed_steps=4
+            )
         
         # Prepare chunks data for Elasticsearch bulk storage
         chunks_for_elasticsearch = []
@@ -180,6 +228,16 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
             chunks=chunks_for_elasticsearch
         )
         
+        # Step 5 Progress: Storage completed
+        if task_id:
+            await progress_service.update_progress(
+                task_id=task_id,
+                stage="store",
+                current_step="Vektörler Elasticsearch'e kaydediliyor...",
+                completed_steps=5,
+                status="completed"
+            )
+        
         # Step 6: Update document status to completed
         await supabase_client.update_document_status(document_id, "completed")
         
@@ -198,6 +256,14 @@ async def _process_document_async(document_id: str) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"Document processing failed: {str(e)}")
+        
+        # Mark progress as failed if tracking was initialized
+        if task_id:
+            try:
+                await progress_service.mark_task_failed(task_id, str(e))
+            except Exception as progress_error:
+                logger.error(f"Failed to update progress on error: {progress_error}")
+        
         raise
 
 def _extract_text_from_pdf(pdf_content: bytes) -> str:
