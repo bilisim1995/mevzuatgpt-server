@@ -113,7 +113,7 @@ creativity_presets = {
     )
 }
 
-@router.get("/settings", response_model=GroqSettingsResponse)
+@router.get("/settings")
 async def get_groq_settings(
     current_user: dict = Depends(get_current_user_admin)
 ):
@@ -144,7 +144,9 @@ async def get_groq_settings(
         logger.info(f"Available models: {available_models}")
         logger.info(f"All settings: {current_groq_settings}")
         
-        return settings_response
+        return {
+            "current_settings": settings_response.dict()
+        }
         
     except Exception as e:
         logger.error(f"Error retrieving Groq settings: {e}")
