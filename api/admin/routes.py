@@ -2528,16 +2528,29 @@ async def get_system_status(
             except asyncio.TimeoutError:
                 redis_status["user_histories"] = "timeout"
             
+            # Close Redis connection
+            await redis_service._close_client()
+            
         except asyncio.TimeoutError:
             redis_status = {
                 "connection": "timeout",
                 "error": "Redis operations timed out"
             }
+            # Close connection on timeout
+            try:
+                await redis_service._close_client()
+            except:
+                pass
         except Exception as redis_error:
             redis_status = {
                 "connection": "error",
                 "error": str(redis_error)
             }
+            # Close connection on error
+            try:
+                await redis_service._close_client()
+            except:
+                pass
         
         # Celery durumu
         celery_status = {}
