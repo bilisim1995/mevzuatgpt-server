@@ -2552,49 +2552,65 @@ async def get_system_status(
             except:
                 pass
         
-        # Celery durumu
+        # Celery durumu - Redis üzerinden kontrol
         celery_status = {}
         try:
-            from tasks.celery_app import celery_app
-            
-            # Celery inspect
-            inspect = celery_app.control.inspect()
-            
-            # Aktif worker'lar
-            active_workers = inspect.active()
-            celery_status["active_workers"] = list(active_workers.keys()) if active_workers else []
-            celery_status["worker_count"] = len(active_workers) if active_workers else 0
-            
-            # Aktif task'lar
-            active_tasks = inspect.active()
-            total_active_tasks = 0
-            if active_tasks:
-                for worker, tasks in active_tasks.items():
-                    total_active_tasks += len(tasks)
-            celery_status["active_tasks"] = total_active_tasks
-            
-            # Scheduled task'lar
-            scheduled = inspect.scheduled()
-            total_scheduled = 0
-            if scheduled:
-                for worker, tasks in scheduled.items():
-                    total_scheduled += len(tasks)
-            celery_status["scheduled_tasks"] = total_scheduled
-            
-            # Reserved task'lar
-            reserved = inspect.reserved()
-            total_reserved = 0
-            if reserved:
-                for worker, tasks in reserved.items():
-                    total_reserved += len(tasks)
-            celery_status["reserved_tasks"] = total_reserved
-            
-            celery_status["status"] = "healthy" if celery_status["worker_count"] > 0 else "no_workers"
-            
+            # Redis üzerinden Celery worker durumunu kontrol et
+            try:
+                # Check for celery workers in Redis
+                client = await redis_service._get_client()
+                
+                # Celery worker key'lerini kontrol et
+                worker_keys = await client.keys("_kombu.binding.*")
+                active_workers = await client.keys("celery@*")
+                
+                # Basic status
+                if worker_keys or active_workers:
+                    celery_status = {
+                        "connection": "healthy",
+                        "worker_count": len(active_workers) if active_workers else 1,
+                        "worker_keys": len(worker_keys),
+                        "status": "workers_detected"
+                    }
+                else:
+                    celery_status = {
+                        "connection": "no_workers",
+                        "worker_count": 0,
+                        "worker_keys": 0,
+                        "status": "no_workers_detected"
+                    }
+                    
+            except Exception as redis_check_error:
+                # Fallback: try direct celery check with short timeout
+                try:
+                    from tasks.celery_app import celery_app
+                    inspect = celery_app.control.inspect(timeout=0.5)
+                    ping_result = inspect.ping()
+                    
+                    if ping_result:
+                        celery_status = {
+                            "connection": "healthy",
+                            "worker_count": len(ping_result),
+                            "workers": list(ping_result.keys()),
+                            "status": "ping_successful"
+                        }
+                    else:
+                        raise Exception("No ping response")
+                        
+                except Exception:
+                    celery_status = {
+                        "connection": "error",
+                        "error": f"Redis check failed: {str(redis_check_error)}",
+                        "worker_count": 0,
+                        "status": "connection_failed"
+                    }
+                    
         except Exception as celery_error:
             celery_status = {
-                "status": "error",
-                "error": str(celery_error)
+                "connection": "error",
+                "error": str(celery_error),
+                "worker_count": 0,
+                "status": "check_failed"
             }
         
         return {
