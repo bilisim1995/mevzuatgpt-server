@@ -66,7 +66,7 @@ async def upload_document(
         logger.info(f"File content type: {file.content_type if file else 'None'}")
         
         # Validate file type and size
-        if not file.filename.lower().endswith('.pdf'):
+        if not file.filename or not file.filename.lower().endswith('.pdf'):
             raise AppException(
                 message="Only PDF files are allowed",
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -80,10 +80,11 @@ async def upload_document(
         storage_service = StorageService()
         
         # Upload file to Bunny.net
-        logger.info(f"Uploading file {file.filename} to storage")
+        filename = file.filename or "untitled.pdf"
+        logger.info(f"Uploading file {filename} to storage")
         file_url = await storage_service.upload_file(
             file_content=file_content,
-            filename=file.filename,
+            filename=filename,
             content_type="application/pdf"
         )
         
@@ -92,7 +93,7 @@ async def upload_document(
         
         document_data = {
             'title': title,
-            'filename': file.filename,
+            'filename': filename,
             'file_url': file_url,
             'file_size': len(file_content),
             'content_preview': f"{title} - {description or ''}"[:500],
@@ -105,7 +106,7 @@ async def upload_document(
                 'keywords': keywords_list,
                 'source_institution': source_institution,
                 'publish_date': publish_date,
-                'original_filename': file.filename
+                'original_filename': filename
             }
         }
         
@@ -115,8 +116,12 @@ async def upload_document(
         
         # Trigger background processing
         logger.info(f"Triggering background processing for document {document_id}")
-        task = process_document_task.delay(str(document_id))
-        task_id = task.id
+        try:
+            task = process_document_task.delay(str(document_id))
+            task_id = task.id
+        except Exception as task_error:
+            logger.error(f"Celery task creation failed: {task_error}")
+            task_id = None
         
         # Initialize progress tracking immediately 
         from services.progress_service import progress_service
@@ -3113,10 +3118,10 @@ async def restart_celery_worker(
                 
         except subprocess.TimeoutExpired:
             restart_status = "timeout"
-            worker_info["error"] = "Restart işlemi timeout"
+            worker_info["restart_error"] = "Restart işlemi timeout"
         except Exception as restart_error:
             restart_status = "error"
-            worker_info["error"] = str(restart_error)
+            worker_info["restart_error"] = str(restart_error)
         
         return {
             "success": restart_status in ["success", "partial"],
@@ -3208,11 +3213,15 @@ async def get_redis_connections(
                     connection_info["keyspace_info"]["total_keys"] += db_info.get("keys", 0)
             
             # Connection pool detayları
-            if hasattr(connection_pool, "_created_connections"):
+            try:
                 connection_info["pool_info"] = {
-                    "created_connections": connection_pool._created_connections,
+                    "created_connections": getattr(connection_pool, "_created_connections", "N/A"),
                     "max_connections": getattr(connection_pool, "max_connections", "N/A"),
                     "available_connections": len(getattr(connection_pool, "_available_connections", []))
+                }
+            except Exception:
+                connection_info["pool_info"] = {
+                    "error": "Connection pool bilgileri alınamadı"
                 }
             
             # Celery ile ilgili key'leri say

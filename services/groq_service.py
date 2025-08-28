@@ -137,7 +137,11 @@ SORU: {query}
             )
             
             # Extract response and clean repetitions
-            ai_response = response.choices[0].message.content.strip()
+            ai_response = response.choices[0].message.content
+            if ai_response:
+                ai_response = ai_response.strip()
+            else:
+                ai_response = ""
             
             # Post-process to remove repetitive patterns
             ai_response = self._clean_repetitive_text(ai_response)

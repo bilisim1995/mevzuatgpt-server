@@ -312,7 +312,7 @@ async def apply_creativity_preset(
             detail="Yaratıcılık ön ayarı uygulanırken hata oluştu"
         )
 
-@router.get("/models", response_model=Dict[str, List[ModelInfoResponse]])
+@router.get("/models", response_model=Dict[str, Any])
 async def get_available_models(
     current_user: dict = Depends(get_current_user_admin)
 ):
