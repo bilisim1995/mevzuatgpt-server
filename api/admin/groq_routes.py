@@ -459,8 +459,11 @@ async def get_available_models(
         logger.info(f"Current default model in models endpoint: {current_settings['default_model']}")
         logger.info(f"Available models count: {len(available_model_info)}")
         
+        # Convert Pydantic models to dictionaries for JSON serialization
+        models_data = [model.model_dump() for model in available_model_info.values()]
+        
         return {
-            "models": list(available_model_info.values()),
+            "models": models_data,
             "total_count": len(available_model_info),
             "current_default": current_settings["default_model"]
         }
