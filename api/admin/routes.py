@@ -916,8 +916,8 @@ async def get_document_details(
             embedding_count = 0
         
         # Get chunk information and vector statistics
+        logger.info(f"Attempting to get vector stats for document {document_id}")
         try:
-            logger.info(f"Attempting to get vector stats for document {document_id}")
             async with ElasticsearchService() as es_service:
                 vector_stats = await es_service.get_document_vector_stats(document_id)
                 logger.info(f"Vector stats result: {vector_stats}")
@@ -925,7 +925,8 @@ async def get_document_details(
             logger.error(f"Could not get vector stats for {document_id}: {e}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
-            vector_stats = {"total_vectors": 0, "unique_chunks": 0, "index_name": "mevzuat_embeddings"}
+            # Use embedding count as fallback for all fields
+            vector_stats = {"total_vectors": embedding_count, "unique_chunks": embedding_count, "index_name": "mevzuat_embeddings"}
         
         # Step 3: Generate full Bunny.net URL (3-tier fallback system)
         full_url = None
