@@ -567,10 +567,14 @@ async def get_groq_status(
         # Get current settings from database
         current_settings = await get_groq_settings_from_db()
         
+        available_models = groq_service.get_available_models()
+        
         status_info = {
             "service_status": "healthy" if health_response else "unhealthy",
             "response_time_ms": round(response_time, 2),
-            "available_models": groq_service.get_available_models(),
+            "available_models": available_models,
+            "current_model": current_settings.get("default_model", "llama3-70b-8192"),
+            "model_count": len(available_models),
             "current_settings": current_settings,
             "last_check": datetime.utcnow().isoformat()
         }
@@ -585,6 +589,8 @@ async def get_groq_status(
             "service_status": "error",
             "response_time_ms": 0,
             "available_models": [],
+            "current_model": "unknown",
+            "model_count": 0,
             "current_settings": {},
             "error_message": str(e),
             "last_check": datetime.utcnow().isoformat()
