@@ -118,6 +118,16 @@ async def upload_document(
         task = process_document_task.delay(str(document_id))
         task_id = task.id
         
+        # Initialize progress tracking immediately 
+        from services.progress_service import progress_service
+        await progress_service.initialize_task_progress(
+            task_id=task_id,
+            document_id=str(document_id),
+            document_title=title,
+            total_steps=5
+        )
+        logger.info(f"Progress tracking initialized for task {task_id}")
+        
         return success_response(
             data={
                 "document_id": str(document_id),
