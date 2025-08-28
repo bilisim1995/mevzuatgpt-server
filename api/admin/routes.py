@@ -3167,9 +3167,12 @@ async def get_redis_connections(
             info_task = asyncio.create_task(redis_service.get_info())
             redis_info = await asyncio.wait_for(info_task, timeout=5.0)
             
-            # Connection pool bilgileri
+            # Connection pool bilgileri  
             client = await redis_service._get_client()
             connection_pool = client.connection_pool
+            
+            logger.info(f"Redis info keys: {list(redis_info.keys())}")
+            logger.info(f"Redis version: {redis_info.get('redis_version', 'N/A')}")
             
             connection_info.update({
                 "server_info": {
@@ -3245,15 +3248,17 @@ async def get_redis_connections(
             await redis_service._close_client()
             
         except Exception as redis_error:
+            logger.error(f"Redis connection info error: {redis_error}")
             connection_info = {
                 "connection_status": "error",
                 "error": str(redis_error),
                 "timestamp": datetime.now().isoformat()
             }
-            try:
-                await redis_service._close_client()
-            except:
-                pass
+            if redis_service:
+                try:
+                    await redis_service._close_client()
+                except:
+                    pass
         
         return {
             "success": connection_info.get("connection_status") == "healthy",
