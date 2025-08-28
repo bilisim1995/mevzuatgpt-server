@@ -9,6 +9,7 @@ import logging
 from models.schemas import TaskProgressResponse, TaskProgress
 from services.progress_service import progress_service
 from api.dependencies import get_current_user
+from models.schemas import UserResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -16,7 +17,7 @@ router = APIRouter()
 @router.get("/progress/{task_id}", response_model=TaskProgressResponse)
 async def get_task_progress(
     task_id: str,
-    current_user=Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user)
 ):
     """
     Get real-time progress for a document processing task
@@ -63,7 +64,7 @@ async def get_task_progress(
 @router.delete("/progress/{task_id}")
 async def clear_task_progress(
     task_id: str,
-    current_user=Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user)
 ):
     """
     Clear progress data for a completed/failed task
@@ -101,7 +102,7 @@ async def clear_task_progress(
 
 @router.get("/progress")
 async def get_user_active_tasks(
-    current_user=Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user)
 ):
     """
     Get all active tasks for the current user

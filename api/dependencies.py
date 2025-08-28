@@ -52,7 +52,9 @@ async def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        return auth_data["user"]
+        user_data = auth_data["user"]
+        # Convert dict to UserResponse model
+        return UserResponse(**user_data)
         
     except HTTPException:
         raise
