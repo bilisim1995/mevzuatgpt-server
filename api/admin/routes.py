@@ -2474,3 +2474,230 @@ async def clear_all_active_tasks(
             "success": False,
             "message": f"Task temizleme başarısız: {str(e)}"
         }
+
+@router.get("/system/status")
+async def get_system_status(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Redis ve Celery sistem durumunu göster (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} sistem durumunu sorguluyor")
+        
+        # Redis durumu
+        redis_status = {}
+        try:
+            from services.redis_service import RedisService
+            redis_service = RedisService()
+            
+            # Redis bağlantı testi
+            await redis_service.ping()
+            redis_status["connection"] = "healthy"
+            
+            # Redis bilgileri al
+            redis_info = await redis_service.get_info()
+            redis_status["info"] = {
+                "used_memory": redis_info.get("used_memory_human", "N/A"),
+                "connected_clients": redis_info.get("connected_clients", "N/A"),
+                "total_keys": await redis_service.get_db_size(),
+                "uptime": redis_info.get("uptime_in_seconds", "N/A")
+            }
+            
+            # Task progress key'lerini say
+            progress_keys = await redis_service.get_keys_pattern("task_progress:*")
+            redis_status["active_task_progress"] = len(progress_keys) if progress_keys else 0
+            
+            # User history key'lerini say
+            history_keys = await redis_service.get_keys_pattern("user_history:*")
+            redis_status["user_histories"] = len(history_keys) if history_keys else 0
+            
+        except Exception as redis_error:
+            redis_status = {
+                "connection": "error",
+                "error": str(redis_error)
+            }
+        
+        # Celery durumu
+        celery_status = {}
+        try:
+            from tasks.celery_app import celery_app
+            
+            # Celery inspect
+            inspect = celery_app.control.inspect()
+            
+            # Aktif worker'lar
+            active_workers = inspect.active()
+            celery_status["active_workers"] = list(active_workers.keys()) if active_workers else []
+            celery_status["worker_count"] = len(active_workers) if active_workers else 0
+            
+            # Aktif task'lar
+            active_tasks = inspect.active()
+            total_active_tasks = 0
+            if active_tasks:
+                for worker, tasks in active_tasks.items():
+                    total_active_tasks += len(tasks)
+            celery_status["active_tasks"] = total_active_tasks
+            
+            # Scheduled task'lar
+            scheduled = inspect.scheduled()
+            total_scheduled = 0
+            if scheduled:
+                for worker, tasks in scheduled.items():
+                    total_scheduled += len(tasks)
+            celery_status["scheduled_tasks"] = total_scheduled
+            
+            # Reserved task'lar
+            reserved = inspect.reserved()
+            total_reserved = 0
+            if reserved:
+                for worker, tasks in reserved.items():
+                    total_reserved += len(tasks)
+            celery_status["reserved_tasks"] = total_reserved
+            
+            celery_status["status"] = "healthy" if celery_status["worker_count"] > 0 else "no_workers"
+            
+        except Exception as celery_error:
+            celery_status = {
+                "status": "error",
+                "error": str(celery_error)
+            }
+        
+        return {
+            "success": True,
+            "data": {
+                "redis": redis_status,
+                "celery": celery_status,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Sistem durumu sorgulama hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Sistem durumu alınamadı: {str(e)}"
+        }
+
+@router.delete("/redis/clear-all")
+async def clear_redis_completely(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Redis'i tamamen temizle - TÜM DATALAR SİLİNECEK! (Admin only)"""
+    try:
+        logger.warning(f"CRITICAL: Admin {current_user.email} Redis tamamen temizleniyor!")
+        
+        from services.redis_service import RedisService
+        redis_service = RedisService()
+        
+        # Önce mevcut key sayısını al
+        total_keys_before = await redis_service.get_db_size()
+        
+        # Redis database'i tamamen temizle
+        await redis_service.flush_db()
+        
+        # Temizlik sonrası kontrol
+        total_keys_after = await redis_service.get_db_size()
+        
+        logger.warning(f"Redis completely flushed: {total_keys_before} keys deleted")
+        
+        return {
+            "success": True,
+            "message": "Redis tamamen temizlendi",
+            "data": {
+                "keys_deleted": total_keys_before,
+                "keys_remaining": total_keys_after,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Redis temizleme hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Redis temizleme başarısız: {str(e)}"
+        }
+
+@router.delete("/redis/clear-tasks")
+async def clear_redis_tasks_only(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Sadece task ile ilgili Redis key'lerini temizle (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} Redis task key'lerini temizliyor")
+        
+        from services.redis_service import RedisService
+        redis_service = RedisService()
+        
+        # Task progress key'lerini temizle
+        progress_keys = await redis_service.get_keys_pattern("task_progress:*")
+        progress_deleted = 0
+        if progress_keys:
+            await redis_service.delete_keys(progress_keys)
+            progress_deleted = len(progress_keys)
+        
+        # Celery task key'lerini temizle
+        celery_keys = await redis_service.get_keys_pattern("celery-task-meta-*")
+        celery_deleted = 0
+        if celery_keys:
+            await redis_service.delete_keys(celery_keys)
+            celery_deleted = len(celery_keys)
+        
+        # Kombu binding key'lerini temizle
+        kombu_keys = await redis_service.get_keys_pattern("_kombu.*")
+        kombu_deleted = 0
+        if kombu_keys:
+            await redis_service.delete_keys(kombu_keys)
+            kombu_deleted = len(kombu_keys)
+        
+        total_deleted = progress_deleted + celery_deleted + kombu_deleted
+        
+        logger.info(f"Task keys cleared: {total_deleted} total")
+        
+        return {
+            "success": True,
+            "message": f"{total_deleted} task ilişkili key temizlendi",
+            "data": {
+                "progress_keys_deleted": progress_deleted,
+                "celery_keys_deleted": celery_deleted,
+                "kombu_keys_deleted": kombu_deleted,
+                "total_deleted": total_deleted,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Redis task temizleme hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Redis task temizleme başarısız: {str(e)}"
+        }
+
+@router.post("/celery/purge-queue")
+async def purge_celery_queue(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Celery queue'larını temizle (Admin only)"""
+    try:
+        logger.warning(f"Admin {current_user.email} Celery queue'ları temizleniyor")
+        
+        from tasks.celery_app import celery_app
+        
+        # Tüm queue'ları purge et
+        purged_count = celery_app.control.purge()
+        
+        logger.info(f"Celery queue purged: {purged_count} tasks removed")
+        
+        return {
+            "success": True,
+            "message": f"Celery queue temizlendi",
+            "data": {
+                "purged_tasks": purged_count,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Celery queue temizleme hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Celery queue temizleme başarısız: {str(e)}"
+        }

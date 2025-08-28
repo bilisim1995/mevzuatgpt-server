@@ -89,6 +89,34 @@ class RedisService:
     
     async def cache_institutions(self, institutions_list, ttl=86400):
         pass
+    
+    # Admin methods for system management
+    async def get_info(self):
+        """Redis sunucu bilgilerini al"""
+        async with RedisService() as client:
+            return await client.info()
+    
+    async def get_db_size(self):
+        """Redis database boyutunu al"""
+        async with RedisService() as client:
+            return await client.dbsize()
+    
+    async def get_keys_pattern(self, pattern):
+        """Pattern'e göre key'leri al"""
+        async with RedisService() as client:
+            return await client.keys(pattern)
+    
+    async def delete_keys(self, keys):
+        """Birden fazla key'i sil"""
+        if not keys:
+            return 0
+        async with RedisService() as client:
+            return await client.delete(*keys)
+    
+    async def flush_db(self):
+        """Database'i tamamen temizle"""
+        async with RedisService() as client:
+            return await client.flushdb()
 
 # Global instance for backward compatibility
 redis_service = RedisService()
