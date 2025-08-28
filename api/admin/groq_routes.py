@@ -118,7 +118,7 @@ async def get_groq_settings_from_db() -> Dict[str, Any]:
         }
 
 async def update_groq_setting_in_db(key: str, value: Any, value_type: str = "string") -> bool:
-    """Tek bir Groq ayarını veritabanında güncelle"""
+    """Tek bir Groq ayarını veritabanında güncelle (UPSERT ile)"""
     try:
         # Convert value to string for storage
         if value_type == 'json':
@@ -127,14 +127,24 @@ async def update_groq_setting_in_db(key: str, value: Any, value_type: str = "str
         else:
             str_value = str(value)
             
-        response = supabase_client.supabase.table('groq_settings').upsert({
-            'setting_key': key,
+        # First try to update existing record
+        update_response = supabase_client.supabase.table('groq_settings').update({
             'setting_value': str_value,
             'setting_type': value_type,
             'is_active': True
-        }).execute()
+        }).eq('setting_key', key).execute()
         
-        return len(response.data) > 0
+        # If no records were updated, insert new record
+        if not update_response.data:
+            insert_response = supabase_client.supabase.table('groq_settings').insert({
+                'setting_key': key,
+                'setting_value': str_value,
+                'setting_type': value_type,
+                'is_active': True
+            }).execute()
+            return len(insert_response.data) > 0
+        
+        return len(update_response.data) > 0
         
     except Exception as e:
         logger.error(f"Database setting update error for {key}: {e}")
