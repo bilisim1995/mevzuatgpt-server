@@ -3154,9 +3154,6 @@ async def get_redis_connections(
     try:
         logger.info(f"Admin {current_user.email} Redis connection bilgilerini sorguluyor")
         
-        from services.redis_service import RedisService
-        import asyncio
-        
         redis_service = RedisService()
         connection_info = {}
         
