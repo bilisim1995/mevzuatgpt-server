@@ -30,6 +30,12 @@ class GroqSettingsResponse(BaseModel):
     available_models: List[str]
     creativity_mode: str
     response_style: str
+    
+    class Config:
+        # Ensure all fields are included in response
+        fields = {
+            "default_model": {"description": "Currently selected default model"}
+        }
 
 class GroqSettingsUpdate(BaseModel):
     """Request model for updating Groq settings"""
@@ -133,7 +139,10 @@ async def get_groq_settings(
             response_style=current_groq_settings["response_style"]
         )
         
-        logger.info(f"Admin {current_user['email']} retrieved Groq settings")
+        # Debug logging
+        logger.info(f"Admin {current_user['email']} retrieved Groq settings. Default model: {current_groq_settings['default_model']}")
+        logger.info(f"Available models: {available_models}")
+        logger.info(f"All settings: {current_groq_settings}")
         
         return settings_response
         
@@ -365,6 +374,8 @@ async def get_available_models(
         }
         
         logger.info(f"Admin {current_user['email']} retrieved available models")
+        logger.info(f"Current default model in models endpoint: {current_groq_settings['default_model']}")
+        logger.info(f"Available models count: {len(available_model_info)}")
         
         return {
             "models": list(available_model_info.values()),
