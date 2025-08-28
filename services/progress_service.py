@@ -161,6 +161,27 @@ class ProgressService:
             
         except Exception as e:
             logger.error(f"Failed to cleanup old progress entries: {e}")
+    
+    async def clear_all_active_tasks(self) -> int:
+        """Clear all active task progress data"""
+        try:
+            async with RedisService() as client:
+                keys = await client.keys(f"{self.progress_key_prefix}*")
+                
+                if not keys:
+                    logger.info("No active tasks found to clear")
+                    return 0
+                
+                # Delete all task progress keys
+                for key in keys:
+                    await client.delete(key)
+                
+                logger.info(f"Cleared {len(keys)} active tasks")
+                return len(keys)
+                
+        except Exception as e:
+            logger.error(f"Failed to clear all active tasks: {e}")
+            return 0
 
 # Global instance
 progress_service = ProgressService()

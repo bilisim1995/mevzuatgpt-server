@@ -2446,3 +2446,31 @@ async def get_user_search_logs(
             status_code=500,
             detail="Kullanıcı arama logları alınamadı"
         )
+
+@router.delete("/tasks/clear-all")
+async def clear_all_active_tasks(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Clear all active task progress data (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} clearing all active tasks")
+        
+        from services.progress_service import progress_service
+        cleared_count = await progress_service.clear_all_active_tasks()
+        
+        logger.info(f"Cleared {cleared_count} active tasks")
+        
+        return {
+            "success": True,
+            "message": f"{cleared_count} aktif task temizlendi",
+            "data": {
+                "cleared_count": cleared_count
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to clear active tasks: {e}")
+        return {
+            "success": False,
+            "message": f"Task temizleme başarısız: {str(e)}"
+        }
