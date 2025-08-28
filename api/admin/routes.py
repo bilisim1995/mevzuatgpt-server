@@ -2475,6 +2475,294 @@ async def clear_all_active_tasks(
             "message": f"Task temizleme başarısız: {str(e)}"
         }
 
+# =====================================
+# ELASTICSEARCH ADMIN ENDPOINTS
+# =====================================
+
+@router.get("/elasticsearch/status")
+async def get_elasticsearch_status(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Elasticsearch durumu ve detaylı bilgileri getir (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} Elasticsearch durumunu sorguluyor")
+        
+        from services.elasticsearch_service import ElasticsearchService
+        
+        async with ElasticsearchService() as es_service:
+            # Cluster health
+            health_data = await es_service.health_check()
+            
+            # Session for additional queries
+            session = await es_service._get_session()
+            
+            # Get detailed cluster info
+            cluster_info = {}
+            try:
+                async with session.get(f"{es_service.elasticsearch_url}/_cluster/stats") as response:
+                    if response.status == 200:
+                        stats_data = await response.json()
+                        cluster_info = {
+                            "total_nodes": stats_data.get("nodes", {}).get("count", {}).get("total", 0),
+                            "data_nodes": stats_data.get("nodes", {}).get("count", {}).get("data", 0),
+                            "indices_count": stats_data.get("indices", {}).get("count", 0),
+                            "total_shards": stats_data.get("indices", {}).get("shards", {}).get("total", 0),
+                            "docs_count": stats_data.get("indices", {}).get("docs", {}).get("count", 0),
+                            "store_size": stats_data.get("indices", {}).get("store", {}).get("size_in_bytes", 0)
+                        }
+            except Exception:
+                cluster_info = {"error": "Cluster stats unavailable"}
+            
+            # Get index-specific information
+            index_info = {}
+            try:
+                async with session.get(f"{es_service.elasticsearch_url}/{es_service.index_name}/_stats") as response:
+                    if response.status == 200:
+                        index_data = await response.json()
+                        indices = index_data.get("indices", {})
+                        if es_service.index_name in indices:
+                            idx_stats = indices[es_service.index_name]
+                            index_info = {
+                                "index_name": es_service.index_name,
+                                "total_docs": idx_stats.get("total", {}).get("docs", {}).get("count", 0),
+                                "deleted_docs": idx_stats.get("total", {}).get("docs", {}).get("deleted", 0),
+                                "store_size_bytes": idx_stats.get("total", {}).get("store", {}).get("size_in_bytes", 0),
+                                "store_size_human": f"{idx_stats.get('total', {}).get('store', {}).get('size_in_bytes', 0) / (1024*1024):.2f} MB"
+                            }
+            except Exception:
+                index_info = {"error": "Index stats unavailable"}
+            
+            # Document type breakdown
+            doc_breakdown = {}
+            try:
+                # Get unique document IDs count
+                agg_query = {
+                    "size": 0,
+                    "aggs": {
+                        "unique_documents": {
+                            "cardinality": {"field": "document_id.keyword"}
+                        },
+                        "institutions": {
+                            "terms": {"field": "source_institution.keyword", "size": 20}
+                        }
+                    }
+                }
+                
+                async with session.post(
+                    f"{es_service.elasticsearch_url}/{es_service.index_name}/_search",
+                    json=agg_query
+                ) as response:
+                    if response.status == 200:
+                        agg_data = await response.json()
+                        aggs = agg_data.get("aggregations", {})
+                        doc_breakdown = {
+                            "unique_documents": aggs.get("unique_documents", {}).get("value", 0),
+                            "total_chunks": agg_data.get("hits", {}).get("total", {}).get("value", 0),
+                            "institutions": [
+                                {"name": bucket["key"], "chunk_count": bucket["doc_count"]}
+                                for bucket in aggs.get("institutions", {}).get("buckets", [])
+                            ]
+                        }
+            except Exception:
+                doc_breakdown = {"error": "Document breakdown unavailable"}
+        
+        return {
+            "success": True,
+            "data": {
+                "connection": "healthy" if health_data.get("health") == "ok" else "error",
+                "cluster_health": health_data,
+                "cluster_info": cluster_info,
+                "index_info": index_info,
+                "document_breakdown": doc_breakdown,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Elasticsearch durumu sorgulanırken hata: {e}")
+        return {
+            "success": False,
+            "message": f"Elasticsearch durumu alınamadı: {str(e)}"
+        }
+
+@router.delete("/elasticsearch/clear-all")
+async def clear_elasticsearch_completely(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Elasticsearch'i tamamen temizle - TÜM VEKTÖR VERİLERİ SİLİNECEK! (Admin only)"""
+    try:
+        logger.warning(f"CRITICAL: Admin {current_user.email} Elasticsearch tamamen temizleniyor!")
+        
+        from services.elasticsearch_service import ElasticsearchService
+        
+        async with ElasticsearchService() as es_service:
+            session = await es_service._get_session()
+            
+            # Get current document count
+            docs_before = 0
+            try:
+                async with session.get(f"{es_service.elasticsearch_url}/{es_service.index_name}/_count") as response:
+                    if response.status == 200:
+                        count_data = await response.json()
+                        docs_before = count_data.get("count", 0)
+            except Exception:
+                docs_before = 0
+            
+            # Delete all documents in the index
+            delete_query = {"query": {"match_all": {}}}
+            
+            async with session.post(
+                f"{es_service.elasticsearch_url}/{es_service.index_name}/_delete_by_query",
+                json=delete_query
+            ) as response:
+                
+                if response.status == 200:
+                    result = await response.json()
+                    deleted_count = result.get("deleted", 0)
+                    
+                    # Get final document count
+                    docs_after = 0
+                    try:
+                        async with session.get(f"{es_service.elasticsearch_url}/{es_service.index_name}/_count") as count_response:
+                            if count_response.status == 200:
+                                count_data = await count_response.json()
+                                docs_after = count_data.get("count", 0)
+                    except Exception:
+                        docs_after = 0
+                    
+                    logger.warning(f"Elasticsearch completely cleared: {deleted_count} documents deleted")
+                    
+                    return {
+                        "success": True,
+                        "message": "Elasticsearch tamamen temizlendi",
+                        "data": {
+                            "docs_before": docs_before,
+                            "docs_deleted": deleted_count,
+                            "docs_after": docs_after,
+                            "index_name": es_service.index_name,
+                            "timestamp": datetime.now().isoformat()
+                        }
+                    }
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Elasticsearch clear failed: HTTP {response.status}, {error_text}")
+                    return {
+                        "success": False,
+                        "message": f"Elasticsearch temizleme başarısız: HTTP {response.status}"
+                    }
+        
+    except Exception as e:
+        logger.error(f"Elasticsearch temizleme hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Elasticsearch temizleme başarısız: {str(e)}"
+        }
+
+@router.delete("/elasticsearch/clear-document/{document_id}")
+async def clear_document_from_elasticsearch(
+    document_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Belirli bir dökümanın tüm vektör verilerini Elasticsearch'ten sil (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} doküman {document_id} Elasticsearch'ten siliniyor")
+        
+        from services.elasticsearch_service import ElasticsearchService
+        
+        async with ElasticsearchService() as es_service:
+            # Get document stats before deletion
+            doc_stats = await es_service.get_document_vector_stats(document_id)
+            vectors_before = doc_stats.get("total_vectors", 0)
+            chunks_before = doc_stats.get("unique_chunks", 0)
+            
+            # Delete document embeddings
+            deleted_count = await es_service.delete_document_embeddings(document_id)
+            
+            # Get stats after deletion
+            doc_stats_after = await es_service.get_document_vector_stats(document_id)
+            vectors_after = doc_stats_after.get("total_vectors", 0)
+            
+            return {
+                "success": True,
+                "message": f"Doküman {document_id} Elasticsearch'ten silindi",
+                "data": {
+                    "document_id": document_id,
+                    "vectors_before": vectors_before,
+                    "chunks_before": chunks_before,
+                    "vectors_deleted": deleted_count,
+                    "vectors_after": vectors_after,
+                    "index_name": es_service.index_name,
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
+        
+    except Exception as e:
+        logger.error(f"Doküman silme hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Doküman silme başarısız: {str(e)}"
+        }
+
+@router.post("/elasticsearch/clear-documents")
+async def clear_multiple_documents_from_elasticsearch(
+    document_ids: List[str],
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Birden fazla dökümanın vektör verilerini Elasticsearch'ten sil (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} {len(document_ids)} doküman Elasticsearch'ten siliniyor")
+        
+        from services.elasticsearch_service import ElasticsearchService
+        
+        deletion_results = []
+        total_deleted = 0
+        
+        async with ElasticsearchService() as es_service:
+            for document_id in document_ids:
+                try:
+                    # Get stats before deletion
+                    doc_stats = await es_service.get_document_vector_stats(document_id)
+                    vectors_before = doc_stats.get("total_vectors", 0)
+                    
+                    # Delete document embeddings
+                    deleted_count = await es_service.delete_document_embeddings(document_id)
+                    total_deleted += deleted_count
+                    
+                    deletion_results.append({
+                        "document_id": document_id,
+                        "vectors_deleted": deleted_count,
+                        "vectors_before": vectors_before,
+                        "status": "success"
+                    })
+                    
+                except Exception as doc_error:
+                    deletion_results.append({
+                        "document_id": document_id,
+                        "vectors_deleted": 0,
+                        "vectors_before": 0,
+                        "status": "error",
+                        "error": str(doc_error)
+                    })
+            
+            return {
+                "success": True,
+                "message": f"{len(document_ids)} doküman işlendi, toplam {total_deleted} vektör silindi",
+                "data": {
+                    "total_documents": len(document_ids),
+                    "total_vectors_deleted": total_deleted,
+                    "results": deletion_results,
+                    "index_name": es_service.index_name,
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
+        
+    except Exception as e:
+        logger.error(f"Çoklu doküman silme hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Çoklu doküman silme başarısız: {str(e)}"
+        }
+
 @router.get("/system/status")
 async def get_system_status(
     current_user: UserResponse = Depends(get_admin_user)
