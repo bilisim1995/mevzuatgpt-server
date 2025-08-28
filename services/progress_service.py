@@ -183,5 +183,37 @@ class ProgressService:
             logger.error(f"Failed to clear all active tasks: {e}")
             return 0
 
+    async def complete_task_progress(self, task_id: str) -> bool:
+        """
+        Complete and clean up task progress when processing finishes successfully
+        
+        Args:
+            task_id: Celery task ID
+            
+        Returns:
+            True if progress was cleaned up successfully
+        """
+        try:
+            progress_key = f"{self.progress_key_prefix}{task_id}"
+            
+            # Task'ı tamamlandı olarak işaretle ve kısa süre sonra silinmesini sağla
+            async with RedisService() as client:
+                await client.setex(
+                    progress_key,
+                    60,  # 1 dakika sonra otomatik silinecek
+                    json.dumps({
+                        "status": "completed",
+                        "completed_at": datetime.utcnow().isoformat(),
+                        "percentage": 100
+                    })
+                )
+            
+            logger.info(f"Task progress marked as completed and will auto-expire: {task_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to complete task progress {task_id}: {e}")
+            return False
+
 # Global instance
 progress_service = ProgressService()

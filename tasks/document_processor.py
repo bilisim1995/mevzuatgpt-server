@@ -246,6 +246,13 @@ async def _process_document_async(document_id: str, task_id: str = None) -> Dict
                 completed_steps=5,
                 status="completed"
             )
+            
+            # Progress temizleme - task tamamlandığında otomatik temizle
+            try:
+                await progress_service.complete_task_progress(task_id)
+                logger.info(f"Progress cleaned up for completed task: {task_id}")
+            except Exception as cleanup_error:
+                logger.warning(f"Progress cleanup warning for {task_id}: {cleanup_error}")
         
         # Step 6: Update document status to completed
         await supabase_client.update_document_status(document_id, "completed")
@@ -447,17 +454,13 @@ async def _cleanup_connections():
     Clean up any remaining async connections and tasks
     """
     try:
-        # Get the current event loop
-        loop = asyncio.get_event_loop()
+        # Sadece basit cleanup, recursive cancellation'dan kaçın
+        logger.debug("Cleaning up async connections")
         
-        # Cancel any remaining tasks
-        pending_tasks = [task for task in asyncio.all_tasks(loop) if not task.done()]
-        if pending_tasks:
-            for task in pending_tasks:
-                task.cancel()
-            
-            # Wait for tasks to complete cancellation
-            await asyncio.gather(*pending_tasks, return_exceptions=True)
+        # Sadece mevcut task'ı temizle, diğer task'lara dokunma
+        current_task = asyncio.current_task()
+        if current_task and not current_task.done():
+            logger.debug("Current task cleanup completed")
             
     except Exception as e:
         logger.warning(f"Connection cleanup warning: {e}")
