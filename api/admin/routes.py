@@ -3240,33 +3240,49 @@ async def get_redis_connections(
             
             # Connection pool detayları
             try:
+                logger.info("Getting connection pool info...")
                 connection_info["pool_info"] = {
                     "created_connections": getattr(connection_pool, "_created_connections", "N/A"),
                     "max_connections": getattr(connection_pool, "max_connections", "N/A"),
                     "available_connections": len(getattr(connection_pool, "_available_connections", []))
                 }
-            except Exception:
+                logger.info(f"Pool info: {connection_info['pool_info']}")
+            except Exception as pool_error:
+                logger.error(f"Pool info error: {pool_error}")
                 connection_info["pool_info"] = {
                     "error": "Connection pool bilgileri alınamadı"
                 }
             
             # Celery ile ilgili key'leri say
-            celery_tasks = asyncio.create_task(redis_service.get_keys_pattern("celery-task-meta-*"))
-            celery_keys = await asyncio.wait_for(celery_tasks, timeout=3.0)
-            
-            kombu_tasks = asyncio.create_task(redis_service.get_keys_pattern("_kombu.*"))
-            kombu_keys = await asyncio.wait_for(kombu_tasks, timeout=3.0)
-            
-            progress_tasks = asyncio.create_task(redis_service.get_keys_pattern("task_progress:*"))
-            progress_keys = await asyncio.wait_for(progress_tasks, timeout=3.0)
-            
-            connection_info["application_keys"] = {
-                "celery_task_keys": len(celery_keys) if celery_keys else 0,
-                "kombu_keys": len(kombu_keys) if kombu_keys else 0,
-                "progress_keys": len(progress_keys) if progress_keys else 0
-            }
+            try:
+                logger.info("Getting Celery keys...")
+                celery_tasks = asyncio.create_task(redis_service.get_keys_pattern("celery-task-meta-*"))
+                celery_keys = await asyncio.wait_for(celery_tasks, timeout=3.0)
+                
+                logger.info("Getting Kombu keys...")
+                kombu_tasks = asyncio.create_task(redis_service.get_keys_pattern("_kombu.*"))
+                kombu_keys = await asyncio.wait_for(kombu_tasks, timeout=3.0)
+                
+                logger.info("Getting progress keys...")
+                progress_tasks = asyncio.create_task(redis_service.get_keys_pattern("task_progress:*"))
+                progress_keys = await asyncio.wait_for(progress_tasks, timeout=3.0)
+                
+                connection_info["application_keys"] = {
+                    "celery_task_keys": len(celery_keys) if celery_keys else 0,
+                    "kombu_keys": len(kombu_keys) if kombu_keys else 0,
+                    "progress_keys": len(progress_keys) if progress_keys else 0
+                }
+                logger.info(f"Application keys: {connection_info['application_keys']}")
+                
+            except Exception as keys_error:
+                logger.error(f"Keys gathering error: {keys_error}")
+                connection_info["application_keys"] = {
+                    "error": str(keys_error)
+                }
             
             await redis_service._close_client()
+            logger.info(f"Final connection_info keys: {list(connection_info.keys())}")
+            logger.info(f"Connection status: {connection_info.get('connection_status', 'NOT SET')}")
             
         except Exception as redis_error:
             logger.error(f"Redis connection info error: {redis_error}")
