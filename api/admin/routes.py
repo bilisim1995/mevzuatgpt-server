@@ -2555,38 +2555,23 @@ async def get_elasticsearch_status(
                     }
                 }
                 
-                logger.info(f"ES aggregation query: {agg_query}")
-                
                 async with session.post(
                     f"{es_service.elasticsearch_url}/{es_service.index_name}/_search",
                     json=agg_query
                 ) as response:
-                    logger.info(f"ES aggregation response status: {response.status}")
                     if response.status == 200:
                         agg_data = await response.json()
-                        logger.info(f"ES aggregation raw response: {agg_data}")
                         aggs = agg_data.get("aggregations", {})
-                        logger.info(f"ES aggregations: {aggs}")
-                        
-                        institutions_buckets = aggs.get("institutions", {}).get("buckets", [])
-                        logger.info(f"Institutions buckets: {institutions_buckets}")
-                        
                         doc_breakdown = {
                             "unique_documents": aggs.get("unique_documents", {}).get("value", 0),
                             "total_chunks": agg_data.get("hits", {}).get("total", {}).get("value", 0),
                             "institutions": [
                                 {"name": bucket["key"], "chunk_count": bucket["doc_count"]}
-                                for bucket in institutions_buckets
+                                for bucket in aggs.get("institutions", {}).get("buckets", [])
                             ]
                         }
-                        logger.info(f"Final doc_breakdown: {doc_breakdown}")
-                    else:
-                        error_text = await response.text()
-                        logger.error(f"ES aggregation error response: {error_text}")
-                        doc_breakdown = {"error": f"ES returned status {response.status}: {error_text}"}
-            except Exception as es_error:
-                logger.error(f"Document breakdown error: {es_error}")
-                doc_breakdown = {"error": f"Document breakdown unavailable: {str(es_error)}"}
+            except Exception:
+                doc_breakdown = {"error": "Document breakdown unavailable"}
         
         return {
             "success": True,

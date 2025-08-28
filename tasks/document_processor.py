@@ -224,7 +224,7 @@ async def _process_document_async(document_id: str, task_id: str = None) -> Dict
                 "page_number": chunk_data.get("page_number"),
                 "line_start": chunk_data.get("line_start"),
                 "line_end": chunk_data.get("line_end"),
-                "source_institution": document.get('source_institution'),
+                "source_institution": document.get('source_institution') or document.get('institution') or 'Belirtilmemiş',
                 "source_document": document['filename'],
                 "metadata": chunk_metadata
             }
