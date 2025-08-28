@@ -65,17 +65,80 @@ class ModelInfoResponse(BaseModel):
     performance_tier: str
     best_use_cases: List[str]
 
-# Global settings storage (in production, this would be in database)
-current_groq_settings = {
-    "default_model": "llama3-70b-8192",
-    "temperature": 0.3,
-    "max_tokens": 2048,
-    "top_p": 0.9,
-    "frequency_penalty": 0.5,
-    "presence_penalty": 0.6,
-    "creativity_mode": "balanced",
-    "response_style": "detailed"
-}
+# Database functions for Groq settings
+async def get_groq_settings_from_db() -> Dict[str, Any]:
+    """Groq ayarlarını veritabanından çek"""
+    try:
+        response = supabase_client.supabase.table('groq_settings').select('setting_key, setting_value, setting_type').eq('is_active', True).execute()
+        
+        settings = {}
+        for row in response.data:
+            key = row['setting_key']
+            value = row['setting_value']
+            value_type = row['setting_type']
+            
+            # Type conversion
+            if value_type == 'number':
+                settings[key] = float(value) if '.' in value else int(value)
+            elif value_type == 'boolean':
+                settings[key] = value.lower() in ('true', '1', 'yes')
+            elif value_type == 'json':
+                import json
+                settings[key] = json.loads(value)
+            else:
+                settings[key] = value
+                
+        # Fallback to defaults if database is empty
+        if not settings:
+            settings = {
+                "default_model": "llama3-70b-8192",
+                "temperature": 0.3,
+                "max_tokens": 2048,
+                "top_p": 0.9,
+                "frequency_penalty": 0.5,
+                "presence_penalty": 0.6,
+                "creativity_mode": "balanced",
+                "response_style": "detailed"
+            }
+            
+        return settings
+        
+    except Exception as e:
+        logger.error(f"Database settings fetch error: {e}")
+        # Return defaults on error
+        return {
+            "default_model": "llama3-70b-8192",
+            "temperature": 0.3,
+            "max_tokens": 2048,
+            "top_p": 0.9,
+            "frequency_penalty": 0.5,
+            "presence_penalty": 0.6,
+            "creativity_mode": "balanced",
+            "response_style": "detailed"
+        }
+
+async def update_groq_setting_in_db(key: str, value: Any, value_type: str = "string") -> bool:
+    """Tek bir Groq ayarını veritabanında güncelle"""
+    try:
+        # Convert value to string for storage
+        if value_type == 'json':
+            import json
+            str_value = json.dumps(value)
+        else:
+            str_value = str(value)
+            
+        response = supabase_client.supabase.table('groq_settings').upsert({
+            'setting_key': key,
+            'setting_value': str_value,
+            'setting_type': value_type,
+            'is_active': True
+        }).execute()
+        
+        return len(response.data) > 0
+        
+    except Exception as e:
+        logger.error(f"Database setting update error for {key}: {e}")
+        return False
 
 # Creativity presets
 creativity_presets = {
@@ -124,25 +187,27 @@ async def get_groq_settings(
         Mevcut Groq konfigürasyon ayarları
     """
     try:
+        # Get settings from database
+        current_settings = await get_groq_settings_from_db()
         groq_service = GroqService()
         available_models = groq_service.get_available_models()
         
         settings_response = GroqSettingsResponse(
-            default_model=current_groq_settings["default_model"],
-            temperature=current_groq_settings["temperature"],
-            max_tokens=current_groq_settings["max_tokens"],
-            top_p=current_groq_settings["top_p"],
-            frequency_penalty=current_groq_settings["frequency_penalty"],
-            presence_penalty=current_groq_settings["presence_penalty"],
+            default_model=current_settings["default_model"],
+            temperature=current_settings["temperature"],
+            max_tokens=current_settings["max_tokens"],
+            top_p=current_settings["top_p"],
+            frequency_penalty=current_settings["frequency_penalty"],
+            presence_penalty=current_settings["presence_penalty"],
             available_models=available_models,
-            creativity_mode=current_groq_settings["creativity_mode"],
-            response_style=current_groq_settings["response_style"]
+            creativity_mode=current_settings["creativity_mode"],
+            response_style=current_settings["response_style"]
         )
         
         # Debug logging
-        logger.info(f"Admin {current_user['email']} retrieved Groq settings. Default model: {current_groq_settings['default_model']}")
+        logger.info(f"Admin {current_user['email']} retrieved Groq settings from database. Default model: {current_settings['default_model']}")
         logger.info(f"Available models: {available_models}")
-        logger.info(f"All settings: {current_groq_settings}")
+        logger.info(f"All settings: {current_settings}")
         
         return {
             "current_settings": settings_response.model_dump()
@@ -196,44 +261,57 @@ async def update_groq_settings(
                 detail=f"Geçersiz cevap stili: {request.response_style}. Kullanılabilir stiller: {', '.join(valid_styles)}"
             )
         
-        # Update settings
-        previous_settings = current_groq_settings.copy()
+        # Get current settings from database
+        current_settings = await get_groq_settings_from_db()
+        previous_settings = current_settings.copy()
         updated_fields = []
         
-        for field, value in request.dict(exclude_unset=True).items():
+        # Update individual fields in database
+        for field, value in request.model_dump(exclude_unset=True).items():
             if value is not None:
-                current_groq_settings[field] = value
-                updated_fields.append(field)
+                # Determine value type for database storage
+                value_type = "string"
+                if isinstance(value, (int, float)):
+                    value_type = "number"
+                elif isinstance(value, bool):
+                    value_type = "boolean"
+                
+                # Update in database
+                success = await update_groq_setting_in_db(field, value, value_type)
+                if success:
+                    current_settings[field] = value
+                    updated_fields.append(field)
+                else:
+                    logger.error(f"Failed to update {field} in database")
         
         # Apply creativity preset if mode was changed
         if request.creativity_mode and request.creativity_mode in creativity_presets:
             preset = creativity_presets[request.creativity_mode]
-            current_groq_settings.update({
+            preset_updates = {
                 "temperature": preset.temperature,
                 "top_p": preset.top_p,
                 "frequency_penalty": preset.frequency_penalty,
                 "presence_penalty": preset.presence_penalty
-            })
-            updated_fields.extend(["temperature", "top_p", "frequency_penalty", "presence_penalty"])
+            }
+            
+            for field, value in preset_updates.items():
+                success = await update_groq_setting_in_db(field, value, "number")
+                if success:
+                    current_settings[field] = value
+                    if field not in updated_fields:
+                        updated_fields.append(field)
         
         # Log the change
-        change_log = {
-            "admin_user": current_user['email'],
-            "timestamp": datetime.utcnow().isoformat(),
-            "updated_fields": updated_fields,
-            "previous_settings": previous_settings,
-            "new_settings": current_groq_settings.copy()
-        }
-        
-        logger.info(f"Admin {current_user['email']} updated Groq settings: {updated_fields}")
+        logger.info(f"Admin {current_user['email']} updated Groq settings in database: {updated_fields}")
         
         return {
             "success": True,
-            "message": f"Groq ayarları başarıyla güncellendi. Güncellenen alanlar: {', '.join(updated_fields)}",
+            "message": f"Groq ayarları veritabanında başarıyla güncellendi. Güncellenen alanlar: {', '.join(updated_fields)}",
             "data": {
                 "updated_fields": updated_fields,
-                "current_settings": current_groq_settings,
-                "change_log": change_log
+                "previous_settings": previous_settings,
+                "current_settings": current_settings,
+                "timestamp": datetime.utcnow().isoformat()
             }
         }
         
@@ -376,13 +454,15 @@ async def get_available_models(
         }
         
         logger.info(f"Admin {current_user['email']} retrieved available models")
-        logger.info(f"Current default model in models endpoint: {current_groq_settings['default_model']}")
+        # Get current settings from database
+        current_settings = await get_groq_settings_from_db()
+        logger.info(f"Current default model in models endpoint: {current_settings['default_model']}")
         logger.info(f"Available models count: {len(available_model_info)}")
         
         return {
             "models": list(available_model_info.values()),
             "total_count": len(available_model_info),
-            "current_default": current_groq_settings["default_model"]
+            "current_default": current_settings["default_model"]
         }
         
     except Exception as e:
@@ -415,13 +495,16 @@ async def test_groq_settings(
         # Test with current settings
         test_context = "Bu bir admin test mesajıdır. Groq yapılandırma ayarları test ediliyor."
         
+        # Get current settings from database
+        current_settings = await get_groq_settings_from_db()
+        
         if use_current_settings:
             response = await groq_service.generate_response(
                 query=test_query,
                 context=test_context,
-                model=current_groq_settings["default_model"],
-                max_tokens=current_groq_settings["max_tokens"],
-                temperature=current_groq_settings["temperature"]
+                model=current_settings["default_model"],
+                max_tokens=current_settings["max_tokens"],
+                temperature=current_settings["temperature"]
             )
         else:
             # Use default settings for comparison
@@ -437,7 +520,7 @@ async def test_groq_settings(
             "message": "Groq ayarları test edildi",
             "data": {
                 "test_query": test_query,
-                "settings_used": current_groq_settings if use_current_settings else "default",
+                "settings_used": current_settings if use_current_settings else "default",
                 "response_preview": response.get("response", "")[:200] + "..." if len(response.get("response", "")) > 200 else response.get("response", ""),
                 "response_length": len(response.get("response", "")),
                 "model_used": response.get("model_used"),
@@ -478,11 +561,14 @@ async def get_groq_status(
         
         response_time = (end_time - start_time).total_seconds() * 1000  # ms
         
+        # Get current settings from database
+        current_settings = await get_groq_settings_from_db()
+        
         status_info = {
             "service_status": "healthy" if health_response else "unhealthy",
             "response_time_ms": round(response_time, 2),
             "available_models": groq_service.get_available_models(),
-            "current_settings": current_groq_settings,
+            "current_settings": current_settings,
             "last_check": datetime.utcnow().isoformat()
         }
         
@@ -518,11 +604,11 @@ async def reset_groq_settings(
         Sıfırlama işlem sonucu
     """
     try:
-        global current_groq_settings
-        previous_settings = current_groq_settings.copy()
+        # Get current settings before reset
+        previous_settings = await get_groq_settings_from_db()
         
-        # Reset to default settings
-        current_groq_settings = {
+        # Default settings to reset to
+        default_settings = {
             "default_model": "llama3-70b-8192",
             "temperature": 0.3,
             "max_tokens": 2048,
@@ -533,14 +619,19 @@ async def reset_groq_settings(
             "response_style": "detailed"
         }
         
-        logger.info(f"Admin {current_user['email']} reset Groq settings to default")
+        # Update each setting in database
+        for key, value in default_settings.items():
+            value_type = "number" if isinstance(value, (int, float)) else "string"
+            await update_groq_setting_in_db(key, value, value_type)
+        
+        logger.info(f"Admin {current_user['email']} reset Groq settings to default in database")
         
         return {
             "success": True,
-            "message": "Groq ayarları varsayılan değerlere sıfırlandı",
+            "message": "Groq ayarları veritabanında varsayılan değerlere sıfırlandı",
             "data": {
                 "previous_settings": previous_settings,
-                "current_settings": current_groq_settings,
+                "current_settings": default_settings,
                 "reset_timestamp": datetime.utcnow().isoformat()
             }
         }
