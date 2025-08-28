@@ -145,7 +145,7 @@ async def get_groq_settings(
         logger.info(f"All settings: {current_groq_settings}")
         
         return {
-            "current_settings": settings_response.dict()
+            "current_settings": settings_response.model_dump()
         }
         
     except Exception as e:
