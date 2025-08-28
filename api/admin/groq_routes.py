@@ -577,20 +577,17 @@ async def get_groq_status(
         
         logger.info(f"Admin {current_user['email']} checked Groq status")
         
-        return {
-            "success": True,
-            "data": status_info
-        }
+        return status_info
         
     except Exception as e:
         logger.error(f"Error checking Groq status: {e}")
         return {
-            "success": False,
-            "data": {
-                "service_status": "error",
-                "error_message": str(e),
-                "last_check": datetime.utcnow().isoformat()
-            }
+            "service_status": "error",
+            "response_time_ms": 0,
+            "available_models": [],
+            "current_settings": {},
+            "error_message": str(e),
+            "last_check": datetime.utcnow().isoformat()
         }
 
 @router.post("/reset-settings", response_model=Dict[str, Any])
