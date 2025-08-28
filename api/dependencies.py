@@ -53,7 +53,12 @@ async def get_current_user(
             )
         
         user_data = auth_data["user"]
-        # Convert dict to UserResponse model
+        
+        # If it's already a UserResponse object, return it directly
+        if isinstance(user_data, UserResponse):
+            return user_data
+        
+        # If it's a dict, convert to UserResponse model
         return UserResponse(**user_data)
         
     except HTTPException:
