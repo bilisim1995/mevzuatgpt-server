@@ -971,8 +971,8 @@ async def get_document_details(
                 "processing_metrics": {
                     "embeddings_created": embedding_count,
                     "processing_status": document.get('processing_status'),
-                    "has_vectors": vector_stats.get("total_vectors", 0) > 0,
-                    "vectorization_complete": vector_stats.get("total_vectors", 0) > 0 and document.get('processing_status') == 'completed'
+                    "has_vectors": vector_stats.get("total_vectors", embedding_count) > 0,
+                    "vectorization_complete": vector_stats.get("total_vectors", embedding_count) > 0 and document.get('processing_status') == 'completed'
                 },
                 "metadata": {
                     "document_id": document['id'],
