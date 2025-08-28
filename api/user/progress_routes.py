@@ -29,7 +29,7 @@ async def get_task_progress(
         Task progress information with percentage and current step
     """
     try:
-        logger.info(f"Getting progress for task {task_id} for user {current_user.get('id')}")
+        logger.info(f"Getting progress for task {task_id} for user {current_user.id}")
         
         # Get progress data from Redis
         progress_data = await progress_service.get_task_progress(task_id)
@@ -76,7 +76,7 @@ async def clear_task_progress(
         Success confirmation
     """
     try:
-        logger.info(f"Clearing progress for task {task_id} for user {current_user.get('id')}")
+        logger.info(f"Clearing progress for task {task_id} for user {current_user.id}")
         
         # Delete progress data from Redis
         client = await progress_service.redis_service.get_redis_client()
@@ -113,7 +113,7 @@ async def get_user_active_tasks(
         List of active task progress data
     """
     try:
-        user_id = current_user.get('id')
+        user_id = current_user.id
         logger.info(f"Getting active tasks for user {user_id}")
         
         # Get all progress keys from Redis
