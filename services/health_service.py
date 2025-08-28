@@ -23,7 +23,7 @@ settings = get_settings()
 class HealthService:
     def __init__(self, db: AsyncSession = None):
         self.db = db
-        self.elasticsearch_service = ElasticsearchService()
+        # Remove persistent elasticsearch_service instance
         
     async def get_comprehensive_health(self) -> Dict[str, Any]:
         """
@@ -148,7 +148,8 @@ class HealthService:
     async def _check_elasticsearch_health(self) -> Dict[str, Any]:
         """Check Elasticsearch health"""
         try:
-            health_data = await self.elasticsearch_service.health_check()
+            async with ElasticsearchService() as es_service:
+                health_data = await es_service.health_check()
             
             if health_data.get("health") == "ok":
                 return {

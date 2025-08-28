@@ -172,50 +172,52 @@ class EmbeddingService:
             AppException: If storage fails
         """
         try:
-            # Delete existing embeddings for this document
-            await self.delete_embeddings_by_document(document_id)
-            
-            # Prepare embeddings data for Elasticsearch bulk insert
-            embeddings_data = []
-            for i, chunk in enumerate(chunks):
-                # Ensure embedding is a list of floats
-                embedding_vector = chunk["embedding"]
-                if isinstance(embedding_vector, str):
-                    import json
-                    try:
-                        embedding_vector = json.loads(embedding_vector)
-                    except:
-                        logger.error(f"Failed to parse embedding string for chunk {i}")
-                        raise AppException("Invalid embedding format")
+            # Use context manager to ensure session cleanup
+            async with ElasticsearchService() as es_service:
+                # Delete existing embeddings for this document
+                await es_service.delete_document_embeddings(document_id)
                 
-                # Verify 2048 dimensions
-                if len(embedding_vector) != self.settings.OPENAI_EMBEDDING_DIMENSIONS:
-                    raise AppException(
-                        message=f"Invalid embedding dimensions for chunk {i}: {len(embedding_vector)}, expected: {self.settings.OPENAI_EMBEDDING_DIMENSIONS}",
-                        error_code="INVALID_EMBEDDING_DIMENSIONS"
-                    )
+                # Prepare embeddings data for Elasticsearch bulk insert
+                embeddings_data = []
+                for i, chunk in enumerate(chunks):
+                    # Ensure embedding is a list of floats
+                    embedding_vector = chunk["embedding"]
+                    if isinstance(embedding_vector, str):
+                        import json
+                        try:
+                            embedding_vector = json.loads(embedding_vector)
+                        except:
+                            logger.error(f"Failed to parse embedding string for chunk {i}")
+                            raise AppException("Invalid embedding format")
+                    
+                    # Verify 2048 dimensions
+                    if len(embedding_vector) != self.settings.OPENAI_EMBEDDING_DIMENSIONS:
+                        raise AppException(
+                            message=f"Invalid embedding dimensions for chunk {i}: {len(embedding_vector)}, expected: {self.settings.OPENAI_EMBEDDING_DIMENSIONS}",
+                            error_code="INVALID_EMBEDDING_DIMENSIONS"
+                        )
+                    
+                    # Prepare Elasticsearch document
+                    embedding_data = {
+                        "document_id": document_id,
+                        "content": chunk["content"],
+                        "embedding": embedding_vector,
+                        "chunk_index": i,
+                        "page_number": chunk.get("page_number"),
+                        "line_start": chunk.get("line_start"),
+                        "line_end": chunk.get("line_end"),
+                        "source_institution": chunk.get("source_institution"),
+                        "source_document": chunk.get("source_document"),
+                        "metadata": chunk.get("metadata", {})
+                    }
+                    embeddings_data.append(embedding_data)
                 
-                # Prepare Elasticsearch document
-                embedding_data = {
-                    "document_id": document_id,
-                    "content": chunk["content"],
-                    "embedding": embedding_vector,
-                    "chunk_index": i,
-                    "page_number": chunk.get("page_number"),
-                    "line_start": chunk.get("line_start"),
-                    "line_end": chunk.get("line_end"),
-                    "source_institution": chunk.get("source_institution"),
-                    "source_document": chunk.get("source_document"),
-                    "metadata": chunk.get("metadata", {})
-                }
-                embeddings_data.append(embedding_data)
-            
-            # Bulk insert to Elasticsearch
-            embedding_ids = await self.elasticsearch_service.bulk_create_embeddings(embeddings_data)
-            
-            logger.info(f"Stored {len(embedding_ids)} embeddings in Elasticsearch for document {document_id}")
-            
-            return embedding_ids
+                # Bulk insert to Elasticsearch
+                embedding_ids = await es_service.bulk_create_embeddings(embeddings_data)
+                
+                logger.info(f"Stored {len(embedding_ids)} embeddings in Elasticsearch for document {document_id}")
+                
+                return embedding_ids
             
         except Exception as e:
             logger.error(f"Failed to store embeddings for document {document_id}: {str(e)}")
@@ -236,10 +238,11 @@ class EmbeddingService:
             True if deletion successful
         """
         try:
-            deleted_count = await self.elasticsearch_service.delete_document_embeddings(document_id)
-            logger.info(f"Deleted {deleted_count} embeddings from Elasticsearch for document {document_id}")
-            return True
-            
+            async with ElasticsearchService() as es_service:
+                deleted_count = await es_service.delete_document_embeddings(document_id)
+                logger.info(f"Deleted {deleted_count} embeddings from Elasticsearch for document {document_id}")
+                return True
+                
         except Exception as e:
             logger.error(f"Failed to delete embeddings for document {document_id}: {str(e)}")
             return False
@@ -269,14 +272,15 @@ class EmbeddingService:
             # Generate embedding for query text
             query_embedding = await self.generate_embedding(query_text)
             
-            # Perform similarity search in Elasticsearch
-            results = await self.elasticsearch_service.similarity_search(
-                query_vector=query_embedding,
-                k=k,
-                institution_filter=institution_filter,
-                document_ids=document_ids,
-                similarity_threshold=similarity_threshold
-            )
+            # Perform similarity search in Elasticsearch using context manager
+            async with ElasticsearchService() as es_service:
+                results = await es_service.similarity_search(
+                    query_vector=query_embedding,
+                    k=k,
+                    institution_filter=institution_filter,
+                    document_ids=document_ids,
+                    similarity_threshold=similarity_threshold
+                )
             
             logger.info(f"Similarity search found {len(results)} results for query: {query_text[:50]}...")
             
@@ -315,15 +319,16 @@ class EmbeddingService:
             # Generate embedding for query text
             query_embedding = await self.generate_embedding(query_text)
             
-            # Perform hybrid search in Elasticsearch
-            results = await self.elasticsearch_service.hybrid_search(
-                query_vector=query_embedding,
-                query_text=query_text,
-                k=k,
-                institution_filter=institution_filter,
-                vector_boost=vector_boost,
-                text_boost=text_boost
-            )
+            # Perform hybrid search in Elasticsearch using context manager
+            async with ElasticsearchService() as es_service:
+                results = await es_service.hybrid_search(
+                    query_vector=query_embedding,
+                    query_text=query_text,
+                    k=k,
+                    institution_filter=institution_filter,
+                    vector_boost=vector_boost,
+                    text_boost=text_boost
+                )
             
             logger.info(f"Hybrid search found {len(results)} results for query: {query_text[:50]}...")
             
@@ -348,8 +353,9 @@ class EmbeddingService:
             Number of embeddings
         """
         try:
-            count = await self.elasticsearch_service.get_embeddings_count(document_id)
-            return count
+            async with ElasticsearchService() as es_service:
+                count = await es_service.get_embeddings_count(document_id)
+                return count
             
         except Exception as e:
             logger.error(f"Failed to get embeddings count: {str(e)}")

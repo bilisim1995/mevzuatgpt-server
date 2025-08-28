@@ -158,8 +158,8 @@ async def elasticsearch_health(
     try:
         from services.elasticsearch_service import ElasticsearchService
         
-        elasticsearch_service = ElasticsearchService()
-        health_data = await elasticsearch_service.health_check()
+        async with ElasticsearchService() as elasticsearch_service:
+            health_data = await elasticsearch_service.health_check()
         
         return {
             "success": True,
@@ -657,10 +657,10 @@ async def dashboard_statistics(
         es_status = "healthy"
         try:
             from services.elasticsearch_service import ElasticsearchService
-            es_service = ElasticsearchService()
-            health_data = await es_service.health_check()
-            if health_data.get("health") != "ok":
-                es_status = "warning"
+            async with ElasticsearchService() as es_service:
+                health_data = await es_service.health_check()
+                if health_data.get("health") != "ok":
+                    es_status = "warning"
         except Exception:
             es_status = "error"
             
@@ -899,7 +899,6 @@ async def get_document_details(
         from services.elasticsearch_service import ElasticsearchService
         
         embedding_service = EmbeddingService()
-        es_service = ElasticsearchService()
         
         # Get embedding count and additional vector info
         embedding_count = await embedding_service.get_embeddings_count(document_id)
@@ -1010,10 +1009,9 @@ async def delete_document(
         # Step 3: Delete embeddings from Elasticsearch
         logger.info(f"Deleting {embedding_count_before} embeddings from Elasticsearch for document: {document_id}")
         from services.elasticsearch_service import ElasticsearchService
-        es_service = ElasticsearchService()
-        es_deleted_count = await es_service.delete_document_embeddings(document_id)
-        logger.info(f"Deleted {es_deleted_count} embeddings from Elasticsearch")
-        await es_service.close_session()
+        async with ElasticsearchService() as es_service:
+            es_deleted_count = await es_service.delete_document_embeddings(document_id)
+            logger.info(f"Deleted {es_deleted_count} embeddings from Elasticsearch")
         
         # Step 4: Delete physical file from Bunny.net
         physical_deleted = False
