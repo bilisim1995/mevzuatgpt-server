@@ -118,14 +118,23 @@ async def _process_document_async(document_id: str, task_id: str = None) -> Dict
                 error_code="DOCUMENT_NOT_FOUND"
             )
         
-        # Initialize progress tracking
+        # Skip progress initialization if already done by upload endpoint
+        # Progress is now initialized immediately after task creation
         if task_id:
-            await progress_service.initialize_task_progress(
-                task_id=task_id,
-                document_id=document_id,
-                document_title=document.get('document_title', document.get('filename', 'Unknown')),
-                total_steps=5  # download, extract, chunk, embed, store
-            )
+            try:
+                # Check if progress already exists
+                existing_progress = await progress_service.get_task_progress(task_id)
+                if not existing_progress:
+                    await progress_service.initialize_task_progress(
+                        task_id=task_id,
+                        document_id=document_id,
+                        document_title=document.get('document_title', document.get('filename', 'Unknown')),
+                        total_steps=5  # download, extract, chunk, embed, store
+                    )
+                else:
+                    logger.info(f"Progress tracking already initialized for task {task_id}")
+            except Exception as progress_error:
+                logger.warning(f"Progress tracking error: {progress_error}")
         
         # Update status to processing
         await supabase_client.update_document_status(document_id, "processing")
