@@ -30,23 +30,47 @@ class GroqService:
         
         logger.info("Groq service initialized successfully")
     
+    def get_current_settings(self) -> Dict[str, Any]:
+        """
+        Get current Groq settings from admin configuration
+        
+        Returns:
+            Current Groq settings dictionary
+        """
+        try:
+            # Import here to avoid circular imports
+            from api.admin.groq_routes import current_groq_settings
+            return current_groq_settings.copy()
+        except ImportError:
+            logger.warning("Admin Groq settings not available, using defaults")
+            return {
+                "default_model": self.default_model,
+                "temperature": 0.3,
+                "max_tokens": 2048,
+                "top_p": 0.9,
+                "frequency_penalty": 0.5,
+                "presence_penalty": 0.6,
+                "creativity_mode": "balanced",
+                "response_style": "detailed"
+            }
+    
     async def generate_response(
         self,
         query: str,
         context: str,
         model: Optional[str] = None,
-        max_tokens: int = 2048,
-        temperature: float = 0.3
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None
     ) -> Dict[str, Any]:
         """
-        Generate AI response using Groq
+        Generate AI response using Groq with dynamic admin settings
         
         Args:
             query: User's question/query
             context: Relevant document context
-            model: Model to use (default: llama3-8b-8192)
-            max_tokens: Maximum tokens in response
-            temperature: Response creativity (0.1 for factual responses)
+            model: Model to use (if not specified, uses admin settings)
+            max_tokens: Maximum tokens in response (if not specified, uses admin settings)
+            temperature: Response creativity (if not specified, uses admin settings)
             
         Returns:
             Dict with response, metadata, and performance metrics
@@ -54,37 +78,61 @@ class GroqService:
         start_time = time.time()
         
         try:
-            # Use specified model or default
-            model_name = model or self.default_model
+            # Get current admin settings
+            current_settings = self.get_current_settings()
+            
+            # Use specified parameters or fall back to admin settings
+            model_name = model or current_settings.get("default_model", self.default_model)
+            max_tokens_final = max_tokens or current_settings.get("max_tokens", 2048)
+            temperature_final = temperature if temperature is not None else current_settings.get("temperature", 0.3)
+            top_p = current_settings.get("top_p", 0.9)
+            frequency_penalty = current_settings.get("frequency_penalty", 0.5)
+            presence_penalty = current_settings.get("presence_penalty", 0.6)
             
             # Get dynamic system message from database
             system_message = await prompt_service.get_system_prompt("groq_legal")
+            
+            # Construct user message based on response style
+            response_style = current_settings.get("response_style", "detailed")
+            creativity_mode = current_settings.get("creativity_mode", "balanced")
+            
+            # Adjust user prompt based on response style
+            style_instructions = {
+                "concise": "Kısa ve öz bir cevap ver. Ana noktaları özetleyerek maksimum 100-150 kelimelik açıklama yap.",
+                "detailed": "Bu soruyu kapsamlı, detaylı ve analitik şekilde cevapla. Sadece kısa cevap verme - konuyu derinlemesine açıkla, belgedeki ilgili tüm bilgileri kullan ve hukuki terimleri anlaşılır şekilde açıkla. En az 200-300 kelimelik detaylı analiz yap.",
+                "analytical": "Bu soruyu analitik bir yaklaşımla cevapla. Konuyu sistematik olarak incele, farklı boyutlarını ele al ve hukuki çerçevede değerlendir. Sebep-sonuç ilişkilerini açıkla.",
+                "conversational": "Bu soruyu sohbet tarzında, anlaşılır ve samimi bir dille cevapla. Karmaşık terimleri basit örneklerle açıkla ve kullanıcıyla diyalog kuruyormuş gibi yaz."
+            }
+            
+            style_instruction = style_instructions.get(response_style, style_instructions["detailed"])
             
             # Construct user message with context
             if not context or context.strip() == "":
                 user_message = f"""BELGE İÇERİĞİ: [BOŞ]
 
-SORU: {query}"""
+SORU: {query}
+
+{style_instruction}"""
             else:
                 user_message = f"""BELGE İÇERİĞİ:
 {context}
 
 SORU: {query}
 
-Bu soruyu kapsamlı, detaylı ve analitik şekilde cevapla. Sadece kısa cevap verme - konuyu derinlemesine açıkla, belgedeki ilgili tüm bilgileri kullan ve hukuki terimleri anlaşılır şekilde açıkla. En az 200-300 kelimelik detaylı analiz yap."""
+{style_instruction}"""
             
-            # Call Groq API with optimized parameters for detailed responses
+            # Call Groq API with dynamic admin settings
             response = self.client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": user_message}
                 ],
-                max_tokens=max_tokens,
-                temperature=temperature,
-                top_p=0.9,  # Increased for more creativity
-                frequency_penalty=0.5,  # Moderate repetition penalty
-                presence_penalty=0.6,   # Strong encouragement for new topics
+                max_tokens=max_tokens_final,
+                temperature=temperature_final,
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
                 stream=False
             )
             
@@ -100,7 +148,7 @@ Bu soruyu kapsamlı, detaylı ve analitik şekilde cevapla. Sadece kısa cevap v
             # Calculate confidence based on response characteristics
             confidence_score = self._calculate_confidence(ai_response, context)
             
-            logger.info(f"Groq response generated in {processing_time}s (model: {model_name})")
+            logger.info(f"Groq response generated in {processing_time}s (model: {model_name}, style: {response_style}, creativity: {creativity_mode})")
             
             return {
                 "answer": ai_response,  # Match expected field name
@@ -109,12 +157,22 @@ Bu soruyu kapsamlı, detaylı ve analitik şekilde cevapla. Sadece kısa cevap v
                 "processing_time": processing_time,
                 "generation_time_ms": int(processing_time * 1000),  # Add missing field
                 "confidence_score": confidence_score,
-                "prompt_tokens": response.usage.prompt_tokens,
-                "response_tokens": response.usage.completion_tokens,
+                "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
+                "response_tokens": response.usage.completion_tokens if response.usage else 0,
                 "token_usage": {
-                    "completion_tokens": response.usage.completion_tokens,
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "total_tokens": response.usage.total_tokens
+                    "completion_tokens": response.usage.completion_tokens if response.usage else 0,
+                    "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
+                    "total_tokens": response.usage.total_tokens if response.usage else 0
+                },
+                "settings_used": {
+                    "model": model_name,
+                    "temperature": temperature_final,
+                    "max_tokens": max_tokens_final,
+                    "top_p": top_p,
+                    "frequency_penalty": frequency_penalty,
+                    "presence_penalty": presence_penalty,
+                    "response_style": response_style,
+                    "creativity_mode": creativity_mode
                 }
             }
             
@@ -246,7 +304,7 @@ Bu soruyu kapsamlı, detaylı ve analitik şekilde cevapla. Sadece kısa cevap v
             return {
                 "status": "healthy",
                 "default_model": self.default_model,
-                "test_tokens": test_response.usage.total_tokens,
+                "test_tokens": test_response.usage.total_tokens if test_response.usage else 0,
                 "available": True
             }
             
