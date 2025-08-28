@@ -116,16 +116,42 @@ async def get_user_active_tasks(
         user_id = current_user.get('id')
         logger.info(f"Getting active tasks for user {user_id}")
         
-        # This is a simplified implementation
-        # In a full implementation, you'd track user-task relationships
+        # Get all progress keys from Redis
+        client = await progress_service.redis_service.get_redis_client()
+        keys = await client.keys(f"{progress_service.progress_key_prefix}*")
+        
+        active_tasks = []
+        
+        for key in keys:
+            try:
+                data = await client.get(key)
+                if data:
+                    import json
+                    progress_data = json.loads(data)
+                    
+                    # Only include processing/pending tasks
+                    if progress_data.get('status') in ['pending', 'processing']:
+                        active_tasks.append({
+                            "task_id": progress_data.get('task_id'),
+                            "document_title": progress_data.get('document_title'),
+                            "status": progress_data.get('status'),
+                            "progress_percent": progress_data.get('progress_percent', 0),
+                            "current_step": progress_data.get('current_step'),
+                            "stage": progress_data.get('stage')
+                        })
+            except Exception as e:
+                logger.error(f"Error parsing progress data for key {key}: {e}")
+                continue
+        
+        logger.info(f"Found {len(active_tasks)} active tasks for user {user_id}")
         
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
                 "data": {
-                    "active_tasks": [],
-                    "message": "Use individual task IDs to track progress"
+                    "active_tasks": active_tasks,
+                    "count": len(active_tasks)
                 }
             }
         )
