@@ -12,7 +12,7 @@ from services.embedding_service import EmbeddingService
 from services.search_service import SearchService
 from services.llm_service import ollama_service
 from services.groq_service import GroqService
-from services.redis_service import redis_service
+from services.redis_service import RedisService
 from services.reliability_service import ReliabilityService
 from services.source_enhancement_service import SourceEnhancementService
 from services.search_history_service import SearchHistoryService

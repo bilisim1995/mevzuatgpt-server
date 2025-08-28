@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from core.config import settings
-from services.redis_service import redis_service
+from services.redis_service import RedisService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ class ProgressService:
     """Service for tracking task progress"""
     
     def __init__(self):
-        self.redis_service = redis_service
+        self.redis_service = RedisService()
         self.progress_key_prefix = "task_progress:"
         self.progress_ttl = 3600  # 1 hour TTL for progress data
     
@@ -46,7 +46,7 @@ class ProgressService:
             }
             
             key = f"{self.progress_key_prefix}{task_id}"
-            async with self.redis_service as client:
+            async with RedisService() as client:
                 await client.setex(key, self.progress_ttl, json.dumps(progress_data))
             logger.info(f"Initialized progress tracking for task {task_id}")
             
@@ -66,7 +66,7 @@ class ProgressService:
         """Update task progress"""
         try:
             key = f"{self.progress_key_prefix}{task_id}"
-            async with self.redis_service as client:
+            async with RedisService() as client:
                 existing_data = await client.get(key)
                 
                 if not existing_data:
@@ -121,7 +121,7 @@ class ProgressService:
         """Get current progress for a task"""
         try:
             key = f"{self.progress_key_prefix}{task_id}"
-            async with self.redis_service as client:
+            async with RedisService() as client:
                 data = await client.get(key)
                 
                 if not data:
@@ -137,7 +137,7 @@ class ProgressService:
         """Mark a task as failed with error message"""
         try:
             key = f"{self.progress_key_prefix}{task_id}"
-            async with self.redis_service as client:
+            async with RedisService() as client:
                 existing_data = await client.get(key)
                 
                 if existing_data:

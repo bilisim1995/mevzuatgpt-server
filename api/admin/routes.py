@@ -904,7 +904,8 @@ async def get_document_details(
         embedding_count = await embedding_service.get_embeddings_count(document_id)
         
         # Get chunk information and vector statistics
-        vector_stats = await es_service.get_document_vector_stats(document_id)
+        async with ElasticsearchService() as es_service:
+            vector_stats = await es_service.get_vector_stats(document_id)
         
         # Step 3: Generate full Bunny.net URL (3-tier fallback system)
         full_url = None
