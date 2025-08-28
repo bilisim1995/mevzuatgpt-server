@@ -3208,14 +3208,35 @@ async def get_redis_connections(
             # Keyspace bilgileri
             for key, value in redis_info.items():
                 if key.startswith("db"):
-                    # db0:keys=123,expires=45,avg_ttl=678 formatındaki bilgiyi parse et
+                    # db0 bilgisi farklı formatlarda gelebilir
                     db_info = {}
-                    for part in value.split(","):
-                        if "=" in part:
-                            k, v = part.split("=", 1)
-                            db_info[k] = int(v) if v.isdigit() else v
-                    connection_info["keyspace_info"]["databases"][key] = db_info
-                    connection_info["keyspace_info"]["total_keys"] += db_info.get("keys", 0)
+                    try:
+                        if isinstance(value, dict):
+                            # Eğer value zaten dict ise direkt kullan
+                            db_info = value
+                        elif isinstance(value, str):
+                            # db0:keys=123,expires=45,avg_ttl=678 formatındaki string'i parse et
+                            for part in value.split(","):
+                                if "=" in part:
+                                    k, v = part.split("=", 1)
+                                    db_info[k] = int(v) if v.isdigit() else v
+                        else:
+                            # Diğer durumlar için raw değer
+                            db_info = {"raw_value": value, "type": str(type(value))}
+                        
+                        connection_info["keyspace_info"]["databases"][key] = db_info
+                        # keys alanı varsa toplama ekle
+                        keys_count = db_info.get("keys", 0)
+                        if isinstance(keys_count, (int, str)) and str(keys_count).isdigit():
+                            connection_info["keyspace_info"]["total_keys"] += int(keys_count)
+                            
+                    except Exception as parse_error:
+                        logger.error(f"Keyspace parsing error for {key}: {parse_error}")
+                        connection_info["keyspace_info"]["databases"][key] = {
+                            "error": str(parse_error), 
+                            "raw_value": value,
+                            "value_type": str(type(value))
+                        }
             
             # Connection pool detayları
             try:
