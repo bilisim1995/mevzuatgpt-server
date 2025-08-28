@@ -223,9 +223,7 @@ async def get_groq_settings(
         logger.info(f"Available models: {available_models}")
         logger.info(f"All settings: {current_settings}")
         
-        return {
-            "current_settings": settings_response.model_dump()
-        }
+        return settings_response.model_dump()
         
     except Exception as e:
         logger.error(f"Error retrieving Groq settings: {e}")
