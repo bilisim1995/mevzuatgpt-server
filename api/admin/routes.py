@@ -3052,3 +3052,207 @@ async def purge_celery_queue(
             "success": False,
             "message": f"Celery queue temizleme başarısız: {str(e)}"
         }
+
+@router.post("/celery/restart-worker")
+async def restart_celery_worker(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Celery worker'ı restart et (Admin only)"""
+    try:
+        logger.warning(f"Admin {current_user.email} Celery worker restart işlemi başlatıyor")
+        
+        import subprocess
+        import asyncio
+        from tasks.celery_app import celery_app
+        
+        # Önce worker'ın durumunu kontrol et
+        inspector = celery_app.control.inspect()
+        active_workers = inspector.active()
+        stats = inspector.stats()
+        
+        worker_info = {
+            "before_restart": {
+                "active_workers": len(active_workers) if active_workers else 0,
+                "worker_stats": stats
+            }
+        }
+        
+        # Worker'ı restart et (workflow restart)
+        try:
+            # Replit workflow restart komutu
+            restart_result = subprocess.run(
+                ["pkill", "-f", "celery.*worker"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            logger.info(f"Celery worker restart signal sent. Return code: {restart_result.returncode}")
+            
+            # Kısa bir bekleme
+            await asyncio.sleep(2)
+            
+            # Restart sonrası durum kontrolü
+            try:
+                inspector_after = celery_app.control.inspect()
+                active_workers_after = inspector_after.active()
+                stats_after = inspector_after.stats()
+                
+                worker_info["after_restart"] = {
+                    "active_workers": len(active_workers_after) if active_workers_after else 0,
+                    "worker_stats": stats_after
+                }
+                restart_status = "success"
+                
+            except Exception as check_error:
+                worker_info["after_restart"] = {
+                    "error": "Worker durumu kontrol edilemedi",
+                    "details": str(check_error)
+                }
+                restart_status = "partial"
+                
+        except subprocess.TimeoutExpired:
+            restart_status = "timeout"
+            worker_info["error"] = "Restart işlemi timeout"
+        except Exception as restart_error:
+            restart_status = "error"
+            worker_info["error"] = str(restart_error)
+        
+        return {
+            "success": restart_status in ["success", "partial"],
+            "message": f"Celery worker restart {'başarılı' if restart_status == 'success' else 'kısmen başarılı' if restart_status == 'partial' else 'başarısız'}",
+            "data": {
+                "restart_status": restart_status,
+                "worker_info": worker_info,
+                "timestamp": datetime.now().isoformat(),
+                "note": "Worker Replit workflow sistemi tarafından otomatik olarak yeniden başlatılacak"
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Celery worker restart hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Celery worker restart başarısız: {str(e)}"
+        }
+
+@router.get("/redis/connections")
+async def get_redis_connections(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Redis connection detaylarını getir (Admin only)"""
+    try:
+        logger.info(f"Admin {current_user.email} Redis connection bilgilerini sorguluyor")
+        
+        from services.redis_service import RedisService
+        import asyncio
+        
+        redis_service = RedisService()
+        connection_info = {}
+        
+        try:
+            # Temel connection test
+            ping_task = asyncio.create_task(redis_service.ping())
+            await asyncio.wait_for(ping_task, timeout=5.0)
+            connection_info["connection_status"] = "healthy"
+            
+            # Detaylı Redis info
+            info_task = asyncio.create_task(redis_service.get_info())
+            redis_info = await asyncio.wait_for(info_task, timeout=5.0)
+            
+            # Connection pool bilgileri
+            client = await redis_service._get_client()
+            connection_pool = client.connection_pool
+            
+            connection_info.update({
+                "server_info": {
+                    "redis_version": redis_info.get("redis_version", "N/A"),
+                    "uptime_seconds": redis_info.get("uptime_in_seconds", 0),
+                    "uptime_days": round(redis_info.get("uptime_in_seconds", 0) / 86400, 2)
+                },
+                "memory_info": {
+                    "used_memory_human": redis_info.get("used_memory_human", "N/A"),
+                    "used_memory_peak_human": redis_info.get("used_memory_peak_human", "N/A"),
+                    "used_memory_rss_human": redis_info.get("used_memory_rss_human", "N/A"),
+                    "maxmemory_human": redis_info.get("maxmemory_human", "N/A")
+                },
+                "connection_info": {
+                    "connected_clients": redis_info.get("connected_clients", 0),
+                    "client_recent_max_input_buffer": redis_info.get("client_recent_max_input_buffer", 0),
+                    "client_recent_max_output_buffer": redis_info.get("client_recent_max_output_buffer", 0),
+                    "blocked_clients": redis_info.get("blocked_clients", 0)
+                },
+                "network_info": {
+                    "total_connections_received": redis_info.get("total_connections_received", 0),
+                    "total_commands_processed": redis_info.get("total_commands_processed", 0),
+                    "rejected_connections": redis_info.get("rejected_connections", 0),
+                    "sync_full": redis_info.get("sync_full", 0),
+                    "sync_partial_ok": redis_info.get("sync_partial_ok", 0)
+                },
+                "keyspace_info": {
+                    "total_keys": 0,
+                    "databases": {}
+                }
+            })
+            
+            # Keyspace bilgileri
+            for key, value in redis_info.items():
+                if key.startswith("db"):
+                    # db0:keys=123,expires=45,avg_ttl=678 formatındaki bilgiyi parse et
+                    db_info = {}
+                    for part in value.split(","):
+                        if "=" in part:
+                            k, v = part.split("=", 1)
+                            db_info[k] = int(v) if v.isdigit() else v
+                    connection_info["keyspace_info"]["databases"][key] = db_info
+                    connection_info["keyspace_info"]["total_keys"] += db_info.get("keys", 0)
+            
+            # Connection pool detayları
+            if hasattr(connection_pool, "_created_connections"):
+                connection_info["pool_info"] = {
+                    "created_connections": connection_pool._created_connections,
+                    "max_connections": getattr(connection_pool, "max_connections", "N/A"),
+                    "available_connections": len(getattr(connection_pool, "_available_connections", []))
+                }
+            
+            # Celery ile ilgili key'leri say
+            celery_tasks = asyncio.create_task(redis_service.get_keys_pattern("celery-task-meta-*"))
+            celery_keys = await asyncio.wait_for(celery_tasks, timeout=3.0)
+            
+            kombu_tasks = asyncio.create_task(redis_service.get_keys_pattern("_kombu.*"))
+            kombu_keys = await asyncio.wait_for(kombu_tasks, timeout=3.0)
+            
+            progress_tasks = asyncio.create_task(redis_service.get_keys_pattern("task_progress:*"))
+            progress_keys = await asyncio.wait_for(progress_tasks, timeout=3.0)
+            
+            connection_info["application_keys"] = {
+                "celery_task_keys": len(celery_keys) if celery_keys else 0,
+                "kombu_keys": len(kombu_keys) if kombu_keys else 0,
+                "progress_keys": len(progress_keys) if progress_keys else 0
+            }
+            
+            await redis_service._close_client()
+            
+        except Exception as redis_error:
+            connection_info = {
+                "connection_status": "error",
+                "error": str(redis_error),
+                "timestamp": datetime.now().isoformat()
+            }
+            try:
+                await redis_service._close_client()
+            except:
+                pass
+        
+        return {
+            "success": connection_info.get("connection_status") == "healthy",
+            "message": "Redis connection bilgileri",
+            "data": connection_info
+        }
+        
+    except Exception as e:
+        logger.error(f"Redis connection bilgileri alma hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Redis connection bilgileri alınamadı: {str(e)}"
+        }
