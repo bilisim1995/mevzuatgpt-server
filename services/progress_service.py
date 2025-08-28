@@ -46,8 +46,8 @@ class ProgressService:
             }
             
             key = f"{self.progress_key_prefix}{task_id}"
-            client = await self.redis_service.get_redis_client()
-            await client.setex(key, self.progress_ttl, json.dumps(progress_data))
+            async with self.redis_service as client:
+                await client.setex(key, self.progress_ttl, json.dumps(progress_data))
             logger.info(f"Initialized progress tracking for task {task_id}")
             
         except Exception as e:
@@ -66,52 +66,52 @@ class ProgressService:
         """Update task progress"""
         try:
             key = f"{self.progress_key_prefix}{task_id}"
-            client = await self.redis_service.get_redis_client()
-            existing_data = await client.get(key)
-            
-            if not existing_data:
-                logger.warning(f"No existing progress data found for task {task_id}")
-                return
-            
-            progress_data = json.loads(existing_data)
-            
-            # Update fields
-            progress_data["stage"] = stage
-            progress_data["current_step"] = current_step
-            progress_data["completed_steps"] = completed_steps
-            progress_data["status"] = status
-            
-            if total_steps:
-                progress_data["total_steps"] = total_steps
-            
-            if error_message:
-                progress_data["error_message"] = error_message
-                progress_data["status"] = "failed"
-            
-            # Calculate progress percentage
-            if progress_data["total_steps"] > 0:
-                progress_data["progress_percent"] = min(
-                    100, 
-                    int((completed_steps / progress_data["total_steps"]) * 100)
-                )
-            
-            # Estimate remaining time (simple calculation)
-            if progress_data["started_at"] and progress_data["progress_percent"] > 0:
-                start_time = datetime.fromisoformat(progress_data["started_at"])
-                elapsed_seconds = (datetime.utcnow() - start_time).total_seconds()
-                if progress_data["progress_percent"] < 100:
-                    estimated_total = (elapsed_seconds * 100) / progress_data["progress_percent"]
-                    remaining = max(0, estimated_total - elapsed_seconds)
-                    progress_data["estimated_remaining_seconds"] = int(remaining)
-            
-            # Mark as completed if all steps done
-            if completed_steps >= progress_data["total_steps"]:
-                progress_data["status"] = "completed"
-                progress_data["progress_percent"] = 100
-                progress_data["completed_at"] = datetime.utcnow().isoformat()
-                progress_data["estimated_remaining_seconds"] = 0
-            
-            await client.setex(key, self.progress_ttl, json.dumps(progress_data))
+            async with self.redis_service as client:
+                existing_data = await client.get(key)
+                
+                if not existing_data:
+                    logger.warning(f"No existing progress data found for task {task_id}")
+                    return
+                
+                progress_data = json.loads(existing_data)
+                
+                # Update fields
+                progress_data["stage"] = stage
+                progress_data["current_step"] = current_step
+                progress_data["completed_steps"] = completed_steps
+                progress_data["status"] = status
+                
+                if total_steps:
+                    progress_data["total_steps"] = total_steps
+                
+                if error_message:
+                    progress_data["error_message"] = error_message
+                    progress_data["status"] = "failed"
+                
+                # Calculate progress percentage
+                if progress_data["total_steps"] > 0:
+                    progress_data["progress_percent"] = min(
+                        100, 
+                        int((completed_steps / progress_data["total_steps"]) * 100)
+                    )
+                
+                # Estimate remaining time (simple calculation)
+                if progress_data["started_at"] and progress_data["progress_percent"] > 0:
+                    start_time = datetime.fromisoformat(progress_data["started_at"])
+                    elapsed_seconds = (datetime.utcnow() - start_time).total_seconds()
+                    if progress_data["progress_percent"] < 100:
+                        estimated_total = (elapsed_seconds * 100) / progress_data["progress_percent"]
+                        remaining = max(0, estimated_total - elapsed_seconds)
+                        progress_data["estimated_remaining_seconds"] = int(remaining)
+                
+                # Mark as completed if all steps done
+                if completed_steps >= progress_data["total_steps"]:
+                    progress_data["status"] = "completed"
+                    progress_data["progress_percent"] = 100
+                    progress_data["completed_at"] = datetime.utcnow().isoformat()
+                    progress_data["estimated_remaining_seconds"] = 0
+                
+                await client.setex(key, self.progress_ttl, json.dumps(progress_data))
             logger.info(f"Updated progress for task {task_id}: {progress_data['progress_percent']}% - {current_step}")
             
         except Exception as e:
@@ -121,14 +121,14 @@ class ProgressService:
         """Get current progress for a task"""
         try:
             key = f"{self.progress_key_prefix}{task_id}"
-            client = await self.redis_service.get_redis_client()
-            data = await client.get(key)
-            
-            if not data:
-                return None
-            
-            return json.loads(data)
-            
+            async with self.redis_service as client:
+                data = await client.get(key)
+                
+                if not data:
+                    return None
+                
+                return json.loads(data)
+                
         except Exception as e:
             logger.error(f"Failed to get progress for task {task_id}: {e}")
             return None
@@ -137,16 +137,16 @@ class ProgressService:
         """Mark a task as failed with error message"""
         try:
             key = f"{self.progress_key_prefix}{task_id}"
-            client = await self.redis_service.get_redis_client()
-            existing_data = await client.get(key)
-            
-            if existing_data:
-                progress_data = json.loads(existing_data)
-                progress_data["status"] = "failed"
-                progress_data["error_message"] = error_message
-                progress_data["completed_at"] = datetime.utcnow().isoformat()
+            async with self.redis_service as client:
+                existing_data = await client.get(key)
                 
-                await client.setex(key, self.progress_ttl, json.dumps(progress_data))
+                if existing_data:
+                    progress_data = json.loads(existing_data)
+                    progress_data["status"] = "failed"
+                    progress_data["error_message"] = error_message
+                    progress_data["completed_at"] = datetime.utcnow().isoformat()
+                    
+                    await client.setex(key, self.progress_ttl, json.dumps(progress_data))
                 logger.info(f"Marked task {task_id} as failed: {error_message}")
             
         except Exception as e:

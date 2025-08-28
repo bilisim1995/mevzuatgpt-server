@@ -22,28 +22,39 @@ class RedisService:
         self.redis_client = None
     
     async def get_redis_client(self):
-        """Get or create Redis client connection"""
-        if self.redis_client is None:
-            try:
-                self.redis_client = redis.from_url(
-                    self.redis_url,
-                    encoding="utf-8",
-                    decode_responses=True,
-                    socket_connect_timeout=5,
-                    socket_keepalive=True,
-                    health_check_interval=30
-                )
-                # Test connection
-                await self.redis_client.ping()
-                logger.info("Redis connection established")
-            except Exception as e:
-                logger.error(f"Failed to connect to Redis: {e}")
-                raise AppException(
-                    message="Redis connection failed",
-                    detail=str(e),
-                    error_code="REDIS_CONNECTION_FAILED"
-                )
+        """Get new Redis client connection (always creates new connection)"""
+        try:
+            client = redis.from_url(
+                self.redis_url,
+                encoding="utf-8",
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_keepalive=False,  # Disable keepalive to prevent connection pooling
+                health_check_interval=None  # Disable health checks
+            )
+            # Test connection
+            await client.ping()
+            logger.debug("Redis connection established")
+            return client
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis: {e}")
+            raise AppException(
+                message="Redis connection failed",
+                detail=str(e),
+                error_code="REDIS_CONNECTION_FAILED"
+            )
+    
+    async def __aenter__(self):
+        """Context manager entry - get Redis client"""
+        self.redis_client = await self.get_redis_client()
         return self.redis_client
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - close Redis client"""
+        if self.redis_client:
+            await self.redis_client.aclose()
+            self.redis_client = None
+            logger.debug("Redis connection closed")
     
     def _generate_query_hash(self, query: str, filters: Dict = None, limit: int = None, similarity_threshold: float = None) -> str:
         """Generate consistent hash for query, filters, limit and similarity threshold"""
@@ -60,17 +71,17 @@ class RedisService:
     async def get_cached_embedding(self, query: str) -> Optional[List[float]]:
         """Get cached embedding for query"""
         try:
-            client = await self.get_redis_client()
-            cache_key = f"embedding:{self._generate_query_hash(query)}"
-            
-            cached_data = await client.get(cache_key)
-            if cached_data:
-                embedding = json.loads(cached_data)
-                logger.debug(f"Cache hit for embedding: {query[:50]}")
-                return embedding
-            
-            return None
-            
+            async with RedisService() as client:
+                cache_key = f"embedding:{self._generate_query_hash(query)}"
+                
+                cached_data = await client.get(cache_key)
+                if cached_data:
+                    embedding = json.loads(cached_data)
+                    logger.debug(f"Cache hit for embedding: {query[:50]}")
+                    return embedding
+                
+                return None
+                
         except Exception as e:
             logger.warning(f"Failed to get cached embedding: {e}")
             return None
@@ -78,16 +89,16 @@ class RedisService:
     async def cache_embedding(self, query: str, embedding: List[float], ttl: int = 3600):
         """Cache embedding with TTL (default 1 hour)"""
         try:
-            client = await self.get_redis_client()
-            cache_key = f"embedding:{self._generate_query_hash(query)}"
-            
-            await client.setex(
-                cache_key,
-                ttl,
-                json.dumps(embedding)
-            )
-            logger.debug(f"Cached embedding for: {query[:50]}")
-            
+            async with RedisService() as client:
+                cache_key = f"embedding:{self._generate_query_hash(query)}"
+                
+                await client.setex(
+                    cache_key,
+                    ttl,
+                    json.dumps(embedding)
+                )
+                logger.debug(f"Cached embedding for: {query[:50]}")
+                
         except Exception as e:
             logger.warning(f"Failed to cache embedding: {e}")
     
