@@ -909,11 +909,19 @@ async def get_document_details(
         embedding_service = EmbeddingService()
         
         # Get embedding count and additional vector info
-        embedding_count = await embedding_service.get_embeddings_count(document_id)
+        try:
+            embedding_count = await embedding_service.get_embeddings_count(document_id)
+        except Exception as e:
+            logger.warning(f"Could not get embedding count for {document_id}: {e}")
+            embedding_count = 0
         
         # Get chunk information and vector statistics
-        async with ElasticsearchService() as es_service:
-            vector_stats = await es_service.get_vector_stats(document_id)
+        try:
+            async with ElasticsearchService() as es_service:
+                vector_stats = await es_service.get_vector_stats(document_id)
+        except Exception as e:
+            logger.warning(f"Could not get vector stats for {document_id}: {e}")
+            vector_stats = {"total_vectors": 0, "unique_chunks": 0, "index_name": "mevzuat_embeddings"}
         
         # Step 3: Generate full Bunny.net URL (3-tier fallback system)
         full_url = None
@@ -939,6 +947,7 @@ async def get_document_details(
                     "title": document.get('title'),
                     "filename": document.get('filename'),
                     "category": document.get('category'),
+                    "institution": document.get('institution'),
                     "description": document.get('content_preview'),
                     "processing_status": document.get('processing_status'),
                     "created_at": document.get('created_at'),
