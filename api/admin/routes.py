@@ -2487,29 +2487,52 @@ async def get_system_status(
         redis_status = {}
         try:
             from services.redis_service import RedisService
+            import asyncio
+            
+            # Redis operations with timeout
             redis_service = RedisService()
             
-            # Redis bağlantı testi
-            await redis_service.ping()
+            # Ping test with short timeout
+            ping_task = asyncio.create_task(redis_service.ping())
+            await asyncio.wait_for(ping_task, timeout=3.0)
             redis_status["connection"] = "healthy"
             
-            # Redis bilgileri al
-            redis_info = await redis_service.get_info()
+            # Redis bilgileri al - with timeout
+            info_task = asyncio.create_task(redis_service.get_info())
+            redis_info = await asyncio.wait_for(info_task, timeout=3.0)
+            
+            # DB size - with timeout  
+            size_task = asyncio.create_task(redis_service.get_db_size())
+            total_keys = await asyncio.wait_for(size_task, timeout=3.0)
+            
             redis_status["info"] = {
                 "used_memory": redis_info.get("used_memory_human", "N/A"),
                 "connected_clients": redis_info.get("connected_clients", "N/A"),
-                "total_keys": await redis_service.get_db_size(),
+                "total_keys": total_keys,
                 "uptime": redis_info.get("uptime_in_seconds", "N/A")
             }
             
-            # Task progress key'lerini say
-            progress_keys = await redis_service.get_keys_pattern("task_progress:*")
-            redis_status["active_task_progress"] = len(progress_keys) if progress_keys else 0
+            # Task progress key'lerini say - with timeout
+            try:
+                progress_task = asyncio.create_task(redis_service.get_keys_pattern("task_progress:*"))
+                progress_keys = await asyncio.wait_for(progress_task, timeout=2.0)
+                redis_status["active_task_progress"] = len(progress_keys) if progress_keys else 0
+            except asyncio.TimeoutError:
+                redis_status["active_task_progress"] = "timeout"
             
-            # User history key'lerini say
-            history_keys = await redis_service.get_keys_pattern("user_history:*")
-            redis_status["user_histories"] = len(history_keys) if history_keys else 0
+            # User history key'lerini say - with timeout
+            try:
+                history_task = asyncio.create_task(redis_service.get_keys_pattern("user_history:*"))
+                history_keys = await asyncio.wait_for(history_task, timeout=2.0)
+                redis_status["user_histories"] = len(history_keys) if history_keys else 0
+            except asyncio.TimeoutError:
+                redis_status["user_histories"] = "timeout"
             
+        except asyncio.TimeoutError:
+            redis_status = {
+                "connection": "timeout",
+                "error": "Redis operations timed out"
+            }
         except Exception as redis_error:
             redis_status = {
                 "connection": "error",
@@ -2586,16 +2609,20 @@ async def clear_redis_completely(
         logger.warning(f"CRITICAL: Admin {current_user.email} Redis tamamen temizleniyor!")
         
         from services.redis_service import RedisService
+        import asyncio
         redis_service = RedisService()
         
-        # Önce mevcut key sayısını al
-        total_keys_before = await redis_service.get_db_size()
+        # Önce mevcut key sayısını al - with timeout
+        size_task = asyncio.create_task(redis_service.get_db_size())
+        total_keys_before = await asyncio.wait_for(size_task, timeout=5.0)
         
-        # Redis database'i tamamen temizle
-        await redis_service.flush_db()
+        # Redis database'i tamamen temizle - with timeout
+        flush_task = asyncio.create_task(redis_service.flush_db())
+        await asyncio.wait_for(flush_task, timeout=10.0)
         
-        # Temizlik sonrası kontrol
-        total_keys_after = await redis_service.get_db_size()
+        # Temizlik sonrası kontrol - with timeout
+        size_task2 = asyncio.create_task(redis_service.get_db_size())
+        total_keys_after = await asyncio.wait_for(size_task2, timeout=5.0)
         
         logger.warning(f"Redis completely flushed: {total_keys_before} keys deleted")
         
@@ -2625,27 +2652,34 @@ async def clear_redis_tasks_only(
         logger.info(f"Admin {current_user.email} Redis task key'lerini temizliyor")
         
         from services.redis_service import RedisService
+        import asyncio
         redis_service = RedisService()
         
-        # Task progress key'lerini temizle
-        progress_keys = await redis_service.get_keys_pattern("task_progress:*")
+        # Task progress key'lerini temizle - with timeout
+        progress_task = asyncio.create_task(redis_service.get_keys_pattern("task_progress:*"))
+        progress_keys = await asyncio.wait_for(progress_task, timeout=5.0)
         progress_deleted = 0
         if progress_keys:
-            await redis_service.delete_keys(progress_keys)
+            delete_task = asyncio.create_task(redis_service.delete_keys(progress_keys))
+            await asyncio.wait_for(delete_task, timeout=5.0)
             progress_deleted = len(progress_keys)
         
-        # Celery task key'lerini temizle
-        celery_keys = await redis_service.get_keys_pattern("celery-task-meta-*")
+        # Celery task key'lerini temizle - with timeout
+        celery_task = asyncio.create_task(redis_service.get_keys_pattern("celery-task-meta-*"))
+        celery_keys = await asyncio.wait_for(celery_task, timeout=5.0)
         celery_deleted = 0
         if celery_keys:
-            await redis_service.delete_keys(celery_keys)
+            delete_task2 = asyncio.create_task(redis_service.delete_keys(celery_keys))
+            await asyncio.wait_for(delete_task2, timeout=5.0)
             celery_deleted = len(celery_keys)
         
-        # Kombu binding key'lerini temizle
-        kombu_keys = await redis_service.get_keys_pattern("_kombu.*")
+        # Kombu binding key'lerini temizle - with timeout
+        kombu_task = asyncio.create_task(redis_service.get_keys_pattern("_kombu.*"))
+        kombu_keys = await asyncio.wait_for(kombu_task, timeout=5.0)
         kombu_deleted = 0
         if kombu_keys:
-            await redis_service.delete_keys(kombu_keys)
+            delete_task3 = asyncio.create_task(redis_service.delete_keys(kombu_keys))
+            await asyncio.wait_for(delete_task3, timeout=5.0)
             kombu_deleted = len(kombu_keys)
         
         total_deleted = progress_deleted + celery_deleted + kombu_deleted

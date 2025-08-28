@@ -28,9 +28,12 @@ class RedisService:
                 self.redis_url,
                 encoding="utf-8",
                 decode_responses=True,
-                socket_connect_timeout=5,
+                socket_connect_timeout=2,  # Daha kısa timeout
+                socket_timeout=2,          # Socket operations timeout
                 socket_keepalive=False,
-                health_check_interval=None
+                health_check_interval=None,
+                retry_on_timeout=True,     # Timeout'ta retry
+                retry_on_error=[ConnectionError, TimeoutError]  # Hata durumlarında retry
             )
             await self.redis_client.ping()
             logger.debug("Redis connection established")
