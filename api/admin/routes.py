@@ -964,8 +964,8 @@ async def get_document_details(
                     "file_size_mb": file_size_mb
                 },
                 "vector_analytics": {
-                    "total_vectors": vector_stats.get("total_vectors", 0),
-                    "chunk_count": vector_stats.get("unique_chunks", 0),
+                    "total_vectors": vector_stats.get("total_vectors", embedding_count),
+                    "chunk_count": vector_stats.get("unique_chunks", embedding_count),
                     "elasticsearch_index": vector_stats.get("index_name", "mevzuat_embeddings")
                 },
                 "processing_metrics": {
