@@ -430,3 +430,43 @@ class ElasticsearchService:
         except Exception as e:
             logger.error(f"Error in hybrid search: {e}")
             return []
+    
+    async def get_vector_stats(self, document_id: str) -> Dict[str, Any]:
+        """Get vector statistics for a document"""
+        try:
+            session = await self._get_session()
+            count_query = {
+                "query": {
+                    "term": {
+                        "document_id": document_id
+                    }
+                }
+            }
+            
+            async with session.post(
+                f"{self.elasticsearch_url}/{self.index_name}/_count",
+                json=count_query
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    total_embeddings = result.get("count", 0)
+                    
+                    return {
+                        "total_embeddings": total_embeddings,
+                        "document_id": document_id,
+                        "index_name": self.index_name
+                    }
+                else:
+                    return {
+                        "total_embeddings": 0,
+                        "document_id": document_id,
+                        "error": f"HTTP {response.status}"
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Failed to get vector stats for document {document_id}: {e}")
+            return {
+                "total_embeddings": 0,
+                "document_id": document_id,
+                "error": str(e)
+            }

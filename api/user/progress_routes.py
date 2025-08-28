@@ -80,8 +80,9 @@ async def clear_task_progress(
         logger.info(f"Clearing progress for task {task_id} for user {current_user.id}")
         
         # Delete progress data from Redis
-        client = await progress_service.redis_service.get_redis_client()
-        await client.delete(f"{progress_service.progress_key_prefix}{task_id}")
+        from services.redis_service import RedisService
+        async with RedisService() as client:
+            await client.delete(f"{progress_service.progress_key_prefix}{task_id}")
         
         logger.info(f"Progress cleared for task {task_id}")
         
@@ -118,31 +119,32 @@ async def get_user_active_tasks(
         logger.info(f"Getting active tasks for user {user_id}")
         
         # Get all progress keys from Redis
-        client = await progress_service.redis_service.get_redis_client()
-        keys = await client.keys(f"{progress_service.progress_key_prefix}*")
-        
-        active_tasks = []
-        
-        for key in keys:
-            try:
-                data = await client.get(key)
-                if data:
-                    import json
-                    progress_data = json.loads(data)
-                    
-                    # Only include processing/pending tasks
-                    if progress_data.get('status') in ['pending', 'processing']:
-                        active_tasks.append({
-                            "task_id": progress_data.get('task_id'),
-                            "document_title": progress_data.get('document_title'),
-                            "status": progress_data.get('status'),
-                            "progress_percent": progress_data.get('progress_percent', 0),
-                            "current_step": progress_data.get('current_step'),
-                            "stage": progress_data.get('stage')
-                        })
-            except Exception as e:
-                logger.error(f"Error parsing progress data for key {key}: {e}")
-                continue
+        from services.redis_service import RedisService
+        async with RedisService() as client:
+            keys = await client.keys(f"{progress_service.progress_key_prefix}*")
+            
+            active_tasks = []
+            
+            for key in keys:
+                try:
+                    data = await client.get(key)
+                    if data:
+                        import json
+                        progress_data = json.loads(data)
+                        
+                        # Only include processing/pending tasks
+                        if progress_data.get('status') in ['pending', 'processing']:
+                            active_tasks.append({
+                                "task_id": progress_data.get('task_id'),
+                                "document_title": progress_data.get('document_title'),
+                                "status": progress_data.get('status'),
+                                "progress_percent": progress_data.get('progress_percent', 0),
+                                "current_step": progress_data.get('current_step'),
+                                "stage": progress_data.get('stage')
+                            })
+                except Exception as e:
+                    logger.error(f"Error parsing progress data for key {key}: {e}")
+                    continue
         
         logger.info(f"Found {len(active_tasks)} active tasks for user {user_id}")
         
