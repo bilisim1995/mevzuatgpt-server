@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional, Dict, Any
 import logging
+import asyncio
 from datetime import datetime
 
 from core.database import get_db
@@ -20,6 +21,7 @@ from models.schemas import (
 )
 from models.supabase_client import supabase_client
 from services.storage_service import StorageService
+from services.redis_service import RedisService
 from tasks.document_processor import process_document_task
 from utils.response import success_response, error_response
 from utils.exceptions import AppException
@@ -2778,10 +2780,8 @@ async def get_system_status(
         
         # Redis durumu
         redis_status = {}
+        redis_service = None
         try:
-            from services.redis_service import RedisService
-            import asyncio
-            
             # Redis operations with timeout
             redis_service = RedisService()
             
@@ -2830,20 +2830,22 @@ async def get_system_status(
                 "error": "Redis operations timed out"
             }
             # Close connection on timeout
-            try:
-                await redis_service._close_client()
-            except:
-                pass
+            if redis_service:
+                try:
+                    await redis_service._close_client()
+                except:
+                    pass
         except Exception as redis_error:
             redis_status = {
                 "connection": "error",
                 "error": str(redis_error)
             }
             # Close connection on error
-            try:
-                await redis_service._close_client()
-            except:
-                pass
+            if redis_service:
+                try:
+                    await redis_service._close_client()
+                except:
+                    pass
         
         # Celery durumu - Redis üzerinden kontrol
         celery_status = {}
@@ -2851,7 +2853,10 @@ async def get_system_status(
             # Redis üzerinden Celery worker durumunu kontrol et
             try:
                 # Check for celery workers in Redis
-                client = await redis_service._get_client()
+                if redis_service:
+                    client = await redis_service._get_client()
+                else:
+                    raise Exception("Redis service not available")
                 
                 # Celery worker key'lerini kontrol et
                 worker_keys = await client.keys("_kombu.binding.*")
