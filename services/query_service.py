@@ -32,6 +32,7 @@ class QueryService:
         self.reliability_service = ReliabilityService()
         self.source_enhancement_service = SourceEnhancementService()
         self.search_history_service = SearchHistoryService(db)
+        self.self.redis_service = RedisService()  # Add self.redis_service instance
         
         # Initialize AI provider based on configuration
         from core.config import settings
@@ -72,7 +73,7 @@ class QueryService:
             logger.info(f"🔢 Processing query with limit={limit}, similarity_threshold={similarity_threshold}")
             
             # 1. Rate limiting check
-            is_allowed, remaining = await redis_service.check_rate_limit(
+            is_allowed, remaining = await self.self.redis_service.check_rate_limit(
                 user_id=user_id,
                 endpoint="ask",
                 limit=30,  # 30 requests per minute
@@ -92,7 +93,7 @@ class QueryService:
             cached_results = None
             
             if use_cache:
-                cached_results = await redis_service.get_cached_search_results(
+                cached_results = await self.self.redis_service.get_cached_search_results(
                     query=query,
                     filters=search_filters or {},
                     limit=limit,
@@ -104,12 +105,12 @@ class QueryService:
             query_embedding = None
             
             if use_cache:
-                query_embedding = await redis_service.get_cached_embedding(query)
+                query_embedding = await self.redis_service.get_cached_embedding(query)
             
             if not query_embedding:
                 query_embedding = await self.embedding_service.generate_embedding(query)
                 if use_cache:
-                    await redis_service.cache_embedding(query, query_embedding)
+                    await self.redis_service.cache_embedding(query, query_embedding)
             
             embedding_time = int((time.time() - embedding_start) * 1000)
             
@@ -150,7 +151,7 @@ class QueryService:
                 
                 # Cache search results
                 if use_cache and search_results:
-                    await redis_service.cache_search_results(
+                    await self.redis_service.cache_search_results(
                         query=query,
                         results=search_results,
                         filters=search_filters or {},
@@ -222,12 +223,12 @@ class QueryService:
             
             # 8. Update user history and analytics
             if use_cache:
-                await redis_service.add_user_search(
+                await self.redis_service.add_user_search(
                     user_id=user_id,
                     query=query,
                     institution=institution_filter or ""
                 )
-                await redis_service.increment_search_popularity(query)
+                await self.redis_service.increment_search_popularity(query)
             
             # 9. Log search with enhanced data
             actual_credits = credit_service.calculate_credit_cost(query) if not await credit_service.is_admin_user(user_id) else 0
@@ -290,19 +291,19 @@ class QueryService:
         """Get personalized suggestions for user"""
         try:
             # Get user's recent searches
-            recent_searches = await redis_service.get_user_search_history(
+            recent_searches = await self.redis_service.get_user_search_history(
                 user_id=user_id,
                 limit=5
             )
             
             # Get popular searches
-            popular_searches = await redis_service.get_popular_searches(limit=10)
+            popular_searches = await self.redis_service.get_popular_searches(limit=10)
             
             # Get available institutions
-            institutions = await redis_service.get_available_institutions()
+            institutions = await self.redis_service.get_available_institutions()
             if not institutions:
                 await self._update_institutions_cache()
-                institutions = await redis_service.get_available_institutions()
+                institutions = await self.redis_service.get_available_institutions()
             
             return {
                 "recent_searches": recent_searches,
@@ -478,7 +479,7 @@ Benzerlik: {similarity:.2f}
                         "İçişleri Bakanlığı"
                     ]
                 
-                await redis_service.cache_institutions(institutions_list)
+                await self.redis_service.cache_institutions(institutions_list)
                 
             logger.info(f"Updated institutions cache with {len(institutions_list)} institutions")
             
