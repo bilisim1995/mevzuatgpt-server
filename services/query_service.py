@@ -32,7 +32,7 @@ class QueryService:
         self.reliability_service = ReliabilityService()
         self.source_enhancement_service = SourceEnhancementService()
         self.search_history_service = SearchHistoryService(db)
-        self.self.redis_service = RedisService()  # Add self.redis_service instance
+        self.redis_service = RedisService()  # Add redis_service instance
         
         # Initialize AI provider based on configuration
         from core.config import settings
@@ -73,7 +73,7 @@ class QueryService:
             logger.info(f"🔢 Processing query with limit={limit}, similarity_threshold={similarity_threshold}")
             
             # 1. Rate limiting check
-            is_allowed, remaining = await self.self.redis_service.check_rate_limit(
+            is_allowed, remaining = await self.redis_service.check_rate_limit(
                 user_id=user_id,
                 endpoint="ask",
                 limit=30,  # 30 requests per minute
@@ -93,7 +93,7 @@ class QueryService:
             cached_results = None
             
             if use_cache:
-                cached_results = await self.self.redis_service.get_cached_search_results(
+                cached_results = await self.redis_service.get_cached_search_results(
                     query=query,
                     filters=search_filters or {},
                     limit=limit,
