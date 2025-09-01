@@ -26,7 +26,7 @@ class GroqService:
             )
         
         self.client = Groq(api_key=settings.GROQ_API_KEY)
-        self.default_model = "llama3-70b-8192"  # More capable model for detailed responses
+        self.default_model = "llama-3.3-70b-versatile"  # Updated 2025 model for detailed responses
         
         logger.info("Groq service initialized successfully")
     
@@ -41,7 +41,7 @@ class GroqService:
             # Import here to avoid circular imports
             from api.admin.groq_routes import current_groq_settings
             return current_groq_settings.copy()
-        except ImportError:
+        except (ImportError, AttributeError):
             logger.warning("Admin Groq settings not available, using defaults")
             return {
                 "default_model": self.default_model,
@@ -329,8 +329,8 @@ SORU: {query}
         """
         # Groq's current model lineup (as of 2025)
         return [
-            "llama3-8b-8192",      # Fast, efficient
-            "llama3-70b-8192",     # More capable, slower
-            "mixtral-8x7b-32768",  # Long context
-            "gemma-7b-it"          # Google's model
+            "llama-3.1-8b-instant",      # Fast, efficient
+            "llama-3.3-70b-versatile",   # Most capable, latest model
+            "gemma2-9b-it",              # Google's model (mid-tier)
+            "whisper-large-v3"           # Audio transcription
         ]

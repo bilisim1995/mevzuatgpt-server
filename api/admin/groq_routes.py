@@ -91,7 +91,7 @@ async def get_groq_settings_from_db() -> Dict[str, Any]:
         # Fallback to defaults if database is empty
         if not settings:
             settings = {
-                "default_model": "llama3-70b-8192",
+                "default_model": "llama-3.3-70b-versatile",
                 "temperature": 0.3,
                 "max_tokens": 2048,
                 "top_p": 0.9,
@@ -107,7 +107,7 @@ async def get_groq_settings_from_db() -> Dict[str, Any]:
         logger.error(f"Database settings fetch error: {e}")
         # Return defaults on error
         return {
-            "default_model": "llama3-70b-8192",
+            "default_model": "llama-3.3-70b-versatile",
             "temperature": 0.3,
             "max_tokens": 2048,
             "top_p": 0.9,
@@ -188,6 +188,18 @@ creativity_presets = {
         frequency_penalty=1.0,
         presence_penalty=1.0
     )
+}
+
+# Global settings cache - will be replaced by database calls
+current_groq_settings = {
+    "default_model": "llama-3.3-70b-versatile",
+    "temperature": 0.3,
+    "max_tokens": 2048,
+    "top_p": 0.9,
+    "frequency_penalty": 0.5,
+    "presence_penalty": 0.6,
+    "creativity_mode": "balanced",
+    "response_style": "detailed"
 }
 
 @router.get("/settings")
@@ -427,35 +439,35 @@ async def get_available_models(
         groq_service = GroqService()
         available_models = groq_service.get_available_models()
         
-        # Enhanced model information
+        # Enhanced model information (Updated 2025)
         model_info = {
-            "llama3-8b-8192": ModelInfoResponse(
-                model_name="LLaMA 3 8B",
-                description="Hızlı ve verimli, günlük kullanım için ideal",
+            "llama-3.1-8b-instant": ModelInfoResponse(
+                model_name="LLaMA 3.1 8B Instant",
+                description="En hızlı model, anlık cevaplar için ideal",
                 context_length=8192,
-                performance_tier="Fast",
-                best_use_cases=["Kısa sorular", "Hızlı cevaplar", "Basit analiz"]
+                performance_tier="Ultra Fast",
+                best_use_cases=["Kısa sorular", "Hızlı cevaplar", "Basit analiz", "Genel kullanım"]
             ),
-            "llama3-70b-8192": ModelInfoResponse(
-                model_name="LLaMA 3 70B",
-                description="Daha güçlü ve kapsamlı, detaylı analizler için",
+            "llama-3.3-70b-versatile": ModelInfoResponse(
+                model_name="LLaMA 3.3 70B Versatile",
+                description="En güçlü model, karmaşık hukuki analizler için",
                 context_length=8192,
-                performance_tier="High Performance",
-                best_use_cases=["Karmaşık hukuki analizler", "Detaylı araştırma", "Uzun belgeler"]
+                performance_tier="Premium",
+                best_use_cases=["Karmaşık hukuki analizler", "Detaylı araştırma", "Uzun belgeler", "Profesyonel danışmanlık"]
             ),
-            "mixtral-8x7b-32768": ModelInfoResponse(
-                model_name="Mixtral 8x7B",
-                description="Uzun bağlam desteği, büyük belgeler için",
-                context_length=32768,
-                performance_tier="Long Context",
-                best_use_cases=["Uzun belgeler", "Kapsamlı analiz", "Çoklu kaynak karşılaştırma"]
-            ),
-            "gemma-7b-it": ModelInfoResponse(
-                model_name="Gemma 7B IT",
-                description="Google'ın modeli, özel görevler için optimize",
+            "gemma2-9b-it": ModelInfoResponse(
+                model_name="Gemma2 9B IT",
+                description="Google'ın gelişmiş modeli, orta seviye performans",
                 context_length=8192,
-                performance_tier="Specialized",
-                best_use_cases=["Teknik belgeler", "Özel formatlar", "Yapılandırılmış veri"]
+                performance_tier="Balanced",
+                best_use_cases=["Teknik belgeler", "Orta karmaşıklık analiz", "Yapılandırılmış veri"]
+            ),
+            "whisper-large-v3": ModelInfoResponse(
+                model_name="Whisper Large V3",
+                description="Ses tanıma ve transkripsiyon için özel model",
+                context_length=0,
+                performance_tier="Audio Specialized",
+                best_use_cases=["Ses dosyası transkripsiyon", "Toplantı kayıtları", "Audio analiz"]
             )
         }
         
