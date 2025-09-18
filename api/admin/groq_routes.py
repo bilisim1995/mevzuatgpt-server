@@ -620,6 +620,52 @@ async def get_groq_status(
             "last_check": datetime.utcnow().isoformat()
         }
 
+# DEBUG ENDPOINT - Authentication olmadan test için
+@router.get("/debug-status", response_model=Dict[str, Any])
+async def debug_groq_status():
+    """
+    Groq servisinin durumunu authentication olmadan kontrol et (DEBUG)
+    """
+    try:
+        groq_service = GroqService()
+        
+        # Test service health
+        start_time = datetime.utcnow()
+        health_response = await groq_service.generate_response(
+            query="Test",
+            context="Health check",
+            max_tokens=10
+        )
+        end_time = datetime.utcnow()
+        
+        response_time = (end_time - start_time).total_seconds() * 1000  # ms
+        
+        available_models = groq_service.get_available_models()
+        
+        status_info = {
+            "service_status": "healthy" if health_response else "unhealthy",
+            "response_time_ms": round(response_time, 2),
+            "available_models": available_models,
+            "model_count": len(available_models),
+            "health_response_preview": health_response.get('answer', '')[:100] if health_response else "No response",
+            "debug": True,
+            "last_check": datetime.utcnow().isoformat()
+        }
+        
+        return status_info
+        
+    except Exception as e:
+        logger.error(f"DEBUG - Error checking Groq status: {e}")
+        import traceback
+        return {
+            "service_status": "error",
+            "error_message": str(e),
+            "error_type": type(e).__name__,
+            "traceback": traceback.format_exc(),
+            "debug": True,
+            "last_check": datetime.utcnow().isoformat()
+        }
+
 @router.post("/reset-settings", response_model=Dict[str, Any])
 async def reset_groq_settings(
     current_user: dict = Depends(get_current_user_admin)
