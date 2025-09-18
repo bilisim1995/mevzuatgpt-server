@@ -221,6 +221,21 @@ class QueryService:
                 confidence_breakdown = None
             reliability_time = int((time.time() - reliability_start) * 1000)
             
+            # 7. Apply confidence-based credit and source filtering
+            confidence_threshold = 0.4  # 40% eşiği
+            is_low_confidence = enhanced_confidence < confidence_threshold
+            
+            if is_low_confidence:
+                # Düşük güvenilirlik: kredi kesme, kaynakları filtreleme
+                actual_credits = 0  # Kredi kesilmez
+                filtered_sources = []  # Kaynaklar gösterilmez
+                logger.info(f"Low confidence detected ({enhanced_confidence:.2f} < {confidence_threshold}) - No credits charged, sources filtered")
+            else:
+                # Normal güvenilirlik: normal işlem
+                actual_credits = credit_service.calculate_credit_cost(query) if not await credit_service.is_admin_user(user_id) else 0
+                filtered_sources = self.source_enhancement_service.format_sources_for_response(search_results)
+                logger.info(f"Normal confidence ({enhanced_confidence:.2f} >= {confidence_threshold}) - Credits charged normally")
+            
             # 8. Update user history and analytics
             if use_cache:
                 await self.redis_service.add_user_search(
@@ -231,14 +246,13 @@ class QueryService:
                 await self.redis_service.increment_search_popularity(query)
             
             # 9. Log search with enhanced data
-            actual_credits = credit_service.calculate_credit_cost(query) if not await credit_service.is_admin_user(user_id) else 0
             
             search_log_id = await self._log_search_query(
                 user_id=user_id,
                 query=query,
                 response=llm_response.get("answer", llm_response.get("response", "")),
-                sources=self.source_enhancement_service.format_sources_for_response(search_results),
-                reliability_score=float(enhanced_confidence) if enhanced_confidence is not None else None,
+                sources=filtered_sources,  # Log filtered sources based on confidence
+                reliability_score=float(enhanced_confidence) if enhanced_confidence is not None else 0.0,
                 credits_used=actual_credits,
                 institution_filter=institution_filter,
                 results_count=len(search_results),
@@ -247,14 +261,31 @@ class QueryService:
             
             pipeline_time = int((time.time() - pipeline_start) * 1000)
             
-            # 10. Build response with enhanced confidence
+            # 10. Build response with enhanced confidence and conditional warning
+            original_answer = llm_response.get("answer", llm_response.get("response", ""))
+            
+            if is_low_confidence:
+                # Add warning message for low confidence responses
+                confidence_percentage = int(enhanced_confidence * 100)
+                warning_message = f"""⚠️ **Güvenilirlik Uyarısı**
+
+Sorgunuz için sistemimizde yeterli güvenilir bilgi bulunamadı (Güvenilirlik: %{confidence_percentage}). 
+
+Bu yanıt için **kredi kesilmedi** ve **kaynaklar gösterilmedi**. Daha spesifik bir soru sormayı deneyebilir veya konu ile ilgili güncel belgelerin sisteme yüklenmesini talep edebilirsiniz.
+
+---
+{original_answer}"""
+                final_answer = warning_message
+            else:
+                final_answer = original_answer
+            
             response = {
                 "query": query,
-                "answer": llm_response.get("answer", llm_response.get("response", "")),
+                "answer": final_answer,
                 "confidence_score": enhanced_confidence,
                 "search_log_id": search_log_id,  # Add search log ID for feedback
                 "confidence_breakdown": confidence_breakdown,  # Add detailed breakdown
-                "sources": self.source_enhancement_service.format_sources_for_response(search_results),
+                "sources": filtered_sources,  # Use filtered sources based on confidence
                 "institution_filter": institution_filter,
                 "search_stats": {
                     "total_chunks_found": len(search_results),
@@ -264,7 +295,10 @@ class QueryService:
                     "reliability_time_ms": reliability_time,
                     "total_pipeline_time_ms": pipeline_time,
                     "cache_used": cached_results is not None,
-                    "rate_limit_remaining": remaining
+                    "rate_limit_remaining": remaining,
+                    "low_confidence": is_low_confidence,  # Track low confidence responses
+                    "confidence_threshold": confidence_threshold,
+                    "credits_waived": is_low_confidence  # Track if credits were waived
                 },
                 "llm_stats": {
                     "model_used": llm_response.get("model_used", "llama3-8b-8192"),
