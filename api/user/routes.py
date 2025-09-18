@@ -343,6 +343,27 @@ async def ask_question(
             else:
                 logger.error(f"Credit refund failed for user {user_id}")
         
+        # Check for low confidence and refund credits if needed (NEW)
+        confidence_score = result.get("confidence_score", 1.0)
+        confidence_threshold = 0.4
+        is_low_confidence = confidence_score < confidence_threshold
+        
+        if not is_admin and is_low_confidence and required_credits > 0 and not refund_applied:
+            # Kredi iadesi yap - düşük güvenilirlik
+            search_log_id = result.get("search_log_id")
+            refund_success = await credit_service.refund_credits(
+                user_id=user_id,
+                amount=required_credits,
+                query_id=search_log_id if search_log_id else "low_confidence",
+                reason=f"Düşük güvenilirlik (%{int(confidence_score * 100)}): '{ask_request.query[:50]}{'...' if len(ask_request.query) > 50 else ''}'"
+            )
+            
+            if refund_success:
+                refund_applied = True
+                logger.info(f"Credit refunded for user {user_id}: {required_credits} credits (low confidence: {confidence_score:.2f})")
+            else:
+                logger.error(f"Credit refund failed for user {user_id} (low confidence)")
+        
         # 7. Kredi bilgilerini response'a ekle
         if not is_admin:
             # current_balance variables'ını güvenli şekilde kullan
@@ -350,12 +371,22 @@ async def ask_question(
             final_balance = balance if refund_applied else balance - required_credits
             credits_used = 0 if refund_applied else required_credits
             
+            # Determine refund reason
+            refund_reason = None
+            if refund_applied:
+                if is_no_info_response:
+                    refund_reason = "Bilgi bulunamadı"
+                elif is_low_confidence:
+                    refund_reason = f"Düşük güvenilirlik (%{int(confidence_score * 100)})"
+            
             result["credit_info"] = {
                 "credits_used": credits_used,
                 "remaining_balance": final_balance,
                 "refund_applied": refund_applied,
-                "refund_reason": "Bilgi bulunamadı" if refund_applied else None,
-                "no_info_detected": is_no_info_response  # Debug bilgisi
+                "refund_reason": refund_reason,
+                "confidence_score": confidence_score,
+                "no_info_detected": is_no_info_response,  # Debug bilgisi
+                "low_confidence_detected": is_low_confidence  # Debug bilgisi
             }
         else:
             result["credit_info"] = {
