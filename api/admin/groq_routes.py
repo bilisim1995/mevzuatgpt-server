@@ -335,6 +335,7 @@ async def update_groq_settings(
                     logger.error(f"Failed to update {field} in database")
         
         # Apply creativity preset if mode was changed
+        # BUT ONLY for fields that were NOT explicitly set by user
         if request.creativity_mode and request.creativity_mode in creativity_presets:
             preset = creativity_presets[request.creativity_mode]
             preset_updates = {
@@ -344,7 +345,15 @@ async def update_groq_settings(
                 "presence_penalty": preset.presence_penalty
             }
             
+            # Get fields that were explicitly provided by user
+            user_provided_fields = set(request.model_dump(exclude_unset=True).keys())
+            
             for field, value in preset_updates.items():
+                # SKIP if user explicitly provided this field
+                if field in user_provided_fields:
+                    logger.info(f"Skipping preset update for {field} - user provided explicit value")
+                    continue
+                    
                 success = await update_groq_setting_in_db(field, value, "number")
                 if success:
                     current_settings[field] = value
