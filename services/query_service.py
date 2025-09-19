@@ -283,6 +283,146 @@ class QueryService:
                 }
             }
     
+    async def handle_ambiguous_query(self, query: str, user_id: str) -> Dict[str, Any]:
+        """
+        Handle ambiguous queries with clarifying questions
+        
+        Args:
+            query: User's unclear message
+            user_id: Current user ID
+            
+        Returns:
+            Clarifying question response with 1 credit cost
+        """
+        try:
+            start_time = time.time()
+            
+            # Analyze the type of ambiguity
+            query_clean = query.strip().lower()
+            query_words = query_clean.split()
+            
+            # Define clarifying response templates
+            clarifying_responses = {
+                'too_short': {
+                    'message': "Sorunuzu biraz daha detaylandırabilir misiniz? Hangi konuda bilgi almak istiyorsunuz?",
+                    'condition': len(query_words) <= 2
+                },
+                'single_word': {
+                    'message': f"'{query}' hakkında daha spesifik bir soru sorabilir misiniz? Örneğin: '{query} nedir?', '{query} nasıl yapılır?' gibi.",
+                    'condition': len(query_words) == 1 and query_words[0] not in ['ne', 'nah', 'evet', 'hayır']
+                },
+                'incomplete': {
+                    'message': "Sorunuz tamamlanmamış gibi görünüyor. Tam olarak ne öğrenmek istiyorsunuz?",
+                    'condition': query_clean.endswith('...') or query_clean.endswith('..')
+                },
+                'uncertain': {
+                    'message': "Hangi konuda yardıma ihtiyacınız var? Size daha iyi yardımcı olabilmem için sorunuzu netleştirebilir misiniz?",
+                    'condition': any(phrase in query_clean for phrase in ['bilmiyorum', 'emin değilim', 'ne yapacağım'])
+                },
+                'yes_no_only': {
+                    'message': "Bu yanıt bir önceki soruyla mı ilgili? Lütfen tam sorunuzu tekrar belirtin ki size doğru şekilde yardımcı olabileyim.",
+                    'condition': query_clean in ['evet', 'hayır', 'tamam', 'ok', 'olur', 'iyi', 'kötü']
+                },
+                'general_unclear': {
+                    'message': "Size nasıl yardımcı olabileceğimi daha iyi anlayabilmem için sorunuzu biraz daha açıklayabilir misiniz? Hangi hukuki konu hakkında bilgi almak istiyorsunuz?",
+                    'condition': True  # Default fallback
+                }
+            }
+            
+            # Find the appropriate clarifying response
+            selected_response = clarifying_responses['general_unclear']['message']
+            response_type = 'general_unclear'
+            
+            for response_key, response_data in clarifying_responses.items():
+                if response_key == 'general_unclear':
+                    continue
+                    
+                if response_data['condition']:
+                    selected_response = response_data['message']
+                    response_type = response_key
+                    break
+            
+            # Add helpful suggestions based on query context
+            suggestions = []
+            if len(query_words) == 1:
+                keyword = query_words[0]
+                if keyword in ['miras', 'boşanma', 'kira', 'şirket', 'sigorta']:
+                    suggestions.append(f"'{keyword} hukuku nedir?'")
+                    suggestions.append(f"'{keyword} ile ilgili haklarım neler?'")
+                    suggestions.append(f"'{keyword} süreci nasıl işler?'")
+            
+            if suggestions:
+                suggestion_text = "\n\nÖrnek sorular:\n" + "\n".join([f"• {suggestion}" for suggestion in suggestions])
+                selected_response += suggestion_text
+            
+            # Calculate processing time
+            processing_time = int((time.time() - start_time) * 1000)
+            
+            # Format response
+            response = {
+                "answer": selected_response,
+                "intent": "ambiguous",
+                "response_type": response_type,
+                "confidence_score": 1.0,  # High confidence for clarification responses
+                "sources": [],  # No document sources for clarification
+                "institution_filter": None,
+                "search_stats": {
+                    "total_chunks_found": 0,
+                    "embedding_time_ms": 0,
+                    "search_time_ms": 0,
+                    "generation_time_ms": processing_time,
+                    "reliability_time_ms": 0,
+                    "total_pipeline_time_ms": processing_time,
+                    "cache_used": False,
+                    "rate_limit_remaining": 30,
+                    "low_confidence": False,
+                    "confidence_threshold": 0.0,
+                    "credits_used": 1,  # Fixed 1 credit for clarification
+                    "clarification_needed": True
+                },
+                "llm_stats": {
+                    "model_used": "clarification_templates",
+                    "prompt_tokens": len(query.split()),
+                    "response_tokens": len(selected_response.split())
+                },
+                "suggestions": suggestions  # Include suggestions for frontend
+            }
+            
+            logger.info(f"Ambiguous query handled: '{query[:50]}' -> {response_type} ({processing_time}ms)")
+            return response
+            
+        except Exception as e:
+            logger.error(f"Failed to handle ambiguous query: {e}")
+            # Fallback to default clarification
+            return {
+                "answer": "Sorunuzu biraz daha detaylandırabilir misiniz? Size daha iyi yardımcı olabilmem için hangi konuda bilgi almak istediğinizi belirtebilirsiniz.",
+                "intent": "ambiguous",
+                "response_type": "error_fallback",
+                "confidence_score": 1.0,
+                "sources": [],
+                "institution_filter": None,
+                "search_stats": {
+                    "total_chunks_found": 0,
+                    "embedding_time_ms": 0,
+                    "search_time_ms": 0,
+                    "generation_time_ms": 0,
+                    "reliability_time_ms": 0,
+                    "total_pipeline_time_ms": 0,
+                    "cache_used": False,
+                    "rate_limit_remaining": 30,
+                    "low_confidence": False,
+                    "confidence_threshold": 0.0,
+                    "credits_used": 1,
+                    "clarification_needed": True
+                },
+                "llm_stats": {
+                    "model_used": "clarification_templates",
+                    "prompt_tokens": 0,
+                    "response_tokens": 0
+                },
+                "suggestions": []
+            }
+    
     async def process_ask_query(
         self, 
         query: str,
