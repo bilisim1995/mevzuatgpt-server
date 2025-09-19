@@ -666,6 +666,75 @@ async def debug_groq_status():
             "last_check": datetime.utcnow().isoformat()
         }
 
+# DEBUG ENDPOINT - Authentication olmadan settings test için
+@router.put("/debug-settings", response_model=Dict[str, Any])
+async def debug_update_groq_settings(
+    request: GroqSettingsUpdate
+):
+    """
+    Groq ayarlarını authentication olmadan güncelle (DEBUG)
+    """
+    try:
+        logger.info(f"DEBUG - Received settings update: {request}")
+        
+        # Get current settings from database
+        current_settings = await get_groq_settings_from_db()
+        
+        updated_settings = {}
+        
+        # Update only provided settings
+        if request.default_model is not None:
+            await update_groq_setting_in_db("default_model", request.default_model, "string")
+            updated_settings["default_model"] = request.default_model
+            
+        if request.temperature is not None:
+            await update_groq_setting_in_db("temperature", request.temperature, "number")
+            updated_settings["temperature"] = request.temperature
+            
+        if request.max_tokens is not None:
+            await update_groq_setting_in_db("max_tokens", request.max_tokens, "number")
+            updated_settings["max_tokens"] = request.max_tokens
+            
+        if request.top_p is not None:
+            await update_groq_setting_in_db("top_p", request.top_p, "number")
+            updated_settings["top_p"] = request.top_p
+            
+        if request.frequency_penalty is not None:
+            await update_groq_setting_in_db("frequency_penalty", request.frequency_penalty, "number")
+            updated_settings["frequency_penalty"] = request.frequency_penalty
+            
+        if request.presence_penalty is not None:
+            await update_groq_setting_in_db("presence_penalty", request.presence_penalty, "number")
+            updated_settings["presence_penalty"] = request.presence_penalty
+            
+        if request.creativity_mode is not None:
+            await update_groq_setting_in_db("creativity_mode", request.creativity_mode, "string")
+            updated_settings["creativity_mode"] = request.creativity_mode
+            
+        if request.response_style is not None:
+            await update_groq_setting_in_db("response_style", request.response_style, "string")
+            updated_settings["response_style"] = request.response_style
+        
+        logger.info(f"DEBUG - Groq settings updated successfully: {updated_settings}")
+        
+        return {
+            "success": True,
+            "message": "Groq ayarları başarıyla güncellendi (DEBUG)",
+            "data": {
+                "updated_settings": updated_settings,
+                "update_timestamp": datetime.utcnow().isoformat(),
+                "debug": True
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"DEBUG - Error updating Groq settings: {e}")
+        return {
+            "success": False,
+            "error_message": str(e),
+            "debug": True
+        }
+
 @router.post("/reset-settings", response_model=Dict[str, Any])
 async def reset_groq_settings(
     current_user: dict = Depends(get_current_user_admin)
