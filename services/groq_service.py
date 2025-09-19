@@ -32,17 +32,33 @@ class GroqService:
     
     def get_current_settings(self) -> Dict[str, Any]:
         """
-        Get current Groq settings from admin configuration
+        Get current Groq settings directly from database
         
         Returns:
             Current Groq settings dictionary
         """
         try:
             # Import here to avoid circular imports
-            from api.admin.groq_routes import current_groq_settings
-            return current_groq_settings.copy()
-        except (ImportError, AttributeError):
-            logger.warning("Admin Groq settings not available, using fallback defaults")
+            from api.admin.groq_routes import get_groq_settings_from_db
+            import asyncio
+            
+            # Get fresh settings from database
+            if hasattr(asyncio, '_get_running_loop') and asyncio._get_running_loop() is not None:
+                # We're in an async context, create a new event loop
+                loop = asyncio.new_event_loop()
+                settings = loop.run_until_complete(get_groq_settings_from_db())
+                loop.close()
+            else:
+                # We're not in an async context
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                settings = loop.run_until_complete(get_groq_settings_from_db())
+                loop.close()
+            
+            return settings
+            
+        except Exception as e:
+            logger.warning(f"Failed to get fresh settings from database: {str(e)}")
             return {
                 "default_model": "llama-3.3-70b-versatile",  # Fallback default
                 "temperature": 0.3,
@@ -51,7 +67,12 @@ class GroqService:
                 "frequency_penalty": 0.5,
                 "presence_penalty": 0.6,
                 "creativity_mode": "balanced",
-                "response_style": "detailed"
+                "response_style": "detailed",
+                "available_models": [
+                    "llama-3.3-70b-versatile",
+                    "llama-3.1-8b-instant", 
+                    "gpt-oss-120B"
+                ]
             }
     
     async def generate_response(
