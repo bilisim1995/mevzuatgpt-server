@@ -326,14 +326,35 @@ SORU: {query}
     
     def get_available_models(self) -> List[str]:
         """
-        Get list of available Groq models
+        Get list of available Groq models from database
         
         Returns:
             List of model names
         """
-        # Groq's latest models (2025)
-        return [
-            "llama-3.3-70b-versatile",   # En güçlü model (70B, 128K context)
-            "llama-3.1-8b-instant",      # Hızlı ve verimli (8B, fast)
-            "gpt-oss-120B"               # OpenAI açık kaynak (120B, yeni)
-        ]
+        try:
+            # Get model list from admin settings
+            current_settings = self.get_current_settings()
+            models_from_db = current_settings.get("available_models", [])
+            
+            # If we got models from database, return them
+            if models_from_db and isinstance(models_from_db, list) and len(models_from_db) > 0:
+                logger.info(f"Loaded {len(models_from_db)} models from database")
+                return models_from_db
+            
+            # Fallback: default 3 models if database is empty
+            fallback_models = [
+                "llama-3.3-70b-versatile",   # En güçlü model (70B, 128K context)
+                "llama-3.1-8b-instant",      # Hızlı ve verimli (8B, fast)
+                "gpt-oss-120B"               # OpenAI açık kaynak (120B, yeni)
+            ]
+            logger.warning("No models found in database, using fallback models")
+            return fallback_models
+            
+        except Exception as e:
+            logger.error(f"Error loading models from database: {str(e)}")
+            # Emergency fallback
+            return [
+                "llama-3.3-70b-versatile",
+                "llama-3.1-8b-instant", 
+                "gpt-oss-120B"
+            ]

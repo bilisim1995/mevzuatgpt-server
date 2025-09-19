@@ -98,7 +98,12 @@ async def get_groq_settings_from_db() -> Dict[str, Any]:
                 "frequency_penalty": 0.5,
                 "presence_penalty": 0.6,
                 "creativity_mode": "balanced",
-                "response_style": "detailed"
+                "response_style": "detailed",
+                "available_models": [
+                    "llama-3.3-70b-versatile",
+                    "llama-3.1-8b-instant", 
+                    "gpt-oss-120B"
+                ]
             }
             
         return settings
@@ -114,7 +119,12 @@ async def get_groq_settings_from_db() -> Dict[str, Any]:
             "frequency_penalty": 0.5,
             "presence_penalty": 0.6,
             "creativity_mode": "balanced",
-            "response_style": "detailed"
+            "response_style": "detailed",
+            "available_models": [
+                "llama-3.3-70b-versatile",
+                "llama-3.1-8b-instant", 
+                "gpt-oss-120B"
+            ]
         }
 
 async def update_groq_setting_in_db(key: str, value: Any, value_type: str = "string") -> bool:
@@ -646,12 +656,22 @@ async def reset_groq_settings(
             "frequency_penalty": 0.5,
             "presence_penalty": 0.6,
             "creativity_mode": "balanced",
-            "response_style": "detailed"
+            "response_style": "detailed",
+            "available_models": [
+                "llama-3.3-70b-versatile",
+                "llama-3.1-8b-instant", 
+                "gpt-oss-120B"
+            ]
         }
         
         # Update each setting in database
         for key, value in default_settings.items():
-            value_type = "number" if isinstance(value, (int, float)) else "string"
+            if isinstance(value, list):
+                value_type = "json"
+            elif isinstance(value, (int, float)):
+                value_type = "number"
+            else:
+                value_type = "string"
             await update_groq_setting_in_db(key, value, value_type)
         
         logger.info(f"Admin {current_user['email']} reset Groq settings to default in database")
