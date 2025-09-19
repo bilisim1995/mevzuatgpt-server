@@ -265,6 +265,7 @@ class QueryService:
             
             # Format response
             response = {
+                "query": query,  # Include original query like legal document responses
                 "answer": selected_response,
                 "intent": "general_conversation",
                 "response_type": response_type,
@@ -298,6 +299,7 @@ class QueryService:
             logger.error(f"Failed to handle general conversation: {e}")
             # Fallback to default response
             return {
+                "query": query,  # Include original query in error fallback too
                 "answer": "Size nasıl yardımcı olabilirim? Hukuki sorularınız için buradayım.",
                 "intent": "general_conversation",
                 "response_type": "error_fallback",
@@ -401,6 +403,7 @@ class QueryService:
             
             # Format response
             response = {
+                "query": query,  # Include original query for consistency
                 "answer": selected_response,
                 "intent": "ambiguous",
                 "response_type": response_type,
@@ -436,6 +439,7 @@ class QueryService:
             logger.error(f"Failed to handle ambiguous query: {e}")
             # Fallback to default clarification
             return {
+                "query": query,  # Include original query in error fallback
                 "answer": "Sorunuzu biraz daha detaylandırabilir misiniz? Size daha iyi yardımcı olabilmem için hangi konuda bilgi almak istediğinizi belirtebilirsiniz.",
                 "intent": "ambiguous",
                 "response_type": "error_fallback",
