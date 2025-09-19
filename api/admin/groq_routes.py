@@ -597,7 +597,7 @@ async def get_groq_status(
             "service_status": "healthy" if health_response else "unhealthy",
             "response_time_ms": round(response_time, 2),
             "available_models": available_models,
-            "current_model": current_settings.get("default_model", "llama3-70b-8192"),
+            "current_model": current_settings.get("default_model", "llama-3.3-70b-versatile"),
             "model_count": len(available_models),
             "current_settings": current_settings,
             "last_check": datetime.utcnow().isoformat()
@@ -639,7 +639,7 @@ async def reset_groq_settings(
         
         # Default settings to reset to
         default_settings = {
-            "default_model": "llama3-70b-8192",
+            "default_model": "llama-3.3-70b-versatile",
             "temperature": 0.3,
             "max_tokens": 2048,
             "top_p": 0.9,
