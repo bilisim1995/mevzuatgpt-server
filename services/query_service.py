@@ -8,6 +8,8 @@ import logging
 import re
 from typing import Dict, List, Any, Optional, Literal
 from sqlalchemy.ext.asyncio import AsyncSession
+import openai
+from openai import AsyncOpenAI
 
 from services.embedding_service import EmbeddingService
 from services.search_service import SearchService
@@ -20,6 +22,7 @@ from services.search_history_service import SearchHistoryService
 from services.credit_service import credit_service
 from core.supabase_client import supabase_client
 from utils.exceptions import AppException
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +42,15 @@ class QueryService:
         self.redis_service = RedisService()  # Add redis_service instance
         
         # Initialize AI provider based on configuration
-        from core.config import settings
         if settings.AI_PROVIDER == "groq" and settings.GROQ_API_KEY:
             self.ai_service = GroqService()
             self.ai_provider = "groq"
         else:
             self.ai_service = ollama_service
             self.ai_provider = "ollama"
+        
+        # Initialize OpenAI client for fallback
+        self.openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
     
     def classify_query_intent(self, query: str) -> QueryIntent:
         """
@@ -616,22 +621,68 @@ class QueryService:
             ai_start = time.time()
             
             if self.ai_provider == "groq":
-                # Use Groq service for fast inference
+                # Use Groq service for fast inference with OpenAI fallback
                 context_text = self._prepare_context_for_groq(search_results)
                 
-                ai_result = await self.ai_service.generate_response(
-                    query=query,
-                    context=context_text
-                )
-                
-                llm_response = {
-                    "answer": ai_result["response"],
-                    "confidence_score": ai_result["confidence_score"],
-                    "sources": self.source_enhancement_service.format_sources_for_response(search_results),  # Use enhanced source formatting
-                    "ai_model": ai_result["model_used"],
-                    "processing_time": ai_result["processing_time"],
-                    "token_usage": ai_result.get("token_usage", {})
-                }
+                try:
+                    ai_result = await self.ai_service.generate_response(
+                        query=query,
+                        context=context_text
+                    )
+                    
+                    llm_response = {
+                        "answer": ai_result["response"],
+                        "confidence_score": ai_result["confidence_score"],
+                        "sources": self.source_enhancement_service.format_sources_for_response(search_results),
+                        "ai_model": ai_result["model_used"],
+                        "processing_time": ai_result["processing_time"],
+                        "token_usage": ai_result.get("token_usage", {})
+                    }
+                    
+                except Exception as groq_error:
+                    # Check if it's a rate limit error (429)
+                    error_str = str(groq_error)
+                    
+                    # For AppException, check both message and detail
+                    if hasattr(groq_error, 'detail'):
+                        error_str += f" {groq_error.detail}"
+                    
+                    is_rate_limit = (
+                        "429" in error_str or 
+                        "rate limit" in error_str.lower() or
+                        "rate_limit_exceeded" in error_str.lower()
+                    )
+                    
+                    if is_rate_limit:
+                        logger.warning(f"Groq rate limit reached, falling back to OpenAI: {groq_error}")
+                        
+                        if self.openai_client:
+                            try:
+                                # Fallback to OpenAI GPT-4o
+                                openai_response = await self._generate_openai_fallback(
+                                    query=query,
+                                    context=context_text,
+                                    search_results=search_results
+                                )
+                                llm_response = openai_response
+                                logger.info("Successfully used OpenAI fallback for rate-limited Groq request")
+                            except Exception as openai_error:
+                                logger.error(f"OpenAI fallback also failed: {openai_error}")
+                                raise AppException(
+                                    message="AI service temporarily unavailable - please try again in a few minutes",
+                                    error_code="AI_SERVICE_UNAVAILABLE"
+                                )
+                        else:
+                            logger.error("No OpenAI API key configured for fallback")
+                            raise AppException(
+                                message="AI service temporarily unavailable - please try again in a few minutes", 
+                                error_code="AI_SERVICE_UNAVAILABLE"
+                            )
+                    else:
+                        # Other Groq errors, re-raise
+                        logger.error(f"Groq service error (non-rate-limit): {groq_error}")
+                        raise groq_error
+                        
             else:
                 # Use Ollama service (fallback)
                 llm_response = await ollama_service.generate_response(
@@ -1080,6 +1131,68 @@ Benzerlik: {similarity:.2f}
         except Exception as e:
             logger.warning(f"Failed to log search query: {e}")
             return None
+    
+    async def _generate_openai_fallback(
+        self, 
+        query: str, 
+        context: str, 
+        search_results: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Generate response using OpenAI as fallback when Groq fails
+        
+        Args:
+            query: User's question
+            context: Prepared context text
+            search_results: Search results for source formatting
+            
+        Returns:
+            Response dictionary compatible with Groq response format
+        """
+        start_time = time.time()
+        
+        try:
+            # Get system prompt for legal questions
+            from services.prompt_service import prompt_service
+            system_message = await prompt_service.get_system_prompt("groq_legal")
+            
+            # Prepare messages for OpenAI
+            messages = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": f"Soru: {query}\n\nBağlam:\n{context}"}
+            ]
+            
+            # Call OpenAI GPT-4o
+            response = await self.openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=messages,
+                temperature=0.3,
+                max_tokens=2048,
+                top_p=0.9
+            )
+            
+            ai_response = response.choices[0].message.content
+            processing_time = int((time.time() - start_time) * 1000)
+            
+            return {
+                "answer": ai_response,
+                "confidence_score": 0.8,  # Default confidence for OpenAI fallback
+                "sources": self.source_enhancement_service.format_sources_for_response(search_results),
+                "ai_model": "gpt-4o (fallback)",
+                "processing_time": processing_time,
+                "token_usage": {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"OpenAI fallback failed: {e}")
+            raise AppException(
+                message="AI service temporarily unavailable",
+                error_code="OPENAI_FALLBACK_FAILED"
+            )
     
     async def _get_documents_by_institution(self, institution_filter: str) -> List[str]:
         """Get document IDs that belong to the specified institution"""
