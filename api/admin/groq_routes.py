@@ -147,8 +147,16 @@ async def update_groq_setting_in_db(key: str, value: Any, value_type: str = "str
                 'setting_type': value_type,
                 'is_active': True
             }).eq('setting_key', key).execute()
-            logger.info(f"Updated existing setting {key} in database")
-            return True
+            
+            logger.info(f"DEBUG - Update response: {update_response}")
+            logger.info(f"DEBUG - Update response data: {update_response.data}")
+            
+            if update_response.data and len(update_response.data) > 0:
+                logger.info(f"Updated existing setting {key} in database")
+                return True
+            else:
+                logger.error(f"Failed to update setting {key} - no data returned")
+                return False
         else:
             # Record doesn't exist, insert new one
             insert_response = supabase_client.supabase.table('groq_settings').insert({
@@ -157,8 +165,16 @@ async def update_groq_setting_in_db(key: str, value: Any, value_type: str = "str
                 'setting_type': value_type,
                 'is_active': True
             }).execute()
-            logger.info(f"Inserted new setting {key} in database")
-            return len(insert_response.data) > 0
+            
+            logger.info(f"DEBUG - Insert response: {insert_response}")
+            logger.info(f"DEBUG - Insert response data: {insert_response.data}")
+            
+            if insert_response.data and len(insert_response.data) > 0:
+                logger.info(f"Inserted new setting {key} in database")
+                return True
+            else:
+                logger.error(f"Failed to insert setting {key} - no data returned")
+                return False
         
     except Exception as e:
         logger.error(f"Database setting update error for {key}: {e}")
