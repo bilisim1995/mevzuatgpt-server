@@ -260,8 +260,9 @@ async def ask_question(
         required_credits = 0  # Default değer
         
         if not is_admin:
-            # 2. Sorgu için gerekli kredi miktarını hesapla
-            required_credits = credit_service.calculate_credit_cost(query)
+            # 2. Sorgu için gerekli kredi miktarını hesapla (Intent-based)
+            query_service_temp = QueryService(db)
+            required_credits = query_service_temp.calculate_intent_based_credits(query)
             
             # 3. Kullanıcının yeterli kredisi var mı kontrol et
             current_balance = await credit_service.get_user_balance(user_id)

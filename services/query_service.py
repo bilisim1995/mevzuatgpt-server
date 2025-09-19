@@ -156,6 +156,42 @@ class QueryService:
             logger.warning(f"Intent classification failed: {e}, defaulting to legal_question")
             return "legal_question"
     
+    def calculate_intent_based_credits(self, query: str) -> int:
+        """
+        Calculate required credits based on query intent
+        
+        Args:
+            query: User's query
+            
+        Returns:
+            Required credits based on intent type
+        """
+        try:
+            query_intent = self.classify_query_intent(query)
+            
+            if query_intent == "general_conversation":
+                # Fixed 1 credit for general conversation
+                logger.info(f"Intent-based credits: 1 credit for general_conversation")
+                return 1
+            
+            elif query_intent == "ambiguous":
+                # Fixed 1 credit for clarification questions
+                logger.info(f"Intent-based credits: 1 credit for ambiguous query")
+                return 1
+            
+            else:  # legal_question
+                # Use normal credit calculation for legal questions
+                from services.credit_service import credit_service
+                normal_credits = credit_service.calculate_credit_cost(query)
+                logger.info(f"Intent-based credits: {normal_credits} credits for legal_question")
+                return normal_credits
+                
+        except Exception as e:
+            logger.warning(f"Intent-based credit calculation failed: {e}, using fallback")
+            # Fallback to normal calculation
+            from services.credit_service import credit_service
+            return credit_service.calculate_credit_cost(query)
+    
     async def handle_general_conversation(self, query: str, user_id: str) -> Dict[str, Any]:
         """
         Handle general conversation queries with simple responses
@@ -451,6 +487,22 @@ class QueryService:
             
             # Debug log for limit parameter
             logger.info(f"🔢 Processing query with limit={limit}, similarity_threshold={similarity_threshold}")
+            
+            # 🎯 STEP 0: Intent Classification (NEW - Most Important Step)
+            query_intent = self.classify_query_intent(query)
+            logger.info(f"🎯 Query intent classified as: {query_intent} for query: '{query[:50]}'")
+            
+            # Route to appropriate handler based on intent
+            if query_intent == "general_conversation":
+                logger.info("🗣️ Routing to general conversation handler")
+                return await self.handle_general_conversation(query, user_id)
+            
+            elif query_intent == "ambiguous":
+                logger.info("❓ Routing to ambiguous query handler")
+                return await self.handle_ambiguous_query(query, user_id)
+            
+            # If we reach here, it's a legal_question - continue with full RAG pipeline
+            logger.info("⚖️ Routing to legal question handler (full RAG pipeline)")
             
             # 1. Rate limiting check
             is_allowed, remaining = await self.redis_service.check_rate_limit(
