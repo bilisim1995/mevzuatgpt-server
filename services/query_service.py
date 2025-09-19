@@ -5,7 +5,8 @@ Handles the complete flow from user query to AI response
 
 import time
 import logging
-from typing import Dict, List, Any, Optional
+import re
+from typing import Dict, List, Any, Optional, Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.embedding_service import EmbeddingService
@@ -21,6 +22,9 @@ from core.supabase_client import supabase_client
 from utils.exceptions import AppException
 
 logger = logging.getLogger(__name__)
+
+# Intent classification types
+QueryIntent = Literal["general_conversation", "legal_question", "ambiguous"]
 
 class QueryService:
     """Service for orchestrating the complete ask pipeline"""
@@ -42,6 +46,115 @@ class QueryService:
         else:
             self.ai_service = ollama_service
             self.ai_provider = "ollama"
+    
+    def classify_query_intent(self, query: str) -> QueryIntent:
+        """
+        Classify user query intent into three categories
+        
+        Args:
+            query: User's input message
+            
+        Returns:
+            QueryIntent: 'general_conversation', 'legal_question', or 'ambiguous'
+        """
+        try:
+            # Clean and normalize query
+            query_clean = query.strip().lower()
+            query_words = query_clean.split()
+            
+            # Skip empty or very short queries
+            if not query_clean or len(query_words) < 1:
+                return "ambiguous"
+            
+            # 1. GENERAL CONVERSATION PATTERNS
+            # Direct greetings and social expressions
+            greeting_patterns = [
+                'merhaba', 'selam', 'selam aleykum', 'günaydın', 'iyi akşamlar', 
+                'iyi geceler', 'hoşçakal', 'görüşürüz', 'bay bay', 'hadi eyvallah',
+                'nasılsın', 'nasılsınız', 'ne haber', 'ne var ne yok', 'naber',
+                'teşekkür', 'teşekkürler', 'sağol', 'sağolun', 'rica ederim',
+                'özür', 'kusura bakma', 'pardon', 'affedersin'
+            ]
+            
+            # Check for exact greeting matches
+            for pattern in greeting_patterns:
+                if pattern in query_clean:
+                    logger.info(f"Intent: general_conversation (greeting detected: '{pattern}')")
+                    return "general_conversation"
+            
+            # Combined greeting patterns (like "merhaba nasılsın")
+            combined_greetings = [
+                ('merhaba', 'nasıl'), ('selam', 'nasıl'), ('günaydın', 'nasıl'),
+                ('teşekkür', 'ederim'), ('sağ', 'ol')
+            ]
+            
+            for pattern1, pattern2 in combined_greetings:
+                if pattern1 in query_clean and pattern2 in query_clean:
+                    logger.info(f"Intent: general_conversation (combined greeting: '{pattern1}' + '{pattern2}')")
+                    return "general_conversation"
+            
+            # 2. LEGAL QUESTION PATTERNS
+            # Legal keywords and question indicators
+            legal_keywords = [
+                'hukuk', 'kanun', 'yasa', 'madde', 'fıkra', 'bent', 'mevzuat',
+                'sözleşme', 'dava', 'mahkeme', 'hakim', 'avukat', 'savcı',
+                'miras', 'veraset', 'boşanma', 'nafaka', 'velayet', 
+                'tapu', 'gayrimenkul', 'kira', 'emlak', 'icra', 'haciz',
+                'şirket', 'ortaklık', 'vergi', 'gümrük', 'ticaret',
+                'sigorta', 'emekli', 'işçi', 'işveren', 'iş hukuku',
+                'ceza', 'suç', 'hapis', 'para', 'tazminat', 'zarar',
+                'hak', 'yükümlülük', 'sorumluluk', 'borç', 'alacak'
+            ]
+            
+            # Question indicators
+            question_indicators = [
+                '?', 'nedir', 'nasıl', 'neden', 'niçin', 'ne zaman', 'kim',
+                'hangi', 'kaç', 'ne kadar', 'nerede', 'nereden', 'nereye',
+                'yapabilir', 'edebilir', 'olur', 'mümkün', 'gerekir', 'lazım'
+            ]
+            
+            # Check for legal keywords
+            has_legal_keyword = any(keyword in query_clean for keyword in legal_keywords)
+            has_question_indicator = any(indicator in query_clean for indicator in question_indicators)
+            
+            # Strong legal question indicators
+            if has_legal_keyword and (has_question_indicator or len(query_words) > 5):
+                logger.info(f"Intent: legal_question (legal keywords + question pattern)")
+                return "legal_question"
+            
+            # Question with sufficient length (likely legal)
+            if '?' in query and len(query_words) > 4:
+                logger.info(f"Intent: legal_question (question mark + sufficient length: {len(query_words)} words)")
+                return "legal_question"
+            
+            # Long statements that are likely legal (>8 words)
+            if len(query_words) > 8 and not any(greeting in query_clean for greeting in greeting_patterns):
+                logger.info(f"Intent: legal_question (long statement: {len(query_words)} words)")
+                return "legal_question"
+            
+            # 3. AMBIGUOUS PATTERNS
+            # Very short, unclear, or incomplete queries
+            ambiguous_patterns = [
+                query_clean in ['ne', 'nah', 'evet', 'hayır', 'tamam', 'ok', 'olur', 'iyi', 'kötü'],
+                len(query_words) == 1 and query_words[0] not in greeting_patterns,
+                len(query_words) == 2 and not any(greeting in query_clean for greeting in greeting_patterns),
+                query_clean.endswith('...') or query_clean.endswith('..'),
+                'bilmiyorum' in query_clean,
+                'emin değilim' in query_clean
+            ]
+            
+            if any(ambiguous_patterns):
+                logger.info(f"Intent: ambiguous (unclear or incomplete query)")
+                return "ambiguous"
+            
+            # 4. DEFAULT: Assume legal question
+            # If we reach here, it's likely a legal question
+            logger.info(f"Intent: legal_question (default classification)")
+            return "legal_question"
+            
+        except Exception as e:
+            logger.warning(f"Intent classification failed: {e}, defaulting to legal_question")
+            return "legal_question"
     
     async def process_ask_query(
         self, 
