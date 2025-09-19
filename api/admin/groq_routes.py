@@ -13,7 +13,7 @@ from api.dependencies import get_current_user_admin
 from services.groq_service import GroqService
 from utils.response import success_response, error_response
 from utils.exceptions import AppException
-from models.supabase_client import supabase_client
+from core.supabase_client import supabase_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/groq", tags=["Admin-Groq"])
@@ -69,7 +69,7 @@ class ModelInfoResponse(BaseModel):
 async def get_groq_settings_from_db() -> Dict[str, Any]:
     """Groq ayarlarını veritabanından çek"""
     try:
-        response = supabase_client.supabase.table('groq_settings').select('setting_key, setting_value, setting_type').eq('is_active', True).execute()
+        response = supabase_client.get_client(use_service_key=True).table('groq_settings').select('setting_key, setting_value, setting_type').eq('is_active', True).execute()
         
         settings = {}
         for row in response.data:
@@ -138,11 +138,11 @@ async def update_groq_setting_in_db(key: str, value: Any, value_type: str = "str
             str_value = str(value)
             
         # First check if record exists
-        check_response = supabase_client.supabase.table('groq_settings').select('setting_key').eq('setting_key', key).execute()
+        check_response = supabase_client.get_client(use_service_key=True).table('groq_settings').select('setting_key').eq('setting_key', key).execute()
         
         if check_response.data:
             # Record exists, update it
-            update_response = supabase_client.supabase.table('groq_settings').update({
+            update_response = supabase_client.get_client(use_service_key=True).table('groq_settings').update({
                 'setting_value': str_value,
                 'setting_type': value_type,
                 'is_active': True
@@ -159,7 +159,7 @@ async def update_groq_setting_in_db(key: str, value: Any, value_type: str = "str
                 return False
         else:
             # Record doesn't exist, insert new one
-            insert_response = supabase_client.supabase.table('groq_settings').insert({
+            insert_response = supabase_client.get_client(use_service_key=True).table('groq_settings').insert({
                 'setting_key': key,
                 'setting_value': str_value,
                 'setting_type': value_type,
