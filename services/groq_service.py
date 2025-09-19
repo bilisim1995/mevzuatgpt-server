@@ -26,7 +26,7 @@ class GroqService:
             )
         
         self.client = Groq(api_key=settings.GROQ_API_KEY)
-        self.default_model = "llama-3.3-70b-versatile"  # Updated 2025 model for detailed responses
+        # Model bilgisi artık tamamen veritabanından çekilecek
         
         logger.info("Groq service initialized successfully")
     
@@ -42,9 +42,9 @@ class GroqService:
             from api.admin.groq_routes import current_groq_settings
             return current_groq_settings.copy()
         except (ImportError, AttributeError):
-            logger.warning("Admin Groq settings not available, using defaults")
+            logger.warning("Admin Groq settings not available, using fallback defaults")
             return {
-                "default_model": self.default_model,
+                "default_model": "llama-3.3-70b-versatile",  # Fallback default
                 "temperature": 0.3,
                 "max_tokens": 2048,
                 "top_p": 0.9,
@@ -82,7 +82,7 @@ class GroqService:
             current_settings = self.get_current_settings()
             
             # Use specified parameters or fall back to admin settings
-            model_name = model or current_settings.get("default_model", self.default_model)
+            model_name = model or current_settings.get("default_model", "llama-3.3-70b-versatile")
             max_tokens_final = max_tokens or current_settings.get("max_tokens", 2048)
             temperature_final = temperature if temperature is not None else current_settings.get("temperature", 0.3)
             top_p = current_settings.get("top_p", 0.9)
@@ -297,9 +297,13 @@ SORU: {query}
             Health status and available models
         """
         try:
+            # Get current model from settings
+            current_settings = self.get_current_settings()
+            model_name = current_settings.get("default_model", "llama-3.3-70b-versatile")
+            
             # Simple test request
             test_response = self.client.chat.completions.create(
-                model=self.default_model,
+                model=model_name,
                 messages=[{"role": "user", "content": "Test"}],
                 max_tokens=10,
                 temperature=0
@@ -307,7 +311,7 @@ SORU: {query}
             
             return {
                 "status": "healthy",
-                "default_model": self.default_model,
+                "default_model": model_name,
                 "test_tokens": test_response.usage.total_tokens if test_response.usage else 0,
                 "available": True
             }
@@ -327,10 +331,9 @@ SORU: {query}
         Returns:
             List of model names
         """
-        # Groq's current model lineup (as of 2025)
+        # Groq's latest models (2025)
         return [
-            "llama-3.1-8b-instant",      # Fast, efficient
-            "llama-3.3-70b-versatile",   # Most capable, latest model
-            "gemma2-9b-it",              # Google's model (mid-tier)
-            "whisper-large-v3"           # Audio transcription
+            "llama-3.3-70b-versatile",   # En güçlü model (70B, 128K context)
+            "llama-3.1-8b-instant",      # Hızlı ve verimli (8B, fast)
+            "gpt-oss-120B"               # OpenAI açık kaynak (120B, yeni)
         ]
