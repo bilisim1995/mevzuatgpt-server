@@ -255,13 +255,16 @@ async def ask_question(
         user_id = str(current_user.id)
         query = ask_request.query
         
-        # 1. Admin kullanıcılar için kredi kontrolü bypass
+        # 1. Intent classification for all users (needed for routing)
+        query_service_temp = QueryService(db)
+        query_intent = query_service_temp.classify_query_intent(query)
+        
+        # 2. Admin kullanıcılar için kredi kontrolü bypass
         is_admin = await credit_service.is_admin_user(user_id)
         required_credits = 0  # Default değer
         
         if not is_admin:
-            # 2. Sorgu için gerekli kredi miktarını hesapla (Intent-based)
-            query_service_temp = QueryService(db)
+            # 3. Sorgu için gerekli kredi miktarını hesapla (Intent-based)
             required_credits = query_service_temp.calculate_intent_based_credits(query)
             
             # 3. Kullanıcının yeterli kredisi var mı kontrol et
@@ -307,7 +310,8 @@ async def ask_question(
             institution_filter=ask_request.institution_filter,
             limit=ask_request.limit,
             similarity_threshold=ask_request.similarity_threshold,
-            use_cache=ask_request.use_cache
+            use_cache=ask_request.use_cache,
+            intent=query_intent
         )
         
         # 6. AI cevabını kontrol et - bilgi bulunamadıysa kredi iade et

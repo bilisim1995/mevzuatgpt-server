@@ -466,7 +466,8 @@ class QueryService:
         institution_filter: Optional[str] = None,
         limit: int = 10,
         similarity_threshold: float = 0.5,
-        use_cache: bool = True
+        use_cache: bool = True,
+        intent: Optional[QueryIntent] = None
     ) -> Dict[str, Any]:
         """
         Process complete ask query pipeline
@@ -489,8 +490,11 @@ class QueryService:
             logger.info(f"🔢 Processing query with limit={limit}, similarity_threshold={similarity_threshold}")
             
             # 🎯 STEP 0: Intent Classification (NEW - Most Important Step)
-            query_intent = self.classify_query_intent(query)
-            logger.info(f"🎯 Query intent classified as: {query_intent} for query: '{query[:50]}'")
+            query_intent = intent or self.classify_query_intent(query)
+            if intent:
+                logger.info(f"🎯 Using pre-calculated intent: {query_intent} for query: '{query[:50]}'")
+            else:
+                logger.info(f"🎯 Query intent classified as: {query_intent} for query: '{query[:50]}'")
             
             # Route to appropriate handler based on intent
             if query_intent == "general_conversation":
