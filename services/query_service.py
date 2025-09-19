@@ -156,6 +156,133 @@ class QueryService:
             logger.warning(f"Intent classification failed: {e}, defaulting to legal_question")
             return "legal_question"
     
+    async def handle_general_conversation(self, query: str, user_id: str) -> Dict[str, Any]:
+        """
+        Handle general conversation queries with simple responses
+        
+        Args:
+            query: User's conversational message
+            user_id: Current user ID
+            
+        Returns:
+            Simple conversational response with 1 credit cost
+        """
+        try:
+            start_time = time.time()
+            
+            # Classify the specific type of conversation
+            query_clean = query.strip().lower()
+            
+            # Define response templates
+            responses = {
+                'greeting': {
+                    'message': "Merhaba! Size hukuki belgelerimiz doğrultusunda nasıl yardımcı olabilirim? 😊",
+                    'keywords': ['merhaba', 'selam', 'günaydın', 'iyi akşamlar']
+                },
+                'how_are_you': {
+                    'message': "Teşekkür ederim, size yardımcı olmaya hazırım. Hangi konuyu incelememizi istersiniz?",
+                    'keywords': ['nasılsın', 'nasılsınız', 'ne haber', 'ne var ne yok', 'naber']
+                },
+                'thanks': {
+                    'message': "Rica ederim! Başka bir sorunuz olursa çekinmeden sorun.",
+                    'keywords': ['teşekkür', 'teşekkürler', 'sağol', 'sağolun']
+                },
+                'goodbye': {
+                    'message': "Hoşçakalın! Her zaman yardıma hazırım.",
+                    'keywords': ['hoşçakal', 'görüşürüz', 'bay bay', 'iyi geceler']
+                },
+                'combined_greeting': {
+                    'message': "Merhaba, teşekkür ederim! Size belgelerimizdeki bilgilerle destek olmak için buradayım. Konunuz nedir? 😊",
+                    'keywords': ['merhaba nasıl', 'selam nasıl', 'günaydın nasıl']
+                },
+                'default': {
+                    'message': "Size nasıl yardımcı olabilirim? Hukuki sorularınız için buradayım.",
+                    'keywords': []
+                }
+            }
+            
+            # Find the appropriate response
+            selected_response = responses['default']['message']
+            response_type = 'default'
+            
+            for response_key, response_data in responses.items():
+                if response_key == 'default':
+                    continue
+                    
+                # Check for keyword matches
+                for keyword in response_data['keywords']:
+                    if keyword in query_clean:
+                        selected_response = response_data['message']
+                        response_type = response_key
+                        break
+                        
+                if response_type != 'default':
+                    break
+            
+            # Calculate processing time
+            processing_time = int((time.time() - start_time) * 1000)
+            
+            # Format response
+            response = {
+                "answer": selected_response,
+                "intent": "general_conversation",
+                "response_type": response_type,
+                "confidence_score": 1.0,  # High confidence for pre-defined responses
+                "sources": [],  # No document sources for general conversation
+                "institution_filter": None,
+                "search_stats": {
+                    "total_chunks_found": 0,
+                    "embedding_time_ms": 0,
+                    "search_time_ms": 0,
+                    "generation_time_ms": processing_time,
+                    "reliability_time_ms": 0,
+                    "total_pipeline_time_ms": processing_time,
+                    "cache_used": False,
+                    "rate_limit_remaining": 30,
+                    "low_confidence": False,
+                    "confidence_threshold": 0.0,
+                    "credits_used": 1  # Fixed 1 credit for general conversation
+                },
+                "llm_stats": {
+                    "model_used": "conversation_templates",
+                    "prompt_tokens": len(query.split()),
+                    "response_tokens": len(selected_response.split())
+                }
+            }
+            
+            logger.info(f"General conversation handled: '{query[:50]}' -> {response_type} ({processing_time}ms)")
+            return response
+            
+        except Exception as e:
+            logger.error(f"Failed to handle general conversation: {e}")
+            # Fallback to default response
+            return {
+                "answer": "Size nasıl yardımcı olabilirim? Hukuki sorularınız için buradayım.",
+                "intent": "general_conversation",
+                "response_type": "error_fallback",
+                "confidence_score": 1.0,
+                "sources": [],
+                "institution_filter": None,
+                "search_stats": {
+                    "total_chunks_found": 0,
+                    "embedding_time_ms": 0,
+                    "search_time_ms": 0,
+                    "generation_time_ms": 0,
+                    "reliability_time_ms": 0,
+                    "total_pipeline_time_ms": 0,
+                    "cache_used": False,
+                    "rate_limit_remaining": 30,
+                    "low_confidence": False,
+                    "confidence_threshold": 0.0,
+                    "credits_used": 1
+                },
+                "llm_stats": {
+                    "model_used": "conversation_templates",
+                    "prompt_tokens": 0,
+                    "response_tokens": 0
+                }
+            }
+    
     async def process_ask_query(
         self, 
         query: str,
