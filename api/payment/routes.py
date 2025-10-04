@@ -6,6 +6,7 @@ Public endpoints (no authentication required)
 from fastapi import APIRouter, Request, HTTPException
 from typing import Dict, Any
 import logging
+import json
 from datetime import datetime
 from decimal import Decimal
 
@@ -40,6 +41,13 @@ async def create_order(
         OnSiparisResponse: Sipariş kayıt sonucu
     """
     try:
+        # Gelen isteği konsolda yazdır
+        logger.info("=" * 80)
+        logger.info("📥 YENİ SİPARİŞ İSTEĞİ ALINDI:")
+        logger.info(f"Request URL: {request.url}")
+        logger.info(f"Request Body: {json.dumps(order.model_dump(), indent=2, default=str)}")
+        logger.info("=" * 80)
+        
         # Request URL'i al
         request_url = str(request.url)
         
@@ -111,6 +119,13 @@ async def iyzico_webhook(
         IyzicoWebhookResponse: Webhook işlem sonucu
     """
     try:
+        # Gelen webhook isteğini konsolda yazdır
+        logger.info("=" * 80)
+        logger.info("🔔 İYZİCO WEBHOOK ALINDI:")
+        logger.info(f"Request URL: {request.url}")
+        logger.info(f"Webhook Body: {json.dumps(webhook.model_dump(), indent=2, default=str)}")
+        logger.info("=" * 80)
+        
         # Request URL'i al
         request_url = str(request.url)
         
