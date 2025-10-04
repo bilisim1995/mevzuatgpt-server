@@ -38,15 +38,18 @@ class OnSiparisResponse(BaseModel):
 
 
 class IyzicoWebhook(BaseModel):
-    """İyzico webhook request schema"""
-    paymentConversationId: str
+    """İyzico webhook request schema - Tüm fieldlar optional (esnek validation)"""
+    paymentConversationId: Optional[str] = None
     merchantId: Optional[str] = None
-    paymentId: str
-    status: str
+    paymentId: Optional[str] = None
+    status: Optional[str] = None
     iyziReferenceCode: Optional[str] = None
-    iyziEventType: str
-    iyziEventTime: int  # unix timestamp
+    iyziEventType: Optional[str] = None
+    iyziEventTime: Optional[int] = None  # unix timestamp
     iyziPaymentId: Optional[int] = None
+    
+    class Config:
+        extra = "allow"  # İyzico'dan gelen extra fieldları kabul et
 
 
 class IyzicoWebhookResponse(BaseModel):

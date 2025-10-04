@@ -41,15 +41,19 @@ async def create_order(
         OnSiparisResponse: Sipariş kayıt sonucu
     """
     try:
+        # Client IP ve request detaylarını yakala
+        client_ip = request.client.host if request.client else "unknown"
+        headers = dict(request.headers)
+        request_url = str(request.url)
+        
         # Gelen isteği konsolda yazdır
         logger.info("=" * 80)
         logger.info("📥 YENİ SİPARİŞ İSTEĞİ ALINDI:")
-        logger.info(f"Request URL: {request.url}")
+        logger.info(f"Request URL: {request_url}")
+        logger.info(f"Client IP: {client_ip}")
+        logger.info(f"Headers: {json.dumps(headers, indent=2)}")
         logger.info(f"Request Body: {json.dumps(order.model_dump(), indent=2, default=str)}")
         logger.info("=" * 80)
-        
-        # Request URL'i al
-        request_url = str(request.url)
         
         # Sipariş verilerini hazırla
         order_data = {
@@ -119,15 +123,19 @@ async def iyzico_webhook(
         IyzicoWebhookResponse: Webhook işlem sonucu
     """
     try:
+        # Client IP ve request detaylarını yakala
+        client_ip = request.client.host if request.client else "unknown"
+        headers = dict(request.headers)
+        request_url = str(request.url)
+        
         # Gelen webhook isteğini konsolda yazdır
         logger.info("=" * 80)
         logger.info("🔔 İYZİCO WEBHOOK ALINDI:")
-        logger.info(f"Request URL: {request.url}")
+        logger.info(f"Request URL: {request_url}")
+        logger.info(f"Client IP (İyzico): {client_ip}")
+        logger.info(f"Headers: {json.dumps(headers, indent=2)}")
         logger.info(f"Webhook Body: {json.dumps(webhook.model_dump(), indent=2, default=str)}")
         logger.info("=" * 80)
-        
-        # Request URL'i al
-        request_url = str(request.url)
         
         logger.info(f"İyzico webhook alındı - paymentId: {webhook.paymentId}, status: {webhook.status}")
         
@@ -156,87 +164,91 @@ async def iyzico_webhook(
         logger.info(f"Webhook kaydedildi: {webhook_id}")
         
         # paymentId ile on_siparis'i bul
-        order_result = supabase_client.supabase.table('on_siparis') \
-            .select('*') \
-            .eq('payment_id', webhook.paymentId) \
-            .execute()
-        
-        matched_order = bool(order_result.data)
+        matched_order = False
         credit_added = False
         credit_amount = 0
+        email = ""
         
-        if matched_order:
-            order = order_result.data[0]
-            logger.info(f"Sipariş eşleşti: {order['id']}, email: {order['email']}")
+        if webhook.paymentId:
+            order_result = supabase_client.supabase.table('on_siparis') \
+                .select('*') \
+                .eq('payment_id', webhook.paymentId) \
+                .execute()
             
-            # Ödeme başarılı mı kontrol et
-            if webhook.status == "SUCCESS":
-                logger.info(f"Ödeme başarılı - kredi ekleme başlıyor")
+            matched_order = bool(order_result.data)
+            
+            if matched_order:
+                order = order_result.data[0]
+                logger.info(f"Sipariş eşleşti: {order['id']}, email: {order['email']}")
                 
-                # Email'i paymentConversationId'den çıkar
-                # Format: conv-email@domain.com -> email@domain.com
-                email = webhook.paymentConversationId
-                if email.startswith("conv-"):
-                    email = email[5:]  # "conv-" prefix'ini kaldır
-                
-                logger.info(f"Parsed email: {email}")
-                
-                # Email'den kullanıcıyı bul
-                user_result = supabase_client.supabase.table('user_profiles') \
-                    .select('*') \
-                    .eq('email', email) \
-                    .execute()
-                
-                if user_result.data:
-                    user = user_result.data[0]
-                    user_id = user['id']
-                    credit_amount = order['credit_amount']
+                # Ödeme başarılı mı kontrol et
+                if webhook.status == "SUCCESS":
+                    logger.info(f"Ödeme başarılı - kredi ekleme başlıyor")
                     
-                    logger.info(f"Kullanıcı bulundu: {user_id}, eklenecek kredi: {credit_amount}")
+                    # Email'i paymentConversationId'den çıkar
+                    # Format: conv-email@domain.com -> email@domain.com
+                    email = webhook.paymentConversationId or ""
+                    if email.startswith("conv-"):
+                        email = email[5:]  # "conv-" prefix'ini kaldır
                     
-                    # Kullanıcıya kredi ekle
-                    credit_service = CreditService()
+                    logger.info(f"Parsed email: {email}")
                     
-                    # Kredi bakiyesini al
-                    balance_result = supabase_client.supabase.table('user_credit_balance') \
-                        .select('current_balance') \
-                        .eq('user_id', user_id) \
+                    # Email'den kullanıcıyı bul
+                    user_result = supabase_client.supabase.table('user_profiles') \
+                        .select('*') \
+                        .eq('email', email) \
                         .execute()
                     
-                    if balance_result.data:
-                        current_balance = balance_result.data[0]['current_balance']
-                        new_balance = current_balance + credit_amount
+                    if user_result.data:
+                        user = user_result.data[0]
+                        user_id = user['id']
+                        credit_amount = order['credit_amount']
                         
-                        # Bakiyeyi güncelle
-                        update_result = supabase_client.supabase.table('user_credit_balance') \
-                            .update({'current_balance': new_balance}) \
+                        logger.info(f"Kullanıcı bulundu: {user_id}, eklenecek kredi: {credit_amount}")
+                        
+                        # Kullanıcıya kredi ekle
+                        credit_service = CreditService()
+                        
+                        # Kredi bakiyesini al
+                        balance_result = supabase_client.supabase.table('user_credit_balance') \
+                            .select('current_balance') \
                             .eq('user_id', user_id) \
                             .execute()
                         
-                        if update_result.data:
-                            credit_added = True
+                        if balance_result.data:
+                            current_balance = balance_result.data[0]['current_balance']
+                            new_balance = current_balance + credit_amount
                             
-                            # Transaction kaydı ekle
-                            transaction_data = {
-                                'user_id': user_id,
-                                'amount': credit_amount,
-                                'transaction_type': 'purchase',
-                                'description': f'İyzico ödeme - Payment ID: {webhook.paymentId}',
-                                'balance_after': new_balance,
-                                'payment_reference': webhook.paymentId
-                            }
+                            # Bakiyeyi güncelle
+                            update_result = supabase_client.supabase.table('user_credit_balance') \
+                                .update({'current_balance': new_balance}) \
+                                .eq('user_id', user_id) \
+                                .execute()
                             
-                            supabase_client.supabase.table('credit_transactions').insert(transaction_data).execute()
-                            
-                            logger.info(f"✅ Kredi başarıyla eklendi: {user_id} - {credit_amount} kredi")
+                            if update_result.data:
+                                credit_added = True
+                                
+                                # Transaction kaydı ekle
+                                transaction_data = {
+                                    'user_id': user_id,
+                                    'amount': credit_amount,
+                                    'transaction_type': 'purchase',
+                                    'description': f'İyzico ödeme - Payment ID: {webhook.paymentId}',
+                                    'balance_after': new_balance,
+                                    'payment_reference': webhook.paymentId
+                                }
+                                
+                                supabase_client.supabase.table('credit_transactions').insert(transaction_data).execute()
+                                
+                                logger.info(f"✅ Kredi başarıyla eklendi: {user_id} - {credit_amount} kredi")
+                            else:
+                                logger.error(f"Kredi bakiyesi güncellenemedi: {user_id}")
                         else:
-                            logger.error(f"Kredi bakiyesi güncellenemedi: {user_id}")
+                            logger.error(f"Kullanıcı kredi bakiyesi bulunamadı: {user_id}")
                     else:
-                        logger.error(f"Kullanıcı kredi bakiyesi bulunamadı: {user_id}")
+                        logger.warning(f"Email ile kullanıcı bulunamadı: {email}")
                 else:
-                    logger.warning(f"Email ile kullanıcı bulunamadı: {email}")
-            else:
-                logger.info(f"Ödeme başarısız - status: {webhook.status}")
+                    logger.info(f"Ödeme başarısız - status: {webhook.status}")
         else:
             logger.warning(f"payment_id ile sipariş bulunamadı: {webhook.paymentId}")
         
