@@ -1,5 +1,5 @@
 """
-Payment and iyzico webhook schemas
+Payment order schemas
 """
 
 from pydantic import BaseModel, Field
@@ -9,7 +9,7 @@ from decimal import Decimal
 
 
 class OnSiparisCreate(BaseModel):
-    """İlk sipariş kaydı için schema"""
+    """Sipariş kaydı için schema"""
     email: str
     tarih: Optional[datetime] = None
     user_agent: Optional[str] = None
@@ -29,34 +29,9 @@ class OnSiparisCreate(BaseModel):
 
 
 class OnSiparisResponse(BaseModel):
-    """İlk sipariş response"""
+    """Sipariş response"""
     success: bool
     message: str
     order_id: Optional[str] = None
     payment_id: Optional[str] = None
     conversation_id: Optional[str] = None
-
-
-class IyzicoWebhook(BaseModel):
-    """İyzico webhook request schema - Tüm fieldlar optional (esnek validation)"""
-    paymentConversationId: Optional[str] = None
-    merchantId: Optional[str] = None
-    paymentId: Optional[str] = None
-    status: Optional[str] = None
-    iyziReferenceCode: Optional[str] = None
-    iyziEventType: Optional[str] = None
-    iyziEventTime: Optional[int] = None  # unix timestamp
-    iyziPaymentId: Optional[int] = None
-    
-    class Config:
-        extra = "allow"  # İyzico'dan gelen extra fieldları kabul et
-
-
-class IyzicoWebhookResponse(BaseModel):
-    """İyzico webhook response"""
-    success: bool
-    message: str
-    webhook_id: Optional[str] = None
-    matched_order: Optional[bool] = None
-    credit_added: Optional[bool] = None
-    credit_amount: Optional[int] = None

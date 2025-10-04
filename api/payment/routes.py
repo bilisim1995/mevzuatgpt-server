@@ -1,6 +1,6 @@
 """
-Payment and iyzico webhook endpoints
-Public endpoints (no authentication required)
+Payment order creation endpoint
+Public endpoint (no authentication required)
 """
 
 from fastapi import APIRouter, Request, HTTPException
@@ -10,10 +10,7 @@ import json
 from datetime import datetime
 from decimal import Decimal
 
-from models.payment_schemas import (
-    OnSiparisCreate, OnSiparisResponse,
-    IyzicoWebhook, IyzicoWebhookResponse
-)
+from models.payment_schemas import OnSiparisCreate, OnSiparisResponse
 from models.supabase_client import supabase_client
 from services.credit_service import CreditService
 from utils.response import success_response, error_response
@@ -28,9 +25,12 @@ async def create_order(
     request: Request
 ):
     """
-    İlk sipariş kaydı oluştur (on_siparis tablosu)
+    Sipariş kaydı oluştur ve kredi ekle
     
-    Bu endpoint ödeme başlatıldığında çağrılır.
+    Bu endpoint ödeme tamamlandığında çağrılır.
+    - conversation_id'den user_id çıkarılır (conv- prefix kaldırılır)
+    - status == "success" VE fraud_status == "ok" ise kredi eklenir
+    
     Token koruması YOK - Public endpoint
     
     Args:
@@ -51,7 +51,6 @@ async def create_order(
         logger.info("📥 YENİ SİPARİŞ İSTEĞİ ALINDI:")
         logger.info(f"Request URL: {request_url}")
         logger.info(f"Client IP: {client_ip}")
-        logger.info(f"Headers: {json.dumps(headers, indent=2)}")
         logger.info(f"Request Body: {json.dumps(order.model_dump(), indent=2, default=str)}")
         logger.info("=" * 80)
         
@@ -83,11 +82,76 @@ async def create_order(
         
         order_record = result.data[0]
         
-        logger.info(f"Ön sipariş kaydedildi: {order_record['id']}, payment_id: {order.payment_id}, email: {order.email}")
+        logger.info(f"✅ Sipariş kaydedildi: {order_record['id']}, payment_id: {order.payment_id}")
+        
+        # Kredi ekleme kontrolü
+        credit_added = False
+        if order.status == "success" and order.fraud_status == "ok":
+            logger.info(f"🎯 Kredi ekleme koşulları sağlandı (status=success, fraud_status=ok)")
+            
+            # User ID'yi conversation_id'den çıkar
+            # Format: conv-550e8400-e29b-41d4-a716-446655440000 -> 550e8400-e29b-41d4-a716-446655440000
+            conversation_id = order.conversation_id
+            user_id = conversation_id[5:] if conversation_id.startswith("conv-") else conversation_id
+            
+            logger.info(f"📋 Parsed user_id: {user_id}")
+            
+            # User ID ile kullanıcıyı bul
+            user_result = supabase_client.supabase.table('user_profiles') \
+                .select('*') \
+                .eq('id', user_id) \
+                .execute()
+            
+            if user_result.data:
+                user = user_result.data[0]
+                credit_amount = order.credit_amount
+                
+                logger.info(f"👤 Kullanıcı bulundu: {user_id}, eklenecek kredi: {credit_amount}")
+                
+                # Kredi bakiyesini al
+                balance_result = supabase_client.supabase.table('user_credit_balance') \
+                    .select('current_balance') \
+                    .eq('user_id', user_id) \
+                    .execute()
+                
+                if balance_result.data:
+                    current_balance = balance_result.data[0]['current_balance']
+                    new_balance = current_balance + credit_amount
+                    
+                    # Bakiyeyi güncelle
+                    update_result = supabase_client.supabase.table('user_credit_balance') \
+                        .update({'current_balance': new_balance}) \
+                        .eq('user_id', user_id) \
+                        .execute()
+                    
+                    if update_result.data:
+                        credit_added = True
+                        
+                        # Transaction kaydı ekle
+                        transaction_data = {
+                            'user_id': user_id,
+                            'amount': credit_amount,
+                            'transaction_type': 'purchase',
+                            'description': f'İyzico ödeme - Payment ID: {order.payment_id}',
+                            'balance_after': new_balance,
+                            'payment_reference': order.payment_id
+                        }
+                        
+                        supabase_client.supabase.table('credit_transactions').insert(transaction_data).execute()
+                        
+                        logger.info(f"✅ Kredi başarıyla eklendi: {user_id} - {credit_amount} kredi (yeni bakiye: {new_balance})")
+                    else:
+                        logger.error(f"❌ Kredi bakiyesi güncellenemedi: {user_id}")
+                else:
+                    logger.error(f"❌ Kullanıcı kredi bakiyesi bulunamadı: {user_id}")
+            else:
+                logger.warning(f"⚠️ User ID ile kullanıcı bulunamadı: {user_id}")
+        else:
+            logger.info(f"⏭️ Kredi eklenmedi - status: {order.status}, fraud_status: {order.fraud_status}")
         
         return OnSiparisResponse(
             success=True,
-            message="Sipariş başarıyla kaydedildi",
+            message="Sipariş kaydedildi" + (" ve kredi eklendi" if credit_added else ""),
             order_id=order_record['id'],
             payment_id=order.payment_id,
             conversation_id=order.conversation_id
@@ -98,179 +162,3 @@ async def create_order(
     except Exception as e:
         logger.error(f"Sipariş kayıt hatası: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Sipariş kaydedilemedi: {str(e)}")
-
-
-@router.post("/iyzico/webhook", response_model=IyzicoWebhookResponse)
-async def iyzico_webhook(
-    request: Request
-):
-    """
-    İyzico webhook endpoint
-    
-    İyzico'dan ödeme sonucu gelir:
-    1. iyzico_siparis tablosuna kaydeder
-    2. paymentId ile on_siparis'i eşleştirir
-    3. Status=SUCCESS ise email'den kullanıcı bulup kredi ekler
-    
-    Token koruması YOK - Public webhook endpoint
-    
-    Args:
-        webhook: İyzico webhook verisi
-        request: FastAPI request object (URL için)
-        
-    Returns:
-        IyzicoWebhookResponse: Webhook işlem sonucu
-    """
-    try:
-        # Client IP ve request detaylarını yakala
-        client_ip = request.client.host if request.client else "unknown"
-        headers = dict(request.headers)
-        request_url = str(request.url)
-        
-        # Raw body'yi oku
-        raw_body = await request.body()
-        raw_body_str = raw_body.decode('utf-8')
-        
-        # Gelen webhook isteğini konsolda yazdır (RAW)
-        logger.info("=" * 80)
-        logger.info("🔔 İYZİCO WEBHOOK ALINDI (RAW):")
-        logger.info(f"Request URL: {request_url}")
-        logger.info(f"Client IP (İyzico): {client_ip}")
-        logger.info(f"Headers: {json.dumps(headers, indent=2)}")
-        logger.info(f"Raw Body: {raw_body_str}")
-        logger.info("=" * 80)
-        
-        # JSON parse et
-        try:
-            webhook_data_raw = json.loads(raw_body_str)
-            webhook = IyzicoWebhook(**webhook_data_raw)
-            logger.info(f"✅ Webhook parse başarılı - paymentId: {webhook.paymentId}, status: {webhook.status}")
-        except Exception as parse_error:
-            logger.error(f"❌ Webhook parse hatası: {str(parse_error)}")
-            logger.error(f"Raw data: {raw_body_str}")
-            raise HTTPException(status_code=422, detail=f"Webhook parse hatası: {str(parse_error)}")
-        
-        # İyzico webhook verilerini kaydet
-        webhook_data = {
-            "payment_conversation_id": webhook.paymentConversationId,
-            "merchant_id": webhook.merchantId,
-            "payment_id": webhook.paymentId,
-            "status": webhook.status,
-            "iyzico_reference_code": webhook.iyziReferenceCode,
-            "event_type": webhook.iyziEventType,
-            "event_time": webhook.iyziEventTime,
-            "iyzico_payment_id": webhook.iyziPaymentId,
-            "request_url": request_url
-        }
-        
-        # iyzico_siparis tablosuna kaydet
-        webhook_result = supabase_client.supabase.table('iyzico_siparis').insert(webhook_data).execute()
-        
-        if not webhook_result.data:
-            raise HTTPException(status_code=500, detail="Webhook kaydedilemedi")
-        
-        webhook_record = webhook_result.data[0]
-        webhook_id = webhook_record['id']
-        
-        logger.info(f"Webhook kaydedildi: {webhook_id}")
-        
-        # paymentId ile on_siparis'i bul
-        matched_order = False
-        credit_added = False
-        credit_amount = 0
-        
-        if webhook.paymentId:
-            order_result = supabase_client.supabase.table('on_siparis') \
-                .select('*') \
-                .eq('payment_id', webhook.paymentId) \
-                .execute()
-            
-            matched_order = bool(order_result.data)
-            
-            if matched_order:
-                order = order_result.data[0]
-                logger.info(f"Sipariş eşleşti: {order['id']}, conversation_id: {order['conversation_id']}")
-                
-                # Ödeme başarılı mı kontrol et
-                if webhook.status == "SUCCESS":
-                    logger.info(f"Ödeme başarılı - kredi ekleme başlıyor")
-                    
-                    # User ID'yi paymentConversationId'den çıkar
-                    # Format: conv-550e8400-e29b-41d4-a716-446655440000 -> 550e8400-e29b-41d4-a716-446655440000
-                    conversation_id = webhook.paymentConversationId or ""
-                    user_id = conversation_id[5:] if conversation_id.startswith("conv-") else conversation_id
-                    
-                    logger.info(f"Parsed user_id: {user_id}")
-                    
-                    # User ID ile kullanıcıyı bul
-                    user_result = supabase_client.supabase.table('user_profiles') \
-                        .select('*') \
-                        .eq('id', user_id) \
-                        .execute()
-                    
-                    if user_result.data:
-                        user = user_result.data[0]
-                        credit_amount = order['credit_amount']
-                        
-                        logger.info(f"Kullanıcı bulundu: {user_id}, eklenecek kredi: {credit_amount}")
-                        
-                        # Kullanıcıya kredi ekle
-                        credit_service = CreditService()
-                        
-                        # Kredi bakiyesini al
-                        balance_result = supabase_client.supabase.table('user_credit_balance') \
-                            .select('current_balance') \
-                            .eq('user_id', user_id) \
-                            .execute()
-                        
-                        if balance_result.data:
-                            current_balance = balance_result.data[0]['current_balance']
-                            new_balance = current_balance + credit_amount
-                            
-                            # Bakiyeyi güncelle
-                            update_result = supabase_client.supabase.table('user_credit_balance') \
-                                .update({'current_balance': new_balance}) \
-                                .eq('user_id', user_id) \
-                                .execute()
-                            
-                            if update_result.data:
-                                credit_added = True
-                                
-                                # Transaction kaydı ekle
-                                transaction_data = {
-                                    'user_id': user_id,
-                                    'amount': credit_amount,
-                                    'transaction_type': 'purchase',
-                                    'description': f'İyzico ödeme - Payment ID: {webhook.paymentId}',
-                                    'balance_after': new_balance,
-                                    'payment_reference': webhook.paymentId
-                                }
-                                
-                                supabase_client.supabase.table('credit_transactions').insert(transaction_data).execute()
-                                
-                                logger.info(f"✅ Kredi başarıyla eklendi: {user_id} - {credit_amount} kredi")
-                            else:
-                                logger.error(f"Kredi bakiyesi güncellenemedi: {user_id}")
-                        else:
-                            logger.error(f"Kullanıcı kredi bakiyesi bulunamadı: {user_id}")
-                    else:
-                        logger.warning(f"User ID ile kullanıcı bulunamadı: {user_id}")
-                else:
-                    logger.info(f"Ödeme başarısız - status: {webhook.status}")
-        else:
-            logger.warning(f"payment_id ile sipariş bulunamadı: {webhook.paymentId}")
-        
-        return IyzicoWebhookResponse(
-            success=True,
-            message="Webhook başarıyla işlendi",
-            webhook_id=webhook_id,
-            matched_order=matched_order,
-            credit_added=credit_added,
-            credit_amount=credit_amount if credit_added else None
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Webhook işlem hatası: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Webhook işlenemedi: {str(e)}")
