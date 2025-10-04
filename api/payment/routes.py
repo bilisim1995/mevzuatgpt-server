@@ -102,7 +102,6 @@ async def create_order(
 
 @router.post("/iyzico/webhook", response_model=IyzicoWebhookResponse)
 async def iyzico_webhook(
-    webhook: IyzicoWebhook,
     request: Request
 ):
     """
@@ -128,16 +127,28 @@ async def iyzico_webhook(
         headers = dict(request.headers)
         request_url = str(request.url)
         
-        # Gelen webhook isteğini konsolda yazdır
+        # Raw body'yi oku
+        raw_body = await request.body()
+        raw_body_str = raw_body.decode('utf-8')
+        
+        # Gelen webhook isteğini konsolda yazdır (RAW)
         logger.info("=" * 80)
-        logger.info("🔔 İYZİCO WEBHOOK ALINDI:")
+        logger.info("🔔 İYZİCO WEBHOOK ALINDI (RAW):")
         logger.info(f"Request URL: {request_url}")
         logger.info(f"Client IP (İyzico): {client_ip}")
         logger.info(f"Headers: {json.dumps(headers, indent=2)}")
-        logger.info(f"Webhook Body: {json.dumps(webhook.model_dump(), indent=2, default=str)}")
+        logger.info(f"Raw Body: {raw_body_str}")
         logger.info("=" * 80)
         
-        logger.info(f"İyzico webhook alındı - paymentId: {webhook.paymentId}, status: {webhook.status}")
+        # JSON parse et
+        try:
+            webhook_data_raw = json.loads(raw_body_str)
+            webhook = IyzicoWebhook(**webhook_data_raw)
+            logger.info(f"✅ Webhook parse başarılı - paymentId: {webhook.paymentId}, status: {webhook.status}")
+        except Exception as parse_error:
+            logger.error(f"❌ Webhook parse hatası: {str(parse_error)}")
+            logger.error(f"Raw data: {raw_body_str}")
+            raise HTTPException(status_code=422, detail=f"Webhook parse hatası: {str(parse_error)}")
         
         # İyzico webhook verilerini kaydet
         webhook_data = {
