@@ -133,7 +133,6 @@ async def create_order(
                             'amount': credit_amount,
                             'transaction_type': 'purchase',
                             'description': f'İyzico ödeme - Payment ID: {order.payment_id}',
-                            'balance_after': new_balance,
                             'payment_reference': order.payment_id
                         }
                         
