@@ -167,7 +167,6 @@ async def iyzico_webhook(
         matched_order = False
         credit_added = False
         credit_amount = 0
-        email = ""
         
         if webhook.paymentId:
             order_result = supabase_client.supabase.table('on_siparis') \
@@ -179,29 +178,27 @@ async def iyzico_webhook(
             
             if matched_order:
                 order = order_result.data[0]
-                logger.info(f"Sipariş eşleşti: {order['id']}, email: {order['email']}")
+                logger.info(f"Sipariş eşleşti: {order['id']}, conversation_id: {order['conversation_id']}")
                 
                 # Ödeme başarılı mı kontrol et
                 if webhook.status == "SUCCESS":
                     logger.info(f"Ödeme başarılı - kredi ekleme başlıyor")
                     
-                    # Email'i paymentConversationId'den çıkar
-                    # Format: conv-email@domain.com -> email@domain.com
-                    email = webhook.paymentConversationId or ""
-                    if email.startswith("conv-"):
-                        email = email[5:]  # "conv-" prefix'ini kaldır
+                    # User ID'yi paymentConversationId'den çıkar
+                    # Format: conv-550e8400-e29b-41d4-a716-446655440000 -> 550e8400-e29b-41d4-a716-446655440000
+                    conversation_id = webhook.paymentConversationId or ""
+                    user_id = conversation_id[5:] if conversation_id.startswith("conv-") else conversation_id
                     
-                    logger.info(f"Parsed email: {email}")
+                    logger.info(f"Parsed user_id: {user_id}")
                     
-                    # Email'den kullanıcıyı bul
+                    # User ID ile kullanıcıyı bul
                     user_result = supabase_client.supabase.table('user_profiles') \
                         .select('*') \
-                        .eq('email', email) \
+                        .eq('id', user_id) \
                         .execute()
                     
                     if user_result.data:
                         user = user_result.data[0]
-                        user_id = user['id']
                         credit_amount = order['credit_amount']
                         
                         logger.info(f"Kullanıcı bulundu: {user_id}, eklenecek kredi: {credit_amount}")
@@ -246,7 +243,7 @@ async def iyzico_webhook(
                         else:
                             logger.error(f"Kullanıcı kredi bakiyesi bulunamadı: {user_id}")
                     else:
-                        logger.warning(f"Email ile kullanıcı bulunamadı: {email}")
+                        logger.warning(f"User ID ile kullanıcı bulunamadı: {user_id}")
                 else:
                     logger.info(f"Ödeme başarısız - status: {webhook.status}")
         else:
