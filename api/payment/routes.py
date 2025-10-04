@@ -132,8 +132,7 @@ async def create_order(
                             'user_id': user_id,
                             'amount': credit_amount,
                             'transaction_type': 'purchase',
-                            'description': f'İyzico ödeme - Payment ID: {order.payment_id}',
-                            'payment_reference': order.payment_id
+                            'description': f'İyzico ödeme - Payment ID: {order.payment_id}'
                         }
                         
                         supabase_client.supabase.table('credit_transactions').insert(transaction_data).execute()
