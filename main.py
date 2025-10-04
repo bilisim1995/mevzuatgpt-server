@@ -30,6 +30,7 @@ from api.admin.maintenance_routes import router as admin_maintenance_router
 from api.admin.prompt_routes import router as admin_prompt_router
 from api.admin.groq_routes import router as admin_groq_router
 from api.public_routes import router as public_router
+from api.payment.routes import router as payment_router
 from utils.exceptions import AppException
 
 # Setup logging
@@ -181,6 +182,7 @@ app.include_router(admin_maintenance_router, prefix="/api/admin", tags=["Admin-M
 app.include_router(admin_prompt_router, prefix="/api/admin", tags=["Admin-Prompts"])       # Admin prompt yönetimi
 app.include_router(admin_groq_router, prefix="/api/admin", tags=["Admin-Groq"])                  # Admin Groq ayarları yönetimi
 app.include_router(public_router, prefix="/api", tags=["Public"])                                  # Public endpoints
+app.include_router(payment_router, prefix="/api/payment", tags=["Payment"])                        # İyzico payment endpoints
 
 # Startup event
 @app.on_event("startup")
