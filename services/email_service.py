@@ -136,6 +136,10 @@ class EmailService:
             ]
             
             # Send email
+            if not self.sg:
+                logger.error("SendGrid client not initialized")
+                return False
+            
             response = self.sg.send(message)
             
             if response.status_code in [200, 202]:
@@ -228,6 +232,10 @@ class EmailService:
                 Content("text/plain", text_content),
                 Content("text/html", html_content)
             ]
+            
+            if not self.sg:
+                logger.error("SendGrid client not initialized")
+                return False
             
             response = self.sg.send(message)
             

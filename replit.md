@@ -98,6 +98,15 @@ Real-time AI behavior management without server restarts:
 - **Fallback Protection**: Default prompts ensure system stability if database unavailable
 - **Multi-Provider Support**: Separate prompts for Groq, OpenAI, and future AI providers
 
+### Email Notification System (October 2025)
+Dual email system for different notification types:
+- **SMTP (Hostinger)**: Automated credit purchase notifications via `info@mevzuatgpt.org` (auth) with `no-reply@mevzuatgpt.org` as sender
+- **SendGrid**: Password reset and account security notifications only
+- **Port Support**: Dual-mode SMTP with Port 587 (TLS/STARTTLS) primary and Port 465 (SSL) fallback
+- **Professional Templates**: HTML/plain-text email templates with MevzuatGPT branding
+- **Automatic Delivery**: Credit purchase confirmations sent immediately after successful payment
+- **Error Resilience**: Email failures don't affect core transactions (credit additions proceed regardless)
+
 ## External Dependencies
 
 ### AI and Machine Learning Services
