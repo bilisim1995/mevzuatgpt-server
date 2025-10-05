@@ -359,7 +359,7 @@ class EmailService:
             # Email mesajı oluştur
             message = MIMEMultipart("alternative")
             message["Subject"] = subject
-            message["From"] = f"{self.from_name} <{self.smtp_user}>"
+            message["From"] = f"{self.from_name} <{self.from_email}>"
             message["To"] = to_email
             
             # Plain text ve HTML ekle

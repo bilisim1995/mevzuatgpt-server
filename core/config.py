@@ -69,9 +69,15 @@ class Settings(BaseSettings):
     OLLAMA_TIMEOUT: int = 30
     OLLAMA_MAX_TOKENS: int = 2048
     
-    # Email Service (SendGrid)
+    # Email Service (SendGrid for password reset)
     SENDGRID_API_KEY: Optional[str] = None  # Optional email service
     SENDGRID_FROM_EMAIL: Optional[str] = None  # SendGrid from email address
+    
+    # SMTP Email Service (Hostinger for credit notifications)
+    SMTP_HOST: str = "smtp.hostinger.com"
+    SMTP_PORT: int = 465
+    SMTP_USER: str = "info@mevzuatgpt.org"
+    SMTP_PASSWORD: Optional[str] = None
     
     # AI Provider Selection
     AI_PROVIDER: str = Field(default="groq", description="AI provider: groq, ollama, or openai")
