@@ -245,6 +245,23 @@ DATABASE_URL=postgresql://user:password@localhost:5432/mevzuatgpt
 chmod 600 .env  # Sadece owner okuyabilir
 ```
 
+
+ÇEREZ TEMİZLEME
+
+
+# Tüm .pyc dosyalarını silin
+find . -type f -name "*.pyc" -delete
+find . -type d -name "__pycache__" -exec rm -rf {} +
+
+# Server'ı yeniden başlatın
+sudo systemctl restart mevzuatgpt
+# veya
+pm2 restart mevzuatgpt
+
+
+
+
+
 ---
 
 ## 🔧 5. Systemd Services Kurulumu
