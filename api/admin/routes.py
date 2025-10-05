@@ -3324,3 +3324,43 @@ async def get_redis_connections(
             "success": False,
             "message": f"Redis connection bilgileri alınamadı: {str(e)}"
         }
+
+
+@router.get("/purchases")
+async def get_all_purchases(
+    current_admin: UserResponse = Depends(get_admin_user)
+):
+    """
+    Tüm kullanıcıların satın alım geçmişini görüntüle (Admin Only)
+    
+    Admin kullanıcılar on_siparis tablosundaki tüm kayıtları görüntüleyebilir.
+    
+    Args:
+        current_admin: Current authenticated admin user
+    
+    Returns:
+        Tüm satın alım kayıtları
+    """
+    try:
+        # Tüm on_siparis tablosunu çek
+        response = supabase_client.supabase.table('on_siparis').select('*').order('created_at', desc=True).execute()
+        
+        total_count = len(response.data) if response.data else 0
+        
+        logger.info(f"Admin {current_admin.id} retrieved all purchases: {total_count} items")
+        
+        return success_response(
+            data={
+                "purchases": response.data or [],
+                "total": total_count
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error retrieving all purchases for admin {current_admin.id}: {str(e)}")
+        raise AppException(
+            message="Satın alım verileri alınamadı",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="ADMIN_PURCHASE_HISTORY_FAILED"
+        )

@@ -35,3 +35,19 @@ class OnSiparisResponse(BaseModel):
     order_id: Optional[str] = None
     payment_id: Optional[str] = None
     conversation_id: Optional[str] = None
+
+
+class PurchaseHistoryItem(BaseModel):
+    """Kullanıcı satın alım geçmişi item"""
+    created_at: datetime
+    status: str
+    price: Decimal
+    payment_id: Optional[str] = None
+    credit_amount: int
+
+
+class PurchaseHistoryResponse(BaseModel):
+    """Kullanıcı satın alım geçmişi response"""
+    success: bool
+    data: list[PurchaseHistoryItem]
+    total: int

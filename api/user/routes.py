@@ -11,12 +11,14 @@ import logging
 
 from core.database import get_db
 from api.dependencies import get_current_user, get_optional_user
+from models.supabase_client import supabase_client
 from models.schemas import (
     UserResponse, SearchRequest, SearchResponse, 
     DocumentResponse, DocumentListResponse,
     AskRequest, AskResponse, SuggestionsResponse
 )
 from models.search_history_schemas import SearchHistoryResponse, SearchHistoryFilters
+from models.payment_schemas import PurchaseHistoryResponse, PurchaseHistoryItem
 from services.search_service import SearchService
 from services.document_service import DocumentService
 from services.query_service import QueryService
@@ -650,4 +652,60 @@ async def get_recent_documents(
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="RECENT_FAILED"
+        )
+
+
+@router.get("/purchases", response_model=PurchaseHistoryResponse)
+async def get_user_purchases(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Kullanıcının kendi satın alım geçmişini görüntüle
+    
+    Kullanıcı token'ından UUID alınır ve on_siparis tablosunda
+    conversation_id'si conv-{UUID} formatında olan kayıtlar listelenir.
+    
+    Args:
+        current_user: Current authenticated user
+    
+    Returns:
+        Kullanıcının satın alım geçmişi
+    """
+    try:
+        user_id = str(current_user.id)
+        
+        # conversation_id formatı: conv-{UUID}
+        conversation_id_filter = f"conv-{user_id}"
+        
+        # Supabase'den satın alımları çek
+        response = supabase_client.supabase.table('on_siparis').select(
+            'created_at, status, price, payment_id, credit_amount'
+        ).eq('conversation_id', conversation_id_filter).order('created_at', desc=True).execute()
+        
+        purchases = []
+        if response.data:
+            for item in response.data:
+                purchases.append(PurchaseHistoryItem(
+                    created_at=item['created_at'],
+                    status=item['status'],
+                    price=item['price'],
+                    payment_id=item.get('payment_id'),
+                    credit_amount=item['credit_amount']
+                ))
+        
+        logger.info(f"Purchase history retrieved for user {user_id}: {len(purchases)} items")
+        
+        return PurchaseHistoryResponse(
+            success=True,
+            data=purchases,
+            total=len(purchases)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error retrieving purchases for user {current_user.id}: {str(e)}")
+        raise AppException(
+            message="Satın alım geçmişi alınamadı",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="PURCHASE_HISTORY_FAILED"
         )
