@@ -10,7 +10,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 
-def test_smtp_with_port(smtp_host, smtp_port, smtp_user, smtp_password, use_ssl=True):
+def test_smtp_with_port(smtp_host, smtp_port, smtp_user, smtp_password, smtp_from, use_ssl=True):
     """Belirtilen port ve encryption ile SMTP testi"""
     
     try:
@@ -19,7 +19,7 @@ def test_smtp_with_port(smtp_host, smtp_port, smtp_user, smtp_password, use_ssl=
         
         message = MIMEMultipart("alternative")
         message["Subject"] = "MevzuatGPT - SMTP Test Maili"
-        message["From"] = smtp_user
+        message["From"] = f"MevzuatGPT <{smtp_from}>"
         message["To"] = test_email
         
         # HTML içerik
@@ -119,7 +119,8 @@ def test_smtp_connection():
     
     # Environment variables'dan SMTP ayarlarını al
     smtp_host = os.getenv('SMTP_HOST', 'smtp.hostinger.com')
-    smtp_user = os.getenv('SMTP_USER', 'no-reply@mevzuatgpt.org')
+    smtp_user = os.getenv('SMTP_USER', 'info@mevzuatgpt.org')  # Authentication için ana hesap
+    smtp_from = 'no-reply@mevzuatgpt.org'  # Gönderici olarak görünecek rumuz
     smtp_password = os.getenv('SMTP_PASSWORD')
     
     print("=" * 60)
@@ -137,20 +138,24 @@ def test_smtp_connection():
     # Önce Port 587 (TLS/STARTTLS) dene - Hostinger önerisi
     print("\n🔧 Deneme 1: Port 587 (TLS/STARTTLS)")
     print("-" * 60)
-    if test_smtp_with_port(smtp_host, 587, smtp_user, smtp_password, use_ssl=False):
+    if test_smtp_with_port(smtp_host, 587, smtp_user, smtp_password, smtp_from, use_ssl=False):
         print("\n✅ Port 587 (TLS) başarılı! Bu ayarları kullanın:")
         print(f"   SMTP_HOST={smtp_host}")
         print(f"   SMTP_PORT=587")
+        print(f"   SMTP_USER={smtp_user} (authentication)")
+        print(f"   From: {smtp_from} (görünecek gönderici)")
         print(f"   Encryption: TLS/STARTTLS")
         return True
     
     # Port 587 başarısız olduysa Port 465 (SSL) dene
     print("\n🔧 Deneme 2: Port 465 (SSL)")
     print("-" * 60)
-    if test_smtp_with_port(smtp_host, 465, smtp_user, smtp_password, use_ssl=True):
+    if test_smtp_with_port(smtp_host, 465, smtp_user, smtp_password, smtp_from, use_ssl=True):
         print("\n✅ Port 465 (SSL) başarılı! Bu ayarları kullanın:")
         print(f"   SMTP_HOST={smtp_host}")
         print(f"   SMTP_PORT=465")
+        print(f"   SMTP_USER={smtp_user} (authentication)")
+        print(f"   From: {smtp_from} (görünecek gönderici)")
         print(f"   Encryption: SSL")
         return True
     

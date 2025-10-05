@@ -27,10 +27,11 @@ class EmailService:
         # SMTP config (for credit notifications)
         self.smtp_host = os.getenv('SMTP_HOST', 'smtp.hostinger.com')
         self.smtp_port = int(os.getenv('SMTP_PORT', '465'))
-        self.smtp_user = os.getenv('SMTP_USER', 'no-reply@mevzuatgpt.org')
+        self.smtp_user = os.getenv('SMTP_USER', 'info@mevzuatgpt.org')
         self.smtp_password = os.getenv('SMTP_PASSWORD')
         
-        self.from_email = "noreply@mevzuatgpt.org"
+        # Gönderici adresi (rumuz/alias)
+        self.from_email = "no-reply@mevzuatgpt.org"
         self.from_name = "MevzuatGPT"
     
     async def send_password_reset_email(
