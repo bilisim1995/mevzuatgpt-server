@@ -18,7 +18,7 @@ from models.schemas import (
     AskRequest, AskResponse, SuggestionsResponse
 )
 from models.search_history_schemas import SearchHistoryResponse, SearchHistoryFilters
-from models.payment_schemas import PurchaseHistoryResponse, PurchaseHistoryItem
+from models.payment_schemas import PurchaseHistoryResponse, PurchaseHistoryItem, PaymentSettingsResponse
 from services.search_service import SearchService
 from services.document_service import DocumentService
 from services.query_service import QueryService
@@ -708,4 +708,55 @@ async def get_user_purchases(
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="PURCHASE_HISTORY_FAILED"
+        )
+
+
+@router.get("/payment-settings", response_model=PaymentSettingsResponse)
+async def get_payment_settings(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Ödeme ayarlarını görüntüle (User Token Gerekli)
+    
+    İyzico ödeme modunu (sandbox/production) ve ödeme sisteminin
+    aktif/pasif durumunu döndürür.
+    
+    Args:
+        current_user: Current authenticated user
+    
+    Returns:
+        Ödeme modu ve aktiflik durumu
+    """
+    try:
+        # Supabase'den payment_settings tablosunu çek
+        response = supabase_client.supabase.table('payment_settings').select('payment_mode, is_active, description').limit(1).execute()
+        
+        if not response.data or len(response.data) == 0:
+            # Varsayılan değerler
+            logger.warning("Payment settings not found in database, using defaults")
+            return PaymentSettingsResponse(
+                success=True,
+                payment_mode="sandbox",
+                is_active=False,
+                description="Ödeme ayarları bulunamadı"
+            )
+        
+        settings = response.data[0]
+        
+        logger.info(f"Payment settings retrieved for user {current_user.id}: mode={settings['payment_mode']}, active={settings['is_active']}")
+        
+        return PaymentSettingsResponse(
+            success=True,
+            payment_mode=settings['payment_mode'],
+            is_active=settings['is_active'],
+            description=settings.get('description')
+        )
+        
+    except Exception as e:
+        logger.error(f"Error retrieving payment settings for user {current_user.id}: {str(e)}")
+        raise AppException(
+            message="Ödeme ayarları alınamadı",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="PAYMENT_SETTINGS_FAILED"
         )

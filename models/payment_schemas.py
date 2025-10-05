@@ -51,3 +51,11 @@ class PurchaseHistoryResponse(BaseModel):
     success: bool
     data: list[PurchaseHistoryItem]
     total: int
+
+
+class PaymentSettingsResponse(BaseModel):
+    """Ödeme ayarları response"""
+    success: bool
+    payment_mode: str  # "sandbox" veya "production"
+    is_active: bool  # Ödeme sisteminin aktif/pasif durumu
+    description: Optional[str] = None
