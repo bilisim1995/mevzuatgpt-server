@@ -1,100 +1,97 @@
-#!/usr/bin/env python3
-"""
-Kredi yükleme mail bildirimi test scripti
-Email service'in SMTP ile mail gönderme fonksiyonunu test eder
-"""
-
-import sys
-import os
-
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from services.email_service import email_service
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 
-def test_credit_purchase_email():
-    """Kredi satın alma mail bildirimi testi"""
-    
-    print("=" * 70)
-    print("SMTP Kredi Yükleme Mail Testi")
-    print("=" * 70)
-    print()
-    
-    # Test verileri
-    test_data = {
-        "to_email": "bozkurt.bilisim@hotmail.com",
-        "credit_amount": 100,
-        "price": "49.90",
-        "payment_id": "TEST-" + "1234567890"
-    }
-    
-    print("📧 Test Mail Detayları:")
-    print(f"   Alıcı: {test_data['to_email']}")
-    print(f"   Kredi Miktarı: {test_data['credit_amount']} kredi")
-    print(f"   Ödenen Tutar: {test_data['price']} TL")
-    print(f"   Ödeme ID: {test_data['payment_id']}")
-    print()
-    
-    print("📡 Mail gönderiliyor...")
-    print("-" * 70)
-    
-    try:
-        # Email service'i kullanarak mail gönder
-        result = email_service.send_credit_purchase_notification_smtp(
-            to_email=test_data['to_email'],
-            credit_amount=test_data['credit_amount'],
-            price=test_data['price'],
-            payment_id=test_data['payment_id']
-        )
-        
-        print()
-        if result:
-            print("=" * 70)
-            print("✅ BAŞARILI! Mail gönderildi.")
-            print("=" * 70)
-            print()
-            print("📬 Kontrol Listesi:")
-            print(f"   1. {test_data['to_email']} adresine mail geldi mi?")
-            print("   2. Mail içeriği düzgün görünüyor mu?")
-            print("   3. Gönderen adresi: no-reply@mevzuatgpt.org")
-            print("   4. Konu: ✅ Kredi Yükleme İşleminiz Tamamlandı")
-            print()
-            print("💡 Email klasörünüzü ve spam kutunuzu kontrol edin!")
-            print()
+class EmailService:
+
+    def __init__(self):
+        """
+        Email servisi için gerekli SMTP ayarlarını doğrudan tanımlar.
+
+        !!! UYARI: Bu yöntem GÜVENLİ DEĞİLDİR. Sadece geçici testler için kullanın.
+        Hassas bilgileri kod içinde saklamak büyük bir güvenlik riskidir.
+        """
+        self.smtp_host = "smtp.hostinger.com"
+        self.smtp_port = 465  # SSL için port 465 kullanılır
+        self.smtp_user = "info@mevzuatgpt.org"
+        self.smtp_password = "Ob115733+++"
+        self.sender_email = "no-reply@mevzuatgpt.org"  # Gönderen adres
+
+    def _create_credit_purchase_html(self, credit_amount, price, payment_id):
+        """Kredi satın alma için HTML mail içeriği oluşturur."""
+        # (Bu fonksiyonun içeriği değişmedi)
+        return f"""
+        <!DOCTYPE html>
+        <html lang="tr">
+        <head>
+            <meta charset="UTF-8">
+            <title>Kredi Yükleme Başarılı</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; margin: 20px; color: #333;">
+            <h2>Merhaba,</h2>
+            <p><b>MevzuatGPT</b> hesabınıza başarıyla kredi yüklenmiştir.</p>
+            <hr>
+            <h3>İşlem Detayları:</h3>
+            <ul>
+                <li><b>Yüklenen Kredi:</b> {credit_amount} Kredi</li>
+                <li><b>Ödenen Tutar:</b> {price} TL</li>
+                <li><b>Ödeme Referans No:</b> {payment_id}</li>
+            </ul>
+            <hr>
+            <p>MevzuatGPT'yi tercih ettiğiniz için teşekkür ederiz.</p>
+            <p>Saygılarımızla,<br>MevzuatGPT Ekibi</p>
+            <p><small>Bu otomatik bir bildirimdir, lütfen bu e-postayı yanıtlamayınız.</small></p>
+        </body>
+        </html>
+        """
+
+    def send_credit_purchase_notification_smtp(self, to_email, credit_amount,
+                                               price, payment_id):
+        """
+        SMTP kullanarak kredi satın alma bildirim maili gönderir.
+        Başarılı ve başarısız durumları konsola yazdırır.
+        """
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = "✅ Kredi Yükleme İşleminiz Tamamlandı"
+            msg['From'] = f"MevzuatGPT <{self.sender_email}>"
+            msg['To'] = to_email
+
+            html_body = self._create_credit_purchase_html(
+                credit_amount, price, payment_id)
+            msg.attach(MIMEText(html_body, 'html'))
+
+            # --- YENİ EKLENEN KONSOL MESAJLARI ---
+            print(
+                f"SMTP sunucusuna bağlanılıyor: {self.smtp_host}:{self.smtp_port}"
+            )
+
+            with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port) as server:
+                print("Giriş yapılıyor...")
+                server.login(self.smtp_user, self.smtp_password)
+
+                print(f"Mail gönderiliyor -> {to_email}")
+                server.sendmail(self.sender_email, to_email, msg.as_string())
+
+                # Başarı mesajı eklendi
+                print("✓ Mail başarıyla gönderildi.")
+
             return True
-        else:
-            print("=" * 70)
-            print("❌ BAŞARISIZ! Mail gönderilemedi.")
-            print("=" * 70)
-            print()
-            print("🔍 Olası Sorunlar:")
-            print("   1. SMTP_PASSWORD secret doğru mu?")
-            print("   2. Hostinger hesabında SMTP authentication açık mı?")
-            print("   3. Port ayarı doğru mu? (587 veya 465)")
-            print("   4. Internet bağlantısı var mı?")
-            print()
+
+        except smtplib.SMTPAuthenticationError as e:
+            # Hata durumunda konsola detaylı bilgi yazdır
+            print(
+                f"❌ HATA: SMTP kimlik doğrulaması başarısız! Kullanıcı adı veya şifre yanlış."
+            )
+            print(f"   Detay: {e}")
             return False
-            
-    except Exception as e:
-        print("=" * 70)
-        print("❌ HATA! Beklenmeyen bir sorun oluştu.")
-        print("=" * 70)
-        print(f"Hata: {str(e)}")
-        print()
-        import traceback
-        traceback.print_exc()
-        return False
+        except Exception as e:
+            # Diğer hatalar için konsola detaylı bilgi yazdır
+            print(f"❌ HATA: Mail gönderilirken beklenmedik bir sorun oluştu.")
+            print(f"   Detay: {e}")
+            return False
 
 
-if __name__ == "__main__":
-    print()
-    success = test_credit_purchase_email()
-    print()
-    
-    if success:
-        print("🎉 Test tamamlandı! Mail sistemi çalışıyor.")
-        exit(0)
-    else:
-        print("⚠️  Test başarısız oldu. Lütfen ayarları kontrol edin.")
-        exit(1)
+# Servisin bir örneğini oluşturup dışa aktarıyoruz
+email_service = EmailService()
