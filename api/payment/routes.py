@@ -13,6 +13,7 @@ from decimal import Decimal
 from models.payment_schemas import OnSiparisCreate, OnSiparisResponse
 from models.supabase_client import supabase_client
 from services.credit_service import CreditService
+from services.email_service import email_service
 from utils.response import success_response, error_response
 
 logger = logging.getLogger(__name__)
@@ -138,6 +139,24 @@ async def create_order(
                         supabase_client.supabase.table('credit_transactions').insert(transaction_data).execute()
                         
                         logger.info(f"✅ Kredi başarıyla eklendi: {user_id} - {credit_amount} kredi (yeni bakiye: {new_balance})")
+                        
+                        # Kredi ekleme başarılı - Mail gönder (SMTP)
+                        try:
+                            logger.info(f"📧 Kredi yükleme maili gönderiliyor: {order.email}")
+                            mail_sent = email_service.send_credit_purchase_notification_smtp(
+                                to_email=order.email,
+                                credit_amount=credit_amount,
+                                price=str(order.price),
+                                payment_id=order.payment_id or "N/A"
+                            )
+                            if mail_sent:
+                                logger.info(f"✅ Kredi bildirimi maili başarıyla gönderildi: {order.email}")
+                            else:
+                                logger.warning(f"⚠️ Kredi bildirimi maili gönderilemedi: {order.email}")
+                        except Exception as mail_error:
+                            logger.error(f"❌ Mail gönderme hatası: {mail_error}")
+                            # Mail hatası kredi işlemini etkilemesin
+                        
                     else:
                         logger.error(f"❌ Kredi bakiyesi güncellenemedi: {user_id}")
                 else:
