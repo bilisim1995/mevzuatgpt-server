@@ -102,6 +102,7 @@ attached_assets/
 # Secrets and API keys
 secrets.json
 keys.json
+.env
 
 
 # Temporary uploads
