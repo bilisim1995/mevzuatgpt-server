@@ -103,8 +103,6 @@ attached_assets/
 secrets.json
 keys.json
 
-# Production files
-production.env
 
 # Temporary uploads
 uploads/
