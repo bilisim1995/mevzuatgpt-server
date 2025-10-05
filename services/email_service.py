@@ -24,14 +24,15 @@ class EmailService:
             logger.warning("SENDGRID_API_KEY not set, SendGrid features disabled")
             self.sg = None
         
-        # SMTP config (for credit notifications)
+        # SMTP config (for credit notifications) - .env'den okunur
         self.smtp_host = os.getenv('SMTP_HOST', 'smtp.hostinger.com')
         self.smtp_port = int(os.getenv('SMTP_PORT', '465'))
         self.smtp_user = os.getenv('SMTP_USER', 'info@mevzuatgpt.org')
         self.smtp_password = os.getenv('SMTP_PASSWORD')
+        self.smtp_sender = os.getenv('SMTP_SENDER', 'no-reply@mevzuatgpt.org')
         
-        # Gönderici adresi (rumuz/alias)
-        self.from_email = "no-reply@mevzuatgpt.org"
+        # SendGrid gönderici adresi
+        self.from_email = "noreply@mevzuatgpt.org"
         self.from_name = "MevzuatGPT"
     
     async def send_password_reset_email(
@@ -275,99 +276,165 @@ class EmailService:
                 logger.error("SMTP password not configured")
                 return False
             
-            subject = "✅ Kredi Yükleme İşleminiz Tamamlandı - MevzuatGPT"
+            subject = "🎉 Ödemeniz Başarıyla Alındı!"
             
             html_content = f"""
-            <html>
-              <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-                  <h1 style="color: white; margin: 0; font-size: 28px;">MevzuatGPT</h1>
-                  <p style="color: #f0f0f0; margin: 10px 0 0 0;">Hukuki Araştırma Asistanı</p>
-                </div>
-                
-                <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e1e4e8; border-top: none; border-radius: 0 0 10px 10px;">
-                  <h2 style="color: #2c3e50; margin-top: 0;">🎉 Ödemeniz Başarıyla Alındı!</h2>
-                  
-                  <p>Merhaba,</p>
-                  
-                  <p>Kredi satın alma işleminiz başarıyla tamamlanmıştır. Kredileriniz hesabınıza eklenmiştir.</p>
-                  
-                  <div style="background-color: #f8f9fa; padding: 20px; border-left: 4px solid #28a745; margin: 25px 0;">
-                    <h3 style="margin-top: 0; color: #28a745;">💳 Ödeme Detayları</h3>
-                    <table style="width: 100%; border-collapse: collapse;">
-                      <tr>
-                        <td style="padding: 8px 0;"><strong>Kredi Miktarı:</strong></td>
-                        <td style="padding: 8px 0; text-align: right; color: #28a745; font-size: 18px;"><strong>{credit_amount} Kredi</strong></td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0;"><strong>Ödenen Tutar:</strong></td>
-                        <td style="padding: 8px 0; text-align: right;">{price} TL</td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0;"><strong>İşlem ID:</strong></td>
-                        <td style="padding: 8px 0; text-align: right; font-family: monospace; font-size: 12px;">{payment_id}</td>
-                      </tr>
-                    </table>
-                  </div>
-                  
-                  <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 25px 0;">
-                    <p style="margin: 0; color: #1976d2;">
-                      <strong>💡 Artık kredilerinizi kullanarak:</strong>
+            <!DOCTYPE html>
+            <html lang="tr">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {{
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background-color: #f4f4f4;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    .container {{
+                        max-width: 600px;
+                        margin: 30px auto;
+                        background: white;
+                        border-radius: 10px;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        overflow: hidden;
+                    }}
+                    h1 {{
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        text-align: center;
+                        padding: 30px 20px;
+                        margin: 0;
+                        font-size: 28px;
+                    }}
+                    .slogan {{
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: #f0f0f0;
+                        text-align: center;
+                        padding: 0 20px 20px 20px;
+                        margin: 0;
+                        font-size: 14px;
+                        font-style: italic;
+                    }}
+                    .container p {{
+                        color: #333;
+                        line-height: 1.6;
+                        padding: 0 30px;
+                    }}
+                    .details-box {{
+                        background-color: #f8f9fa;
+                        margin: 25px 30px;
+                        padding: 20px;
+                        border-left: 4px solid #28a745;
+                        border-radius: 5px;
+                    }}
+                    .details-box h3 {{
+                        margin-top: 0;
+                        color: #28a745;
+                        font-size: 18px;
+                    }}
+                    .details-box ul {{
+                        list-style: none;
+                        padding: 0;
+                        margin: 10px 0 0 0;
+                    }}
+                    .details-box li {{
+                        padding: 8px 0;
+                        border-bottom: 1px solid #e1e4e8;
+                    }}
+                    .details-box li:last-child {{
+                        border-bottom: none;
+                    }}
+                    .button {{
+                        display: inline-block;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        padding: 15px 40px;
+                        text-decoration: none;
+                        border-radius: 5px;
+                        font-weight: bold;
+                        margin: 20px 0;
+                    }}
+                    .footer {{
+                        background-color: #f8f9fa;
+                        text-align: center;
+                        padding: 20px;
+                        margin-top: 30px;
+                        border-top: 1px solid #e1e4e8;
+                    }}
+                    .footer p {{
+                        margin: 5px 0;
+                        padding: 0;
+                        font-size: 13px;
+                        color: #6c757d;
+                    }}
+                    .footer a {{
+                        color: #667eea;
+                        text-decoration: none;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>🎉 Ödemeniz Başarıyla Alındı!</h1>
+                    <p class="slogan">Türkiye'nin en büyük yapay zeka destekli mevzuat asistanı.</p>
+                    <p>Merhaba,</p>
+                    <p><b>MevzuatGPT</b> hesabınıza yeni kredileriniz başarıyla eklendi. Artık mevzuatın karmaşık dünyasında yapay zeka desteğiyle daha hızlı ve verimli çalışmaya devam edebilirsiniz.</p>
+                    
+                    <div class="details-box">
+                        <h3>İşlem Detayları:</h3>
+                        <ul>
+                            <li><b>Yüklenen Kredi:</b> {credit_amount} Kredi</li>
+                            <li><b>Ödenen Tutar:</b> {price} TL</li>
+                            <li><b>Ödeme Referans No:</b> {payment_id}</li>
+                        </ul>
+                    </div>
+
+                    <p>Hemen şimdi yeni kredilerinizle mevzuatın derinliklerine dalmaya başlamak için:</p>
+                    <p style="text-align: center;">
+                        <a href="https://mevzuatgpt.org" class="button" style="color: #ffffff;">MevzuatGPT'ye Git</a>
                     </p>
-                    <ul style="margin: 10px 0; padding-left: 20px; color: #424242;">
-                      <li>Hukuki belgelerde arama yapabilirsiniz</li>
-                      <li>AI destekli soru-cevap özelliğini kullanabilirsiniz</li>
-                      <li>Detaylı analiz raporları alabilirsiniz</li>
-                    </ul>
-                  </div>
-                  
-                  <div style="text-align: center; margin: 30px 0;">
-                    <a href="https://mevzuatgpt.org/dashboard" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                      Dashboard'a Git
-                    </a>
-                  </div>
-                  
-                  <hr style="border: none; border-top: 1px solid #e1e4e8; margin: 30px 0;">
-                  
-                  <p style="font-size: 12px; color: #6c757d; text-align: center;">
-                    Bu mail otomatik olarak gönderilmiştir. Lütfen yanıtlamayınız.<br>
-                    Sorularınız için: <a href="mailto:destek@mevzuatgpt.org" style="color: #667eea;">destek@mevzuatgpt.org</a>
-                  </p>
-                  
-                  <p style="font-size: 11px; color: #9e9e9e; text-align: center; margin-top: 20px;">
-                    © 2025 MevzuatGPT. Tüm hakları saklıdır.
-                  </p>
+                    
+                    <div class="footer">
+                        <p>MevzuatGPT'yi tercih ettiğiniz için teşekkür ederiz.</p>
+                        <p><strong>MevzuatGPT Ekibi</strong></p>
+                        <p><a href="https://mevzuatgpt.org">mevzuatgpt.org</a></p>
+                        <p><small>Bu otomatik bir bildirimdir, lütfen bu e-postayı yanıtlamayınız.</small></p>
+                    </div>
                 </div>
-              </body>
+            </body>
             </html>
             """
             
             text_content = f"""
-            MevzuatGPT - Kredi Yükleme İşleminiz Tamamlandı
-            
-            Merhaba,
-            
-            Kredi satın alma işleminiz başarıyla tamamlanmıştır.
-            
-            ÖDEME DETAYLARI:
-            - Kredi Miktarı: {credit_amount} Kredi
-            - Ödenen Tutar: {price} TL
-            - İşlem ID: {payment_id}
-            
-            Artık kredilerinizi kullanarak hukuki belgelerde arama yapabilir ve AI destekli soru-cevap özelliğini kullanabilirsiniz.
-            
-            Dashboard'a gitmek için: https://mevzuatgpt.org/dashboard
-            
-            Bu mail otomatik olarak gönderilmiştir.
-            Sorularınız için: destek@mevzuatgpt.org
-            
-            © 2025 MevzuatGPT
+🎉 Ödemeniz Başarıyla Alındı!
+
+Türkiye'nin en büyük yapay zeka destekli mevzuat asistanı.
+
+Merhaba,
+
+MevzuatGPT hesabınıza yeni kredileriniz başarıyla eklendi. Artık mevzuatın karmaşık dünyasında yapay zeka desteğiyle daha hızlı ve verimli çalışmaya devam edebilirsiniz.
+
+İşlem Detayları:
+- Yüklenen Kredi: {credit_amount} Kredi
+- Ödenen Tutar: {price} TL
+- Ödeme Referans No: {payment_id}
+
+Hemen şimdi yeni kredilerinizle mevzuatın derinliklerine dalmaya başlamak için:
+https://mevzuatgpt.org
+
+MevzuatGPT'yi tercih ettiğiniz için teşekkür ederiz.
+
+MevzuatGPT Ekibi
+mevzuatgpt.org
+
+Bu otomatik bir bildirimdir, lütfen bu e-postayı yanıtlamayınız.
             """
             
             # Email mesajı oluştur
             message = MIMEMultipart("alternative")
             message["Subject"] = subject
-            message["From"] = f"{self.from_name} <{self.from_email}>"
+            message["From"] = f"MevzuatGPT <{self.smtp_sender}>"
             message["To"] = to_email
             
             # Plain text ve HTML ekle

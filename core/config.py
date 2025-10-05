@@ -78,6 +78,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 465
     SMTP_USER: str = "info@mevzuatgpt.org"
     SMTP_PASSWORD: Optional[str] = None
+    SMTP_SENDER: str = "no-reply@mevzuatgpt.org"
     
     # AI Provider Selection
     AI_PROVIDER: str = Field(default="groq", description="AI provider: groq, ollama, or openai")
