@@ -250,6 +250,7 @@ class EmailService:
     ) -> bool:
         """
         Kredi satın alma bildirimi gönder (SMTP)
+        Port 587 (TLS) ve 465 (SSL) destekli
         
         Args:
             to_email: Kullanıcı email adresi
@@ -366,14 +367,22 @@ class EmailService:
             message.attach(part1)
             message.attach(part2)
             
-            # SMTP bağlantısı kur (SSL)
+            # SMTP bağlantısı kur - Port 587 (TLS) veya 465 (SSL)
             logger.info(f"Sending credit notification email to {to_email}")
-            server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port)
+            
+            if self.smtp_port == 587:
+                # Port 587 - TLS/STARTTLS (Hostinger önerisi)
+                server = smtplib.SMTP(self.smtp_host, self.smtp_port)
+                server.starttls()
+            else:
+                # Port 465 - SSL (varsayılan)
+                server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port)
+            
             server.login(self.smtp_user, self.smtp_password)
             server.send_message(message)
             server.quit()
             
-            logger.info(f"Credit notification email sent successfully to {to_email}")
+            logger.info(f"Credit notification email sent successfully to {to_email} (Port: {self.smtp_port})")
             return True
             
         except smtplib.SMTPAuthenticationError as e:
