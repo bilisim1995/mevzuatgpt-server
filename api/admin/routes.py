@@ -3342,12 +3342,17 @@ async def get_all_purchases(
         Tüm satın alım kayıtları
     """
     try:
-        # Tüm on_siparis tablosunu çek
+        # Tüm on_siparis tablosunu çek - TÜM KOLONLAR
         response = supabase_client.supabase.table('on_siparis').select('*').order('created_at', desc=True).execute()
         
         total_count = len(response.data) if response.data else 0
         
-        logger.info(f"Admin {current_admin.id} retrieved all purchases: {total_count} items")
+        # Debug: İlk kayıttaki tüm kolonları logla
+        if response.data and len(response.data) > 0:
+            first_item_keys = list(response.data[0].keys())
+            logger.info(f"Admin {current_admin.id} - Tablodaki kolonlar: {first_item_keys}")
+        
+        logger.info(f"Admin {current_admin.id} retrieved all purchases: {total_count} items with ALL columns")
         
         return success_response(
             data={
