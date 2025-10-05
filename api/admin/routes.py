@@ -19,6 +19,7 @@ from models.schemas import (
     AdminUserUpdate, AdminUserResponse, AdminUserListResponse,
     UserCreditUpdate, UserBanRequest
 )
+from models.payment_schemas import PaymentSettingsResponse, PaymentSettingsUpdate
 from models.supabase_client import supabase_client
 from services.storage_service import StorageService
 from services.redis_service import RedisService
@@ -3368,4 +3369,136 @@ async def get_all_purchases(
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="ADMIN_PURCHASE_HISTORY_FAILED"
+        )
+
+
+@router.get("/payment-settings", response_model=PaymentSettingsResponse)
+async def get_payment_settings_admin(
+    current_admin: UserResponse = Depends(get_admin_user)
+):
+    """
+    Ödeme ayarlarını görüntüle (Admin Only)
+    
+    İyzico ödeme modunu (sandbox/production) ve ödeme sisteminin
+    aktif/pasif durumunu döndürür.
+    
+    Args:
+        current_admin: Current authenticated admin user
+    
+    Returns:
+        Ödeme modu ve aktiflik durumu
+    """
+    try:
+        # Supabase'den payment_settings tablosunu çek
+        response = supabase_client.supabase.table('payment_settings').select('*').limit(1).execute()
+        
+        if not response.data or len(response.data) == 0:
+            logger.warning("Payment settings not found in database")
+            raise AppException(
+                message="Ödeme ayarları bulunamadı",
+                status_code=status.HTTP_404_NOT_FOUND,
+                error_code="PAYMENT_SETTINGS_NOT_FOUND"
+            )
+        
+        settings = response.data[0]
+        
+        logger.info(f"Admin {current_admin.id} retrieved payment settings: mode={settings['payment_mode']}, active={settings['is_active']}")
+        
+        return PaymentSettingsResponse(
+            success=True,
+            payment_mode=settings['payment_mode'],
+            is_active=settings['is_active'],
+            description=settings.get('description')
+        )
+        
+    except AppException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving payment settings for admin {current_admin.id}: {str(e)}")
+        raise AppException(
+            message="Ödeme ayarları alınamadı",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="ADMIN_PAYMENT_SETTINGS_FAILED"
+        )
+
+
+@router.put("/payment-settings", response_model=PaymentSettingsResponse)
+async def update_payment_settings(
+    settings_update: PaymentSettingsUpdate,
+    current_admin: UserResponse = Depends(get_admin_user)
+):
+    """
+    Ödeme ayarlarını güncelle (Admin Only)
+    
+    İyzico ödeme modunu (sandbox/production) ve ödeme sisteminin
+    aktif/pasif durumunu günceller.
+    
+    Args:
+        settings_update: Güncellenecek ayarlar
+        current_admin: Current authenticated admin user
+    
+    Returns:
+        Güncellenmiş ödeme ayarları
+    """
+    try:
+        # En az bir değer gönderilmiş mi kontrol et
+        if not any([settings_update.payment_mode, settings_update.is_active is not None, settings_update.description]):
+            raise AppException(
+                message="En az bir alan güncellenmelidir",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="NO_UPDATE_DATA"
+            )
+        
+        # Mevcut ayarları al
+        current_settings = supabase_client.supabase.table('payment_settings').select('*').limit(1).execute()
+        
+        if not current_settings.data or len(current_settings.data) == 0:
+            raise AppException(
+                message="Ödeme ayarları bulunamadı",
+                status_code=status.HTTP_404_NOT_FOUND,
+                error_code="PAYMENT_SETTINGS_NOT_FOUND"
+            )
+        
+        current_id = current_settings.data[0]['id']
+        
+        # Güncellenecek veriyi hazırla
+        update_data = {}
+        if settings_update.payment_mode:
+            update_data['payment_mode'] = settings_update.payment_mode
+        if settings_update.is_active is not None:
+            update_data['is_active'] = settings_update.is_active
+        if settings_update.description is not None:
+            update_data['description'] = settings_update.description
+        
+        # Güncelleme yap
+        response = supabase_client.supabase.table('payment_settings').update(update_data).eq('id', current_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise AppException(
+                message="Ödeme ayarları güncellenemedi",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                error_code="UPDATE_FAILED"
+            )
+        
+        updated_settings = response.data[0]
+        
+        logger.info(f"Admin {current_admin.id} updated payment settings: mode={updated_settings['payment_mode']}, active={updated_settings['is_active']}")
+        
+        return PaymentSettingsResponse(
+            success=True,
+            payment_mode=updated_settings['payment_mode'],
+            is_active=updated_settings['is_active'],
+            description=updated_settings.get('description')
+        )
+        
+    except AppException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating payment settings for admin {current_admin.id}: {str(e)}")
+        raise AppException(
+            message="Ödeme ayarları güncellenemedi",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="ADMIN_PAYMENT_UPDATE_FAILED"
         )

@@ -59,3 +59,10 @@ class PaymentSettingsResponse(BaseModel):
     payment_mode: str  # "sandbox" veya "production"
     is_active: bool  # Ödeme sisteminin aktif/pasif durumu
     description: Optional[str] = None
+
+
+class PaymentSettingsUpdate(BaseModel):
+    """Ödeme ayarları güncelleme (Admin)"""
+    payment_mode: Optional[str] = Field(None, pattern="^(sandbox|production)$")
+    is_active: Optional[bool] = None
+    description: Optional[str] = None
