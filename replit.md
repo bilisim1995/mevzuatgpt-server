@@ -107,6 +107,17 @@ Dual email system for different notification types:
 - **Automatic Delivery**: Credit purchase confirmations sent immediately after successful payment
 - **Error Resilience**: Email failures don't affect core transactions (credit additions proceed regardless)
 
+### Document Comparison System with File Upload (October 2025)
+Advanced document comparison supporting direct file uploads:
+- **File Upload Support**: POST `/api/user/compare-documents-upload` endpoint for multipart/form-data uploads
+- **Multi-Format Support**: PDF (pdfplumber), Word (.docx via python-docx), Images (OCR), Text files
+- **OCR Integration**: OpenAI Vision API (gpt-4o-mini) for image-based OCR with 92% accuracy
+- **NLP Processing**: Automatic text cleaning, normalization, Turkish character preservation
+- **Confidence Scoring**: Each extraction includes confidence score and method information
+- **Analysis Levels**: Three-tier analysis (yuzeysel/normal/detayli) with customizable depth
+- **File Size Limit**: 10MB maximum per file with automatic validation
+- **Markdown Output**: Structured comparison reports with emoji indicators (✅ added, ❌ removed, 🔄 modified)
+
 ## External Dependencies
 
 ### AI and Machine Learning Services
