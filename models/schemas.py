@@ -419,3 +419,37 @@ class TaskProgressResponse(BaseModel):
     task_id: str
     progress: TaskProgress
     success: bool = True
+
+# Document Compare Models
+class CompareRequest(BaseModel):
+    """Mevzuat karşılaştırma isteği"""
+    old_document_content: str = Field(..., description="Eski mevzuat metni")
+    new_document_content: str = Field(..., description="Yeni mevzuat metni")
+    analysis_level: str = Field(
+        default="normal",
+        description="Analiz seviyesi: 'yuzeysel', 'normal', 'detayli'"
+    )
+    old_document_title: Optional[str] = Field(None, description="Eski belge başlığı")
+    new_document_title: Optional[str] = Field(None, description="Yeni belge başlığı")
+    
+    @validator('analysis_level')
+    def validate_analysis_level(cls, v):
+        if v not in ['yuzeysel', 'normal', 'detayli']:
+            raise ValueError('analysis_level must be yuzeysel, normal, or detayli')
+        return v
+
+class ComparisonResult(BaseModel):
+    """Karşılaştırma sonucu (Markdown formatında)"""
+    analysis_level: str
+    comparison_markdown: str = Field(..., description="Markdown formatında karşılaştırma sonucu")
+    summary: str = Field(..., description="Kısa özet")
+    changes_count: int = Field(..., description="Tespit edilen değişiklik sayısı")
+    generation_time_ms: int = Field(..., description="AI yanıt süresi (ms)")
+
+class CompareResponse(BaseModel):
+    """Mevzuat karşılaştırma yanıtı"""
+    success: bool = True
+    result: ComparisonResult
+    old_document_info: Dict[str, Any] = Field(..., description="Eski belge bilgileri")
+    new_document_info: Dict[str, Any] = Field(..., description="Yeni belge bilgileri")
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
