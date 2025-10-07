@@ -20,7 +20,7 @@ Dosya yükleyerek mevzuat karşılaştırma (OCR + NLP Destekli)
 |--------|-----------|---------------|
 | **PDF** | `.pdf` | pdfplumber ile metin çıkarma |
 | **Word** | `.docx`, `.doc` | python-docx ile metin çıkarma |
-| **Resim** | `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tiff`, `.webp` | OpenAI Vision API ile OCR |
+| **Resim** | `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tiff`, `.webp` | Tesseract OCR 5.5 ile metin çıkarma |
 | **Text** | `.txt`, `.md` | Doğrudan okuma |
 
 ---
@@ -218,18 +218,14 @@ Karşılaştırma sonuçları Markdown formatında döner:
 
 ### OCR (Optical Character Recognition)
 
-**Resim dosyaları için 2 yöntem:**
+**Resim dosyaları için Tesseract OCR:**
 
-1. **OpenAI Vision API** (Birincil)
-   - Model: `gpt-4o-mini`
-   - Yüksek doğruluk: ~92%
-   - Türkçe karakter desteği
-   - Gelişmiş metin tanıma
-
-2. **Tesseract OCR** (Fallback)
-   - Açık kaynak çözüm
-   - Orta doğruluk: ~75%
+- **Tesseract OCR 5.5** (Ana yöntem)
+   - Açık kaynak, güvenli çözüm
+   - Doğruluk: ~85%
+   - Türkçe dil desteği (tur)
    - Offline çalışma
+   - Harici API gerekmez
 
 ### NLP (Doğal Dil İşleme)
 
@@ -274,7 +270,7 @@ Metin temizleme özellikleri:
 
 4. **Zaman Aşımı**: Büyük dosyalar için işlem ~30 saniye sürebilir.
 
-5. **API Key**: OpenAI Vision API kullanımı için OPENAI_API_KEY gereklidir.
+5. **API Key Gerekmez**: Tesseract OCR kullanıldığı için harici API key'e ihtiyaç yoktur.
 
 ---
 
@@ -282,11 +278,12 @@ Metin temizleme özellikleri:
 
 ### v2.0 (Ekim 2025)
 - ✅ Dosya yükleme desteği
-- ✅ OpenAI Vision API ile OCR
+- ✅ Tesseract OCR 5.5 ile açık kaynak OCR
 - ✅ NLP destekli metin temizleme
 - ✅ Multi-format desteği (PDF, Word, Resim)
 - ✅ Güven skoru (confidence) hesaplama
 - ✅ Extraction method bilgisi
+- ✅ Harici API key gerekmez
 
 ---
 

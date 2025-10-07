@@ -111,7 +111,7 @@ Dual email system for different notification types:
 Advanced document comparison supporting direct file uploads:
 - **File Upload Support**: POST `/api/user/compare-documents-upload` endpoint for multipart/form-data uploads
 - **Multi-Format Support**: PDF (pdfplumber), Word (.docx via python-docx), Images (OCR), Text files
-- **OCR Integration**: OpenAI Vision API (gpt-4o-mini) for image-based OCR with 92% accuracy
+- **OCR Integration**: Tesseract OCR 5.5 for image-based OCR with 85% accuracy (no API key required)
 - **NLP Processing**: Automatic text cleaning, normalization, Turkish character preservation
 - **Confidence Scoring**: Each extraction includes confidence score and method information
 - **Analysis Levels**: Three-tier analysis (yuzeysel/normal/detayli) with customizable depth

@@ -4,7 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["bash", "libxcrypt", "postgresql"]
+packages = ["bash", "libxcrypt", "postgresql", "tesseract"]
 
 [workflows]
 runButton = "Project"
