@@ -26,8 +26,8 @@ class DocumentCompareService:
         old_content: str,
         new_content: str,
         analysis_level: str = "normal",
-        old_title: str = None,
-        new_title: str = None
+        old_title: str | None = None,
+        new_title: str | None = None
     ) -> Dict[str, Any]:
         """
         İki belgeyi karşılaştır ve farklılıkları analiz et

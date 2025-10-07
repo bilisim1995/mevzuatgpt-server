@@ -15,7 +15,8 @@ from models.supabase_client import supabase_client
 from models.schemas import (
     UserResponse, SearchRequest, SearchResponse, 
     DocumentResponse, DocumentListResponse,
-    AskRequest, AskResponse, SuggestionsResponse
+    AskRequest, AskResponse, SuggestionsResponse,
+    CompareRequest, CompareResponse, ComparisonResult
 )
 from models.search_history_schemas import SearchHistoryResponse, SearchHistoryFilters
 from models.payment_schemas import PurchaseHistoryResponse, PurchaseHistoryItem, PaymentSettingsResponse
@@ -24,6 +25,7 @@ from services.document_service import DocumentService
 from services.query_service import QueryService
 from services.credit_service import credit_service
 from services.search_history_service import SearchHistoryService
+from services.document_compare_service import DocumentCompareService
 from utils.response import success_response
 from utils.exceptions import AppException
 
@@ -759,4 +761,99 @@ async def get_payment_settings(
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="PAYMENT_SETTINGS_FAILED"
+        )
+
+@router.post("/compare-documents", response_model=CompareResponse)
+async def compare_documents(
+    compare_request: CompareRequest,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    İki mevzuat belgesini karşılaştır ve farklılıkları AI ile analiz et
+    
+    Bu endpoint iki mevzuat metnini alır ve aralarındaki farklılıkları
+    AI kullanarak analiz eder. 3 farklı detay seviyesinde analiz yapılabilir:
+    
+    - **yuzeysel**: Sadece ana değişiklikleri listeler (5-10 madde)
+    - **normal**: Tüm önemli değişiklikleri açıklar (varsayılan)
+    - **detayli**: Her değişikliği derinlemesine inceler (madde madde)
+    
+    Sonuçlar Markdown formatında döndürülür ve frontend'de formatlı
+    bir şekilde gösterilebilir.
+    
+    Features:
+    - 3 seviyeli analiz (yüzeysel, normal, detaylı)
+    - Markdown formatında çıktı
+    - Eklenen, çıkarılan, değiştirilen maddeleri tespit eder
+    - Hukuki etki analizi yapar
+    - Groq (hızlı) ve OpenAI (yedek) AI provider desteği
+    
+    Args:
+        compare_request: Karşılaştırma parametreleri
+        current_user: Kimliği doğrulanmış kullanıcı
+    
+    Returns:
+        Markdown formatında karşılaştırma sonuçları
+    """
+    try:
+        user_id = str(current_user.id)
+        logger.info(f"Document comparison requested by user {user_id} - Analysis level: {compare_request.analysis_level}")
+        
+        # Servis başlat
+        compare_service = DocumentCompareService()
+        
+        # Belgeleri karşılaştır
+        result = await compare_service.compare_documents(
+            old_content=compare_request.old_document_content,
+            new_content=compare_request.new_document_content,
+            analysis_level=compare_request.analysis_level,
+            old_title=compare_request.old_document_title,
+            new_title=compare_request.new_document_title
+        )
+        
+        # Değişiklik sayısını hesapla
+        changes_count = compare_service.count_changes(result["comparison_markdown"])
+        
+        # Özet çıkar
+        summary = compare_service.generate_summary(
+            result["comparison_markdown"],
+            compare_request.analysis_level
+        )
+        
+        # Response oluştur
+        comparison_result = ComparisonResult(
+            analysis_level=compare_request.analysis_level,
+            comparison_markdown=result["comparison_markdown"],
+            summary=summary,
+            changes_count=changes_count,
+            generation_time_ms=result["generation_time_ms"]
+        )
+        
+        logger.info(
+            f"Document comparison completed for user {user_id} - "
+            f"Changes: {changes_count}, Time: {result['generation_time_ms']}ms, "
+            f"Provider: {result.get('provider', 'unknown')}"
+        )
+        
+        return CompareResponse(
+            success=True,
+            result=comparison_result,
+            old_document_info={
+                "title": compare_request.old_document_title or "Eski Mevzuat",
+                "content_length": len(compare_request.old_document_content)
+            },
+            new_document_info={
+                "title": compare_request.new_document_title or "Yeni Mevzuat",
+                "content_length": len(compare_request.new_document_content)
+            },
+            timestamp=datetime.utcnow()
+        )
+        
+    except Exception as e:
+        logger.error(f"Document comparison failed for user {user_id}: {str(e)}")
+        raise AppException(
+            message="Belge karşılaştırma işlemi başarısız oldu",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="COMPARE_FAILED"
         )
