@@ -3,7 +3,7 @@ User routes for document search and retrieval
 Accessible by authenticated users with appropriate permissions
 """
 
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status, File, UploadFile, Form
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
@@ -26,6 +26,7 @@ from services.query_service import QueryService
 from services.credit_service import credit_service
 from services.search_history_service import SearchHistoryService
 from services.document_compare_service import DocumentCompareService
+from services.file_ocr_service import FileOCRService
 from utils.response import success_response
 from utils.exceptions import AppException
 
@@ -856,4 +857,165 @@ async def compare_documents(
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="COMPARE_FAILED"
+        )
+
+@router.post("/compare-documents-upload", response_model=CompareResponse)
+async def compare_documents_upload(
+    old_file: UploadFile = File(..., description="Eski mevzuat dosyası"),
+    new_file: UploadFile = File(..., description="Yeni mevzuat dosyası"),
+    analysis_level: str = Form(default="normal", description="yuzeysel, normal, detayli"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Dosya yükleyerek mevzuat karşılaştırma (OCR + NLP Destekli)
+    
+    Bu endpoint iki dosyayı alır, içeriklerini okur (OCR ile) ve AI ile karşılaştırır.
+    
+    Desteklenen Formatlar:
+    - **PDF**: PDF belgeler (.pdf)
+    - **Word**: Word belgeleri (.docx, .doc)
+    - **Resim**: OCR ile metin çıkarma (.jpg, .png, .jpeg, .bmp, .tiff, .webp)
+    - **Text**: Düz metin dosyaları (.txt, .md)
+    
+    OCR Özellikleri:
+    - **OpenAI Vision API**: Gelişmiş OCR (resimler için)
+    - **NLP Destekli**: Metin temizleme ve normalizasyon
+    - **Türkçe Karakter Desteği**: Tam Türkçe dil desteği
+    
+    Analiz Seviyeleri:
+    - **yuzeysel**: Hızlı özet (5-10 madde)
+    - **normal**: Standart analiz (varsayılan)
+    - **detayli**: Kapsamlı inceleme
+    
+    Args:
+        old_file: Eski mevzuat dosyası (max 10MB)
+        new_file: Yeni mevzuat dosyası (max 10MB)
+        analysis_level: Analiz detay seviyesi
+        current_user: Kimliği doğrulanmış kullanıcı
+    
+    Returns:
+        Markdown formatında karşılaştırma sonuçları
+    """
+    try:
+        user_id = str(current_user.id)
+        logger.info(
+            f"File comparison requested by user {user_id} - "
+            f"Old: {old_file.filename}, New: {new_file.filename}, Level: {analysis_level}"
+        )
+        
+        # Analiz seviyesi validasyonu
+        if analysis_level not in ['yuzeysel', 'normal', 'detayli']:
+            raise HTTPException(
+                status_code=400,
+                detail="analysis_level 'yuzeysel', 'normal' veya 'detayli' olmalıdır"
+            )
+        
+        # Dosya boyutu kontrolü
+        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+        
+        old_content = await old_file.read()
+        new_content = await new_file.read()
+        
+        if len(old_content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Eski dosya çok büyük ({len(old_content)/(1024*1024):.1f} MB). Maksimum 10 MB."
+            )
+        
+        if len(new_content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Yeni dosya çok büyük ({len(new_content)/(1024*1024):.1f} MB). Maksimum 10 MB."
+            )
+        
+        # OCR servisi başlat
+        ocr_service = FileOCRService()
+        
+        # Eski dosyadan metin çıkar
+        logger.info(f"Extracting text from old file: {old_file.filename}")
+        old_extraction = await ocr_service.extract_text_from_file(
+            file_content=old_content,
+            filename=old_file.filename,
+            use_nlp=True
+        )
+        
+        # Yeni dosyadan metin çıkar
+        logger.info(f"Extracting text from new file: {new_file.filename}")
+        new_extraction = await ocr_service.extract_text_from_file(
+            file_content=new_content,
+            filename=new_file.filename,
+            use_nlp=True
+        )
+        
+        logger.info(
+            f"Text extraction completed - "
+            f"Old: {old_extraction['method']} (confidence: {old_extraction['confidence']}), "
+            f"New: {new_extraction['method']} (confidence: {new_extraction['confidence']})"
+        )
+        
+        # Karşılaştırma servisi başlat
+        compare_service = DocumentCompareService()
+        
+        # Belgeleri karşılaştır
+        result = await compare_service.compare_documents(
+            old_content=old_extraction['text'],
+            new_content=new_extraction['text'],
+            analysis_level=analysis_level,
+            old_title=old_file.filename,
+            new_title=new_file.filename
+        )
+        
+        # Değişiklik sayısını hesapla
+        changes_count = compare_service.count_changes(result["comparison_markdown"])
+        
+        # Özet çıkar
+        summary = compare_service.generate_summary(
+            result["comparison_markdown"],
+            analysis_level
+        )
+        
+        # Response oluştur
+        comparison_result = ComparisonResult(
+            analysis_level=analysis_level,
+            comparison_markdown=result["comparison_markdown"],
+            summary=summary,
+            changes_count=changes_count,
+            generation_time_ms=result["generation_time_ms"]
+        )
+        
+        logger.info(
+            f"File comparison completed for user {user_id} - "
+            f"Changes: {changes_count}, Time: {result['generation_time_ms']}ms, "
+            f"Provider: {result.get('provider', 'unknown')}"
+        )
+        
+        return CompareResponse(
+            success=True,
+            result=comparison_result,
+            old_document_info={
+                "title": old_file.filename,
+                "content_length": len(old_extraction['text']),
+                "format": old_extraction['format'],
+                "extraction_method": old_extraction['method'],
+                "confidence": old_extraction['confidence']
+            },
+            new_document_info={
+                "title": new_file.filename,
+                "content_length": len(new_extraction['text']),
+                "format": new_extraction['format'],
+                "extraction_method": new_extraction['method'],
+                "confidence": new_extraction['confidence']
+            },
+            timestamp=datetime.utcnow()
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"File comparison failed for user {user_id}: {str(e)}")
+        raise AppException(
+            message="Dosya karşılaştırma işlemi başarısız oldu",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="FILE_COMPARE_FAILED"
         )

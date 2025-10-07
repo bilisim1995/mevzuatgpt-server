@@ -50,3 +50,4 @@ sendgrid>=6.12.4
 python-dotenv>=1.0.0
 python-json-logger>=3.3.0
 email-validator>=2.2.0
+python-docx
