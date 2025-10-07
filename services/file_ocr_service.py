@@ -5,14 +5,10 @@ PDF, Word, Resim formatlarından metin çıkarır
 
 import logging
 import io
-import base64
 from typing import Dict, Any, BinaryIO
 from pathlib import Path
 import pdfplumber
 from PIL import Image
-from openai import AsyncOpenAI
-
-from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +22,6 @@ class FileOCRService:
         'image': ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp'],
         'text': ['.txt', '.md']
     }
-    
-    def __init__(self):
-        self.openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
     
     async def extract_text_from_file(
         self,
@@ -134,68 +127,14 @@ class FileOCRService:
     ) -> Dict[str, Any]:
         """Resimden OCR ile metin çıkar"""
         
-        if use_advanced_ocr and self.openai_client:
-            return await self._ocr_with_openai_vision(file_content)
-        else:
-            # Fallback: Tesseract (eğer kuruluysa)
-            return await self._ocr_with_tesseract(file_content)
-    
-    async def _ocr_with_openai_vision(self, file_content: bytes) -> Dict[str, Any]:
-        """OpenAI Vision API ile gelişmiş OCR"""
-        
-        try:
-            # Base64 encode
-            base64_image = base64.b64encode(file_content).decode('utf-8')
-            
-            response = await self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "Sen Türkçe mevzuat belgelerini okuyabilen bir OCR asistanısın. Resimdeki metni kelime kelime, noktalama işaretleriyle birlikte aynen çıkar. Hiçbir şey ekleme, sadece gördüğün metni yaz."
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": "Bu resimdeki tüm metni oku ve aynen yaz. Sadece metni çıkar, başka açıklama yapma."
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64_image}",
-                                    "detail": "high"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                max_tokens=4000,
-                temperature=0.1
-            )
-            
-            extracted_text = response.choices[0].message.content
-            
-            return {
-                'text': extracted_text,
-                'format': 'image',
-                'method': 'openai-vision-ocr',
-                'confidence': 0.92,
-                'model': 'gpt-4o-mini'
-            }
-            
-        except Exception as e:
-            logger.error(f"OpenAI Vision OCR failed: {str(e)}")
-            # Fallback to Tesseract
-            return await self._ocr_with_tesseract(file_content)
+        # Tesseract OCR kullan
+        return await self._ocr_with_tesseract(file_content)
     
     async def _ocr_with_tesseract(self, file_content: bytes) -> Dict[str, Any]:
-        """Tesseract OCR ile metin çıkar (fallback)"""
+        """Tesseract OCR ile metin çıkar"""
         
         try:
             import pytesseract
-            from PIL import Image
             
             image = Image.open(io.BytesIO(file_content))
             
@@ -210,14 +149,14 @@ class FileOCRService:
                 'text': text,
                 'format': 'image',
                 'method': 'tesseract-ocr',
-                'confidence': 0.75,
+                'confidence': 0.85,
                 'language': 'turkish'
             }
             
         except ImportError:
             raise ValueError(
-                "OCR kütüphaneleri kurulu değil. "
-                "OpenAI Vision API kullanılamıyor ve Tesseract kurulu değil."
+                "Tesseract OCR kurulu değil. "
+                "Lütfen 'apt install tesseract-ocr tesseract-ocr-tur' ve 'pip install pytesseract' komutlarını çalıştırın."
             )
         except Exception as e:
             logger.error(f"Tesseract OCR failed: {str(e)}")
