@@ -168,7 +168,7 @@ Lütfen yukarıdaki iki metin arasındaki farkları markdown formatında raporla
 ## Rapor Yapısı:
 
 ### 📊 ÖZET
-İki belge arasındaki temel farkları 2-3 cümle ile özetle. Hangi değişiklikler yapılmış, genel etki nedir?
+Tek bir cümlede belge karşılaştırmasının sonucunu özetle.
 
 ### 📝 DETAYLI FARKLAR
 
