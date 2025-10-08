@@ -163,37 +163,36 @@ Başlık: {new_title or 'Belirtilmemiş'}
 
 Analiz Seviyesi: **{analysis_level.upper()}**
 
-Lütfen yukarıdaki iki metin arasındaki farkları detaylı markdown formatında raporla.
+Lütfen yukarıdaki iki metin arasındaki farkları markdown formatında raporla.
 
 ## Rapor Yapısı:
 
-### ✅ EKLENEN MADDELER
-Her eklenen madde için:
-✅ **MADDE [NUMARA/İSİM]**: [Madde Başlığı]
-  - Açıklama: [Kısa açıklama]
-  - İçerik: [Ana içerik özeti]
-  - Hukuki Etki: [Getirdiği değişiklik]
+### 📊 ÖZET
+İki belge arasındaki temel farkları 2-3 cümle ile özetle. Hangi değişiklikler yapılmış, genel etki nedir?
 
-### ❌ ÇIKARILAN MADDELER
-Her çıkarılan madde için:
-❌ **MADDE [NUMARA/İSİM]**: [Madde Başlığı]
-  - Eski İçerik: [Ne kaldırıldı]
-  - Sebep: [Neden kaldırılmış olabilir]
-  - Etki: [Bu kaldırmanın sonucu]
+### 📝 DETAYLI FARKLAR
 
-### 🔄 DEĞİŞTİRİLEN MADDELER
-Her değiştirilen madde için:
-🔄 **MADDE [NUMARA/İSİM]**: [Madde Başlığı]
-  - **Eski Hali**: [Önceki metin]
-  - **Yeni Hali**: [Güncel metin]
-  - **Fark**: [Ne değişti, nasıl etkiledi]
+Her değişiklik için şu formata uy:
 
-**ÖNEMLİ**: 
-- Her maddeyi ayrı satırda göster
-- Emoji kullanımı zorunlu (✅ ❌ 🔄)
-- Madde numaraları/isimleri bold olmalı
-- Alt detaylar için girinti kullan
-- Sadece yukarıdaki 3 bölümü kullan (Eklenen, Çıkarılan, Değiştirilen)"""
+**[Değişiklik Numarası]. [DEĞİŞİKLİK TÜRÜ]** (✅ Eklenen / ❌ Çıkarılan / 🔄 Değiştirilen)
+
+> **Eski Metin:**
+> "[Eski metinden alıntı]"
+
+> **Yeni Metin:**
+> "[Yeni metinden alıntı]"
+
+**Ne Değişti:** [Kısa açıklama - ne eklendi, ne çıkarıldı veya ne değiştirildi]
+
+---
+
+**ÖNEMLİ KURALLAR**: 
+- Özet kısa ve öz olsun (cümle tekrarı yapma)
+- Her değişikliği numaralandır (1, 2, 3...)
+- Eski ve yeni metinlerden doğrudan alıntı yap
+- Emoji kullan: ✅ (eklenen), ❌ (çıkarılan), 🔄 (değiştirilen)
+- Değişiklikler arasında `---` ayırıcı kullan
+- Alıntılar blockquote (>) ile göster"""
         
         return prompt
 
