@@ -167,41 +167,33 @@ Lütfen yukarıdaki iki metin arasındaki farkları detaylı markdown formatınd
 
 ## Rapor Yapısı:
 
-### 1. 📊 ÖZET
-Genel değişikliklerin kısa özeti (2-3 cümle)
-
-### 2. ✅ EKLENEN MADDELER
-Her madde için:
+### ✅ EKLENEN MADDELER
+Her eklenen madde için:
 ✅ **MADDE [NUMARA/İSİM]**: [Madde Başlığı]
   - Açıklama: [Kısa açıklama]
   - İçerik: [Ana içerik özeti]
   - Hukuki Etki: [Getirdiği değişiklik]
 
-### 3. ❌ ÇIKARILAN MADDELER
-Her madde için:
+### ❌ ÇIKARILAN MADDELER
+Her çıkarılan madde için:
 ❌ **MADDE [NUMARA/İSİM]**: [Madde Başlığı]
   - Eski İçerik: [Ne kaldırıldı]
   - Sebep: [Neden kaldırılmış olabilir]
   - Etki: [Bu kaldırmanın sonucu]
 
-### 4. 🔄 DEĞİŞTİRİLEN MADDELER
-Her madde için:
+### 🔄 DEĞİŞTİRİLEN MADDELER
+Her değiştirilen madde için:
 🔄 **MADDE [NUMARA/İSİM]**: [Madde Başlığı]
   - **Eski Hali**: [Önceki metin]
   - **Yeni Hali**: [Güncel metin]
   - **Fark**: [Ne değişti, nasıl etkiledi]
 
-### 5. ⚖️ HUKUKİ ETKİ ANALİZİ
-Değişikliklerin genel hukuki sonuçları
-
-### 6. 💡 SONUÇ VE ÖNERİLER
-Genel değerlendirme ve dikkat edilmesi gerekenler
-
 **ÖNEMLİ**: 
 - Her maddeyi ayrı satırda göster
 - Emoji kullanımı zorunlu (✅ ❌ 🔄)
 - Madde numaraları/isimleri bold olmalı
-- Alt detaylar için girinti kullan"""
+- Alt detaylar için girinti kullan
+- Sadece yukarıdaki 3 bölümü kullan (Eklenen, Çıkarılan, Değiştirilen)"""
         
         return prompt
 
