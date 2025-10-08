@@ -95,13 +95,14 @@ Görevin:
 4. Markdown formatında düzenli ve okunabilir bir rapor hazırla
 
 Format Kuralları:
-- Başlıklar için ## kullan
-- Önemli noktalar için **bold** kullan
-- Listeler için - işareti kullan
-- Değişiklikler için > blockquote kullan
-- Yeni eklenenler için ✅ emoji kullan
-- Çıkarılanlar için ❌ emoji kullan
-- Değiştirilme için 🔄 emoji kullan"""
+- Başlıklar için ## ve ### kullan
+- Her maddeyi ayrı satırda göster
+- Eklenenler için: ✅ **MADDE X** - Açıklama
+- Çıkarılanlar için: ❌ **MADDE X** - Açıklama  
+- Değişenler için: 🔄 **MADDE X** - Eski → Yeni karşılaştırması
+- Önemli kısımlar için **bold** kullan
+- Her değişiklik maddesi numaralı veya adlandırılmış olmalı
+- Değişiklik detayları için alt maddeler (  - ) kullan"""
 
         if analysis_level == "yuzeysel":
             return base_prompt + """
@@ -162,17 +163,45 @@ Başlık: {new_title or 'Belirtilmemiş'}
 
 Analiz Seviyesi: **{analysis_level.upper()}**
 
-Lütfen yukarıdaki iki metin arasındaki farkları markdown formatında raporla.
-Rapor aşağıdaki bölümleri içermeli:
+Lütfen yukarıdaki iki metin arasındaki farkları detaylı markdown formatında raporla.
 
-1. **Özet**: Genel değişikliklerin kısa özeti
-2. **Eklenen Maddeler/Hükümler**: ✅ Yeni eklenenler
-3. **Çıkarılan Maddeler/Hükümler**: ❌ Kaldırılanlar
-4. **Değiştirilen Maddeler/Hükümler**: 🔄 Düzeltmeler
-5. **Hukuki Etki Analizi**: Değişikliklerin etkileri
-6. **Sonuç ve Öneriler**: Genel değerlendirme
+## Rapor Yapısı:
 
-Markdown formatını kullan ve okunabilir bir şekilde düzenle."""
+### 1. 📊 ÖZET
+Genel değişikliklerin kısa özeti (2-3 cümle)
+
+### 2. ✅ EKLENEN MADDELER
+Her madde için:
+✅ **MADDE [NUMARA/İSİM]**: [Madde Başlığı]
+  - Açıklama: [Kısa açıklama]
+  - İçerik: [Ana içerik özeti]
+  - Hukuki Etki: [Getirdiği değişiklik]
+
+### 3. ❌ ÇIKARILAN MADDELER
+Her madde için:
+❌ **MADDE [NUMARA/İSİM]**: [Madde Başlığı]
+  - Eski İçerik: [Ne kaldırıldı]
+  - Sebep: [Neden kaldırılmış olabilir]
+  - Etki: [Bu kaldırmanın sonucu]
+
+### 4. 🔄 DEĞİŞTİRİLEN MADDELER
+Her madde için:
+🔄 **MADDE [NUMARA/İSİM]**: [Madde Başlığı]
+  - **Eski Hali**: [Önceki metin]
+  - **Yeni Hali**: [Güncel metin]
+  - **Fark**: [Ne değişti, nasıl etkiledi]
+
+### 5. ⚖️ HUKUKİ ETKİ ANALİZİ
+Değişikliklerin genel hukuki sonuçları
+
+### 6. 💡 SONUÇ VE ÖNERİLER
+Genel değerlendirme ve dikkat edilmesi gerekenler
+
+**ÖNEMLİ**: 
+- Her maddeyi ayrı satırda göster
+- Emoji kullanımı zorunlu (✅ ❌ 🔄)
+- Madde numaraları/isimleri bold olmalı
+- Alt detaylar için girinti kullan"""
         
         return prompt
 
