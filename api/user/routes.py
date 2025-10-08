@@ -954,6 +954,24 @@ async def compare_documents_upload(
             f"New: {new_extraction['method']} (confidence: {new_extraction['confidence']})"
         )
         
+        # Metin içeriği kontrolü
+        if not old_extraction['text'] or len(old_extraction['text'].strip()) < 10:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Eski dosyadan metin çıkarılamadı. Dosya formatı: {old_extraction['format']}, Yöntem: {old_extraction['method']}"
+            )
+        
+        if not new_extraction['text'] or len(new_extraction['text'].strip()) < 10:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Yeni dosyadan metin çıkarılamadı. Dosya formatı: {new_extraction['format']}, Yöntem: {new_extraction['method']}"
+            )
+        
+        logger.info(
+            f"Text content validated - Old: {len(old_extraction['text'])} chars, "
+            f"New: {len(new_extraction['text'])} chars"
+        )
+        
         # Karşılaştırma servisi başlat
         compare_service = DocumentCompareService()
         
