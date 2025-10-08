@@ -903,11 +903,12 @@ async def compare_documents_upload(
             f"Old: {old_file.filename}, New: {new_file.filename}, Level: {analysis_level}"
         )
         
-        # Analiz seviyesi validasyonu
+        # Analiz seviyesi validasyonu - normalize et
+        analysis_level = analysis_level.strip().lower()
         if analysis_level not in ['yuzeysel', 'normal', 'detayli']:
             raise HTTPException(
                 status_code=400,
-                detail="analysis_level 'yuzeysel', 'normal' veya 'detayli' olmalıdır"
+                detail=f"analysis_level '{analysis_level}' geçersiz. 'yuzeysel', 'normal' veya 'detayli' olmalıdır"
             )
         
         # Dosya boyutu kontrolü
