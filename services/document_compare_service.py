@@ -163,36 +163,39 @@ Başlık: {new_title or 'Belirtilmemiş'}
 
 Analiz Seviyesi: **{analysis_level.upper()}**
 
-Lütfen yukarıdaki iki metin arasındaki farkları markdown formatında raporla.
+İki belge arasındaki farkları profesyonel bir karşılaştırma raporu olarak sun.
 
-## Rapor Yapısı:
+## 📋 RAPOR FORMATI:
 
-### 📊 ÖZET
-Tek bir cümlede belge karşılaştırmasının sonucunu özetle.
-
-### 📝 DETAYLI FARKLAR
-
-Her değişiklik için şu formata uy:
-
-**[Değişiklik Numarası]. [DEĞİŞİKLİK TÜRÜ]** (✅ Eklenen / ❌ Çıkarılan / 🔄 Değiştirilen)
-
-> **Eski Metin:**
-> "[Eski metinden alıntı]"
-
-> **Yeni Metin:**
-> "[Yeni metinden alıntı]"
-
-**Ne Değişti:** [Kısa açıklama - ne eklendi, ne çıkarıldı veya ne değiştirildi]
+## Değişiklik Özeti
+**Toplam [X] değişiklik tespit edildi:** [Y] ekleme, [Z] çıkarma, [T] değişiklik
 
 ---
 
-**ÖNEMLİ KURALLAR**: 
-- Özet kısa ve öz olsun (cümle tekrarı yapma)
-- Her değişikliği numaralandır (1, 2, 3...)
-- Eski ve yeni metinlerden doğrudan alıntı yap
-- Emoji kullan: ✅ (eklenen), ❌ (çıkarılan), 🔄 (değiştirilen)
-- Değişiklikler arasında `---` ayırıcı kullan
-- Alıntılar blockquote (>) ile göster"""
+## Tespit Edilen Farklar
+
+### 1️⃣ [Değişiklik Başlığı]
+**Tür:** ✅ Eklendi / ❌ Çıkarıldı / 🔄 Değiştirildi
+
+**Detay:**
+- **Eski versiyon:** [Eski metinden doğrudan alıntı veya "Yok" yaz]
+- **Yeni versiyon:** [Yeni metinden doğrudan alıntı veya "Kaldırıldı" yaz]
+- **Etki:** [Bu değişikliğin ne anlama geldiğini 1 cümleyle açıkla]
+
+---
+
+### 2️⃣ [Değişiklik Başlığı]
+...
+
+---
+
+## ⚠️ ÖNEMLİ NOTLAR:
+- Sadece gerçek farkları göster, benzer ifadeleri dahil etme
+- Her değişiklik için başlık ver (örn: "Madde 5 Değişikliği", "Yeni Paragraf Eklendi")
+- Alıntılar kısa ve öz olsun (max 2-3 satır)
+- Eklenen içerik için eski versiyon "Yok"
+- Çıkarılan içerik için yeni versiyon "Kaldırıldı"
+- Numaralandırmayı düzgün kullan (1️⃣, 2️⃣, 3️⃣...)"""
         
         return prompt
 
