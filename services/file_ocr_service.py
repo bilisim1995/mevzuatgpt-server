@@ -71,19 +71,59 @@ class FileOCRService:
             raise
     
     async def _extract_from_pdf(self, file_content: bytes) -> Dict[str, Any]:
-        """PDF'den metin çıkar"""
+        """PDF'den metin çıkar (OCR fallback ile)"""
         
         try:
             text_parts = []
             
+            # Önce pdfplumber ile dene
             with pdfplumber.open(io.BytesIO(file_content)) as pdf:
                 for page in pdf.pages:
                     page_text = page.extract_text()
                     if page_text:
                         text_parts.append(page_text)
             
-            full_text = "\n\n".join(text_parts)
+            full_text = "\n\n".join(text_parts).strip()
             
+            # Eğer metin çıkarılamadıysa (scanned PDF), OCR'a fallback yap
+            if not full_text or len(full_text) < 10:
+                logger.warning("pdfplumber failed to extract text, falling back to OCR (Tesseract)")
+                
+                # PDF'i resme çevir ve OCR uygula
+                try:
+                    import pdf2image
+                    from pdf2image import convert_from_bytes
+                    import pytesseract
+                    
+                    # PDF'i resimlere çevir
+                    images = convert_from_bytes(file_content)
+                    ocr_text_parts = []
+                    
+                    for i, image in enumerate(images):
+                        # Tesseract OCR uygula (Türkçe dil desteği)
+                        page_text = pytesseract.image_to_string(image, lang='tur')
+                        if page_text.strip():
+                            ocr_text_parts.append(page_text)
+                    
+                    full_text = "\n\n".join(ocr_text_parts).strip()
+                    
+                    if full_text:
+                        return {
+                            'text': full_text,
+                            'format': 'pdf',
+                            'method': 'tesseract-ocr',
+                            'confidence': 0.85,
+                            'pages': len(ocr_text_parts)
+                        }
+                
+                except ImportError as ie:
+                    logger.error(f"OCR libraries not available: {str(ie)}")
+                    raise ValueError("PDF görsel tabanlı ancak OCR kütüphaneleri eksik (pdf2image, pytesseract)")
+                except Exception as ocr_error:
+                    logger.error(f"OCR extraction failed: {str(ocr_error)}")
+                    raise ValueError(f"PDF OCR hatası: {str(ocr_error)}")
+            
+            # pdfplumber ile başarılı
             return {
                 'text': full_text,
                 'format': 'pdf',

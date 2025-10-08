@@ -4,7 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["bash", "libxcrypt", "postgresql", "tesseract"]
+packages = ["bash", "libxcrypt", "poppler_utils", "postgresql", "tesseract"]
 
 [workflows]
 runButton = "Project"
@@ -53,6 +53,10 @@ externalPort = 3000
 [[ports]]
 localPort = 40505
 externalPort = 3003
+
+[[ports]]
+localPort = 42969
+externalPort = 4200
 
 [[ports]]
 localPort = 43323
