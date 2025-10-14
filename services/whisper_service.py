@@ -28,7 +28,7 @@ class WhisperService:
             )
         
         self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        self.model = "gpt-4o-transcribe"  # High quality Turkish transcription
+        self.model = "whisper-1"  # OpenAI Whisper model for transcription
         logger.info(f"WhisperService initialized with model: {self.model}")
     
     async def transcribe_audio(
@@ -68,7 +68,7 @@ class WhisperService:
                     model=self.model,
                     file=audio_file,
                     language=language,
-                    response_format="verbose_json"
+                    response_format="json"
                 )
             
             # Extract transcription data
