@@ -419,3 +419,13 @@ class TaskProgressResponse(BaseModel):
     task_id: str
     progress: TaskProgress
     success: bool = True
+
+# Audio Transcription Models
+class TranscriptionResponse(BaseModel):
+    """Audio transcription response model"""
+    text: str = Field(..., description="Transcribed text")
+    language: str = Field(..., description="Language code (e.g., 'tr' for Turkish)")
+    duration: Optional[float] = Field(None, description="Audio duration in seconds")
+    model: str = Field(..., description="Transcription model used")
+    character_count: int = Field(..., description="Number of characters in transcription")
+    word_count: int = Field(..., description="Number of words in transcription")

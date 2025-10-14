@@ -15,7 +15,8 @@ from models.supabase_client import supabase_client
 from models.schemas import (
     UserResponse, SearchRequest, SearchResponse, 
     DocumentResponse, DocumentListResponse,
-    AskRequest, AskResponse, SuggestionsResponse
+    AskRequest, AskResponse, SuggestionsResponse,
+    TranscriptionResponse
 )
 from models.search_history_schemas import SearchHistoryResponse, SearchHistoryFilters
 from models.payment_schemas import PurchaseHistoryResponse, PurchaseHistoryItem, PaymentSettingsResponse
@@ -24,6 +25,7 @@ from services.document_service import DocumentService
 from services.query_service import QueryService
 from services.credit_service import credit_service
 from services.search_history_service import SearchHistoryService
+from services.whisper_service import WhisperService
 from utils.response import success_response
 from utils.exceptions import AppException
 
@@ -759,4 +761,84 @@ async def get_payment_settings(
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="PAYMENT_SETTINGS_FAILED"
+        )
+
+
+@router.post("/transcribe", response_model=TranscriptionResponse)
+async def transcribe_audio(
+    file: Optional[UploadFile] = File(None),
+    language: str = Form(default="tr"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Transcribe audio to text using OpenAI Whisper
+    
+    This endpoint accepts audio files in various formats (webm, mp3, wav, m4a, etc.)
+    and transcribes them to text using OpenAI's Whisper model (gpt-4o-transcribe).
+    
+    Supports both:
+    - multipart/form-data: Upload file via form field
+    - raw audio body: Send audio bytes directly
+    
+    Args:
+        file: Audio file (multipart/form-data)
+        language: Language code (default: "tr" for Turkish)
+        current_user: Current authenticated user (JWT required)
+    
+    Returns:
+        Transcribed text with metadata (duration, word count, etc.)
+    """
+    try:
+        whisper_service = WhisperService()
+        
+        # Handle multipart/form-data upload
+        if file:
+            audio_data = await file.read()
+            filename = file.filename or "audio.webm"
+            logger.info(f"Transcribing uploaded file: {filename} ({len(audio_data)} bytes) for user {current_user.id}")
+        else:
+            raise AppException(
+                message="No audio file provided",
+                detail="Please provide an audio file using multipart/form-data",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="NO_AUDIO_FILE"
+            )
+        
+        # Validate audio data
+        if len(audio_data) == 0:
+            raise AppException(
+                message="Empty audio file",
+                detail="The uploaded audio file is empty",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="EMPTY_AUDIO_FILE"
+            )
+        
+        if len(audio_data) > 25 * 1024 * 1024:  # 25MB limit
+            raise AppException(
+                message="Audio file too large",
+                detail="Maximum file size is 25MB",
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                error_code="AUDIO_TOO_LARGE"
+            )
+        
+        # Transcribe audio
+        result = await whisper_service.transcribe_audio(
+            audio_data=audio_data,
+            filename=filename,
+            language=language
+        )
+        
+        logger.info(f"Transcription completed for user {current_user.id}: {result['character_count']} chars, {result['word_count']} words")
+        
+        return success_response(data=result)
+        
+    except AppException:
+        raise
+    except Exception as e:
+        logger.error(f"Transcription error for user {current_user.id}: {str(e)}")
+        raise AppException(
+            message="Audio transcription failed",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="TRANSCRIPTION_FAILED"
         )
