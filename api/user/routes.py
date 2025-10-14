@@ -26,6 +26,7 @@ from services.query_service import QueryService
 from services.credit_service import credit_service
 from services.search_history_service import SearchHistoryService
 from services.whisper_service import WhisperService
+from services.tts_service import TTSService
 from utils.response import success_response
 from utils.exceptions import AppException
 
@@ -829,6 +830,31 @@ async def transcribe_audio(
         )
         
         logger.info(f"Transcription completed for user {current_user.id}: {result['character_count']} chars, {result['word_count']} words")
+        
+        # Generate TTS audio from transcribed text
+        try:
+            tts_service = TTSService()
+            tts_result = await tts_service.text_to_speech(
+                text=result['text'],
+                voice="alloy",  # Default voice, can be made configurable
+                instructions="Speak clearly and naturally in Turkish." if language == "tr" else None,
+                response_format="mp3",
+                speed=1.0
+            )
+            
+            # Add TTS audio to result
+            result['audio_base64'] = tts_result['audio_base64']
+            result['audio_format'] = tts_result['audio_format']
+            result['audio_size_bytes'] = tts_result['audio_size_bytes']
+            result['tts_voice'] = tts_result['voice']
+            result['tts_model'] = tts_result['model']
+            
+            logger.info(f"TTS generation completed for user {current_user.id}: {tts_result['audio_size_bytes']} bytes")
+            
+        except Exception as tts_error:
+            # Log TTS error but don't fail the entire request
+            logger.warning(f"TTS generation failed for user {current_user.id}: {str(tts_error)}")
+            logger.warning("Returning transcription without TTS audio")
         
         return success_response(data=result)
         

@@ -429,3 +429,8 @@ class TranscriptionResponse(BaseModel):
     model: str = Field(..., description="Transcription model used")
     character_count: int = Field(..., description="Number of characters in transcription")
     word_count: int = Field(..., description="Number of words in transcription")
+    audio_base64: Optional[str] = Field(None, description="TTS audio in base64 format (MP3)")
+    audio_format: Optional[str] = Field(None, description="Audio format (e.g., 'mp3')")
+    audio_size_bytes: Optional[int] = Field(None, description="Audio file size in bytes")
+    tts_voice: Optional[str] = Field(None, description="TTS voice used")
+    tts_model: Optional[str] = Field(None, description="TTS model used")

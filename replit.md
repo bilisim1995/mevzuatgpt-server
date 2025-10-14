@@ -108,15 +108,19 @@ Dual email system for different notification types:
 - **Error Resilience**: Email failures don't affect core transactions (credit additions proceed regardless)
 
 ### Audio Transcription Service (October 2025)
-Speech-to-text conversion using OpenAI Whisper:
-- **Model**: `whisper-1` for high-quality Turkish transcription
+Speech-to-text conversion using OpenAI Whisper with TTS playback:
+- **Transcription Model**: `whisper-1` for high-quality Turkish transcription
+- **TTS Model**: `gpt-4o-mini-tts` for natural text-to-speech conversion
 - **Language Support**: Optimized for Turkish (language=tr) with multi-language capability
 - **Input Formats**: Supports webm, mp3, wav, m4a, and other common audio formats
 - **Endpoint**: `POST /api/user/transcribe` with JWT authentication
 - **File Upload**: multipart/form-data support with 25MB size limit
-- **Response**: Transcribed text with metadata (duration, character count, word count)
-- **Service Architecture**: `WhisperService` handles OpenAI API integration with temp file management
-- **Response Format**: JSON format for compatibility with Whisper API
+- **Response**: Transcribed text + TTS audio (base64 MP3) with metadata
+- **Service Architecture**: 
+  - `WhisperService` handles speech-to-text transcription
+  - `TTSService` converts transcribed text back to natural speech
+- **Client Playback**: Returns base64-encoded MP3 for immediate browser playback
+- **Voice Options**: Default "alloy" voice with customizable instructions for Turkish
 
 ## External Dependencies
 
