@@ -107,6 +107,16 @@ Dual email system for different notification types:
 - **Automatic Delivery**: Credit purchase confirmations sent immediately after successful payment
 - **Error Resilience**: Email failures don't affect core transactions (credit additions proceed regardless)
 
+### Audio Transcription Service (October 2025)
+Speech-to-text conversion using OpenAI Whisper:
+- **Model**: `gpt-4o-transcribe` for high-quality Turkish transcription
+- **Language Support**: Optimized for Turkish (language=tr) with multi-language capability
+- **Input Formats**: Supports webm, mp3, wav, m4a, and other common audio formats
+- **Endpoint**: `POST /api/user/transcribe` with JWT authentication
+- **File Upload**: multipart/form-data support with 25MB size limit
+- **Response**: Transcribed text with metadata (duration, character count, word count)
+- **Service Architecture**: `WhisperService` handles OpenAI API integration with temp file management
+
 ## External Dependencies
 
 ### AI and Machine Learning Services
