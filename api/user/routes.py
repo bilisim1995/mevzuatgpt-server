@@ -16,7 +16,7 @@ from models.schemas import (
     UserResponse, SearchRequest, SearchResponse, 
     DocumentResponse, DocumentListResponse,
     AskRequest, AskResponse, SuggestionsResponse,
-    TranscriptionResponse
+    TranscriptionResponse, VoiceQueryResponse
 )
 from models.search_history_schemas import SearchHistoryResponse, SearchHistoryFilters
 from models.payment_schemas import PurchaseHistoryResponse, PurchaseHistoryItem, PaymentSettingsResponse
@@ -867,4 +867,261 @@ async def transcribe_audio(
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="TRANSCRIPTION_FAILED"
+        )
+
+
+@router.post("/voice-query", response_model=VoiceQueryResponse)
+async def voice_query(
+    file: Optional[UploadFile] = File(None),
+    language: str = Form(default="tr"),
+    institution_filter: Optional[str] = Form(None),
+    limit: int = Form(default=5),
+    similarity_threshold: float = Form(default=0.7),
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Voice-to-voice legal query (Whisper → AI Answer → TTS)
+    
+    Complete voice interaction pipeline:
+    1. Transcribe user's audio question using OpenAI Whisper
+    2. Process question through RAG system (retrieve + generate answer)
+    3. Convert AI answer to speech using TTS
+    4. Return both text and audio responses
+    
+    This creates a full conversational AI experience where users can:
+    - Ask questions by speaking
+    - Receive detailed AI answers as text
+    - Listen to AI answers as natural speech
+    
+    Args:
+        file: Audio file (webm, mp3, wav, m4a, etc.)
+        language: Language code (default: "tr" for Turkish)
+        institution_filter: Filter by institution (optional)
+        limit: Max number of sources (default: 5)
+        similarity_threshold: Similarity threshold (default: 0.7)
+        current_user: Current authenticated user (JWT required)
+        db: Database session
+    
+    Returns:
+        VoiceQueryResponse with transcription, AI answer, sources, and TTS audio
+    """
+    try:
+        user_id = str(current_user.id)
+        
+        # Step 1: Validate and transcribe audio
+        whisper_service = WhisperService()
+        
+        if not file:
+            raise AppException(
+                message="No audio file provided",
+                detail="Please provide an audio file using multipart/form-data",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="NO_AUDIO_FILE"
+            )
+        
+        audio_data = await file.read()
+        filename = file.filename or "audio.webm"
+        
+        if len(audio_data) == 0:
+            raise AppException(
+                message="Empty audio file",
+                detail="The uploaded audio file is empty",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="EMPTY_AUDIO_FILE"
+            )
+        
+        if len(audio_data) > 25 * 1024 * 1024:  # 25MB limit
+            raise AppException(
+                message="Audio file too large",
+                detail="Maximum file size is 25MB",
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                error_code="AUDIO_TOO_LARGE"
+            )
+        
+        logger.info(f"Voice query - transcribing audio: {filename} ({len(audio_data)} bytes) for user {user_id}")
+        
+        # Transcribe audio to text
+        transcription_result = await whisper_service.transcribe_audio(
+            audio_data=audio_data,
+            filename=filename,
+            language=language
+        )
+        
+        transcribed_query = transcription_result['text']
+        logger.info(f"Voice query - transcription completed: '{transcribed_query}' ({transcription_result['word_count']} words)")
+        
+        # Step 2: Process query through AI system (same logic as /ask endpoint)
+        query_service_temp = QueryService(db)
+        query_intent = query_service_temp.classify_query_intent(transcribed_query)
+        
+        # Credit check and deduction
+        is_admin = await credit_service.is_admin_user(user_id)
+        required_credits = 0
+        
+        if not is_admin:
+            required_credits = query_service_temp.calculate_intent_based_credits(transcribed_query)
+            current_balance = await credit_service.get_user_balance(user_id)
+            
+            if current_balance < required_credits:
+                logger.warning(f"Insufficient credits for voice query user {user_id}: required={required_credits}, balance={current_balance}")
+                raise HTTPException(
+                    status_code=402,
+                    detail={
+                        "error": "insufficient_credits",
+                        "message": "Krediniz bu sesli sorgu için yeterli değil",
+                        "required_credits": required_credits,
+                        "current_balance": current_balance,
+                        "query": transcribed_query[:100] + "..." if len(transcribed_query) > 100 else transcribed_query
+                    }
+                )
+            
+            # Deduct credits
+            deduction_success = await credit_service.deduct_credits(
+                user_id=user_id,
+                amount=required_credits,
+                description=f"Sesli sorgu: '{transcribed_query[:50]}{'...' if len(transcribed_query) > 50 else ''}'",
+                query_id=None
+            )
+            
+            if not deduction_success:
+                logger.error(f"Credit deduction failed for voice query user {user_id}")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Kredi düşüm işlemi başarısız oldu"
+                )
+            
+            logger.info(f"Credits deducted for voice query user {user_id}: {required_credits} credits")
+        
+        # Process query and get AI answer
+        query_service = QueryService(db)
+        ai_result = await query_service.process_ask_query(
+            query=transcribed_query,
+            user_id=user_id,
+            institution_filter=institution_filter,
+            limit=limit,
+            similarity_threshold=similarity_threshold,
+            use_cache=True,
+            intent=query_intent
+        )
+        
+        logger.info(f"Voice query - AI answer generated for user {user_id}: {len(ai_result.get('answer', ''))} chars")
+        
+        # Step 3: Check for refund conditions (no info or low confidence)
+        ai_answer = ai_result.get("answer", "")
+        confidence_score = ai_result.get("confidence_score", 1.0)
+        
+        no_info_phrases = [
+            "Verilen belge içeriğinde bu konuda bilgi bulunmamaktadır",
+            "belge içeriğinde bu konuda bilgi bulunmamaktadır",
+            "bilgi bulunmamaktadır"
+        ]
+        
+        is_no_info_response = any(phrase in ai_answer for phrase in no_info_phrases)
+        is_low_confidence = confidence_score < 0.4
+        refund_applied = False
+        
+        if not is_admin and (is_no_info_response or is_low_confidence) and required_credits > 0:
+            search_log_id = ai_result.get("search_log_id")
+            reason = "Bilgi bulunamadı" if is_no_info_response else f"Düşük güvenilirlik (%{int(confidence_score * 100)})"
+            
+            refund_success = await credit_service.refund_credits(
+                user_id=user_id,
+                amount=required_credits,
+                query_id=search_log_id if search_log_id else "voice_query_refund",
+                reason=f"{reason}: '{transcribed_query[:50]}{'...' if len(transcribed_query) > 50 else ''}'"
+            )
+            
+            if refund_success:
+                refund_applied = True
+                logger.info(f"Credit refunded for voice query user {user_id}: {required_credits} credits ({reason})")
+        
+        # Step 4: Generate TTS audio from AI answer
+        audio_base64 = None
+        audio_format = None
+        audio_size_bytes = None
+        tts_voice = None
+        tts_model = None
+        
+        try:
+            tts_service = TTSService()
+            tts_result = await tts_service.text_to_speech(
+                text=ai_answer,
+                voice="alloy",
+                instructions="Speak clearly and naturally in Turkish with a professional legal tone." if language == "tr" else None,
+                response_format="mp3",
+                speed=1.0
+            )
+            
+            audio_base64 = tts_result['audio_base64']
+            audio_format = tts_result['audio_format']
+            audio_size_bytes = tts_result['audio_size_bytes']
+            tts_voice = tts_result['voice']
+            tts_model = tts_result['model']
+            
+            logger.info(f"Voice query - TTS generation completed for user {user_id}: {audio_size_bytes} bytes")
+            
+        except Exception as tts_error:
+            logger.warning(f"TTS generation failed for voice query user {user_id}: {str(tts_error)}")
+            logger.warning("Returning voice query response without TTS audio")
+        
+        # Step 5: Build response with credit info
+        credit_info = None
+        if not is_admin:
+            balance = locals().get('current_balance', 0)
+            final_balance = balance if refund_applied else balance - required_credits
+            credits_used = 0 if refund_applied else required_credits
+            
+            refund_reason = None
+            if refund_applied:
+                if is_no_info_response:
+                    refund_reason = "Bilgi bulunamadı"
+                elif is_low_confidence:
+                    refund_reason = f"Düşük güvenilirlik (%{int(confidence_score * 100)})"
+            
+            credit_info = {
+                "credits_used": credits_used,
+                "remaining_balance": final_balance,
+                "refund_applied": refund_applied,
+                "refund_reason": refund_reason,
+                "confidence_score": confidence_score,
+                "no_info_detected": is_no_info_response,
+                "low_confidence_detected": is_low_confidence
+            }
+        
+        # Build final response
+        response_data = {
+            "transcribed_text": transcribed_query,
+            "transcription_language": language,
+            "transcription_model": transcription_result['model'],
+            "ai_answer": ai_answer,
+            "search_log_id": ai_result.get("search_log_id"),
+            "confidence_score": confidence_score,
+            "confidence_breakdown": ai_result.get("confidence_breakdown"),
+            "sources": ai_result.get("sources", []),
+            "institution_filter": institution_filter,
+            "search_stats": ai_result.get("search_stats"),
+            "llm_stats": ai_result.get("llm_stats"),
+            "audio_base64": audio_base64,
+            "audio_format": audio_format,
+            "audio_size_bytes": audio_size_bytes,
+            "tts_voice": tts_voice,
+            "tts_model": tts_model,
+            "credit_info": credit_info
+        }
+        
+        logger.info(f"Voice query completed successfully for user {user_id}")
+        return success_response(data=response_data)
+        
+    except AppException:
+        raise
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Voice query error for user {current_user.id}: {str(e)}")
+        raise AppException(
+            message="Voice query failed",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="VOICE_QUERY_FAILED"
         )

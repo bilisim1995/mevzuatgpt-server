@@ -434,3 +434,30 @@ class TranscriptionResponse(BaseModel):
     audio_size_bytes: Optional[int] = Field(None, description="Audio file size in bytes")
     tts_voice: Optional[str] = Field(None, description="TTS voice used")
     tts_model: Optional[str] = Field(None, description="TTS model used")
+
+class VoiceQueryResponse(BaseModel):
+    """Voice-to-voice query response model (Whisper → AI Answer → TTS)"""
+    # Transcription data
+    transcribed_text: str = Field(..., description="User's question transcribed from audio")
+    transcription_language: str = Field(..., description="Language code (e.g., 'tr')")
+    transcription_model: str = Field(..., description="Whisper model used")
+    
+    # AI Answer data
+    ai_answer: str = Field(..., description="AI-generated answer to the question")
+    search_log_id: Optional[str] = Field(None, description="Search log ID for tracking")
+    confidence_score: float = Field(..., ge=0.0, le=1.0, description="Answer confidence score")
+    confidence_breakdown: Optional[ConfidenceBreakdown] = Field(None, description="Detailed confidence metrics")
+    sources: List[SourceItem] = Field(default=[], description="Document sources used")
+    institution_filter: Optional[str] = Field(None, description="Institution filter applied")
+    search_stats: Optional[AskSearchStats] = Field(None, description="Search statistics")
+    llm_stats: Optional[LLMStats] = Field(None, description="LLM statistics")
+    
+    # TTS Audio data
+    audio_base64: Optional[str] = Field(None, description="AI answer as TTS audio (base64 MP3)")
+    audio_format: Optional[str] = Field(None, description="Audio format (e.g., 'mp3')")
+    audio_size_bytes: Optional[int] = Field(None, description="Audio file size in bytes")
+    tts_voice: Optional[str] = Field(None, description="TTS voice used")
+    tts_model: Optional[str] = Field(None, description="TTS model used")
+    
+    # Credit info (for non-admin users)
+    credit_info: Optional[Dict[str, Any]] = Field(None, description="Credit usage information")
