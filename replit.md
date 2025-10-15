@@ -113,14 +113,26 @@ Speech-to-text conversion using OpenAI Whisper with TTS playback:
 - **TTS Model**: `gpt-4o-mini-tts` for natural text-to-speech conversion
 - **Language Support**: Optimized for Turkish (language=tr) with multi-language capability
 - **Input Formats**: Supports webm, mp3, wav, m4a, and other common audio formats
-- **Endpoint**: `POST /api/user/transcribe` with JWT authentication
+- **Endpoints**: 
+  - `POST /api/user/transcribe` - Simple transcription with TTS echo
+  - `POST /api/user/voice-query` - Full voice-to-voice legal Q&A
 - **File Upload**: multipart/form-data support with 25MB size limit
-- **Response**: Transcribed text + TTS audio (base64 MP3) with metadata
 - **Service Architecture**: 
   - `WhisperService` handles speech-to-text transcription
-  - `TTSService` converts transcribed text back to natural speech
+  - `QueryService` processes legal queries through RAG pipeline
+  - `TTSService` converts AI answers to natural speech
 - **Client Playback**: Returns base64-encoded MP3 for immediate browser playback
-- **Voice Options**: Default "alloy" voice with customizable instructions for Turkish
+- **Voice Options**: Default "alloy" voice with professional legal tone for Turkish
+
+### Voice-to-Voice Legal Assistant (October 2025)
+Complete conversational AI workflow for legal document queries:
+- **Pipeline**: Audio → Whisper Transcription → RAG Query Processing → AI Answer → TTS → Audio Response
+- **Endpoint**: `POST /api/user/voice-query` with JWT authentication
+- **Full Integration**: Combines Whisper, QueryService, and TTS in one seamless flow
+- **Credit Management**: Automatic credit deduction with smart refund (no info/low confidence)
+- **Response Format**: Returns transcribed question, AI answer text, sources, confidence score, and TTS audio
+- **Use Case**: Users speak legal questions and receive both text and audio answers with source attribution
+- **Parameters**: institution_filter, limit, similarity_threshold for advanced filtering
 
 ## External Dependencies
 
