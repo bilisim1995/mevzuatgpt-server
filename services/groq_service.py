@@ -81,7 +81,8 @@ class GroqService:
         context: str,
         model: Optional[str] = None,
         max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None
+        temperature: Optional[float] = None,
+        response_style: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Generate AI response using Groq with dynamic admin settings
@@ -114,7 +115,8 @@ class GroqService:
             system_message = await prompt_service.get_system_prompt("groq_legal")
             
             # Construct user message based on response style
-            response_style = current_settings.get("response_style", "detailed")
+            # Use provided response_style parameter or fall back to admin settings
+            response_style_final = response_style or current_settings.get("response_style", "detailed")
             creativity_mode = current_settings.get("creativity_mode", "balanced")
             
             # Adjust user prompt based on response style
@@ -125,7 +127,7 @@ class GroqService:
                 "conversational": "Bu soruyu sohbet tarzında, anlaşılır ve samimi bir dille cevapla. Karmaşık terimleri basit örneklerle açıkla ve kullanıcıyla diyalog kuruyormuş gibi yaz."
             }
             
-            style_instruction = style_instructions.get(response_style, style_instructions["detailed"])
+            style_instruction = style_instructions.get(response_style_final, style_instructions["detailed"])
             
             # Construct user message with context
             if not context or context.strip() == "":

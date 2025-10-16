@@ -993,7 +993,7 @@ async def voice_query(
             
             logger.info(f"Credits deducted for voice query user {user_id}: {required_credits} credits")
         
-        # Process query and get AI answer
+        # Process query and get AI answer (with concise response for voice)
         query_service = QueryService(db)
         ai_result = await query_service.process_ask_query(
             query=transcribed_query,
@@ -1002,7 +1002,8 @@ async def voice_query(
             limit=limit,
             similarity_threshold=similarity_threshold,
             use_cache=True,
-            intent=query_intent
+            intent=query_intent,
+            response_style="concise"  # Short answers for voice (100-150 words)
         )
         
         logger.info(f"Voice query - AI answer generated for user {user_id}: {len(ai_result.get('answer', ''))} chars")

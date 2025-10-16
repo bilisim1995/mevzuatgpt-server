@@ -476,7 +476,8 @@ class QueryService:
         limit: int = 10,
         similarity_threshold: float = 0.5,
         use_cache: bool = True,
-        intent: Optional[QueryIntent] = None
+        intent: Optional[QueryIntent] = None,
+        response_style: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Process complete ask query pipeline
@@ -631,7 +632,8 @@ class QueryService:
                 try:
                     ai_result = await self.ai_service.generate_response(
                         query=query,
-                        context=context_text
+                        context=context_text,
+                        response_style=response_style
                     )
                     
                     llm_response = {

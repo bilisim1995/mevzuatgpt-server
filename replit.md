@@ -133,6 +133,7 @@ Complete conversational AI workflow for legal document queries:
 - **Response Format**: Returns transcribed question, AI answer text, sources, confidence score, and TTS audio
 - **Use Case**: Users speak legal questions and receive both text and audio answers with source attribution
 - **Parameters**: institution_filter, limit, similarity_threshold for advanced filtering
+- **Response Optimization**: Uses "concise" response style (100-150 words) for faster TTS generation and better user experience
 
 ## External Dependencies
 
