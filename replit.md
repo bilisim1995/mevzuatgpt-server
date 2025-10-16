@@ -122,7 +122,7 @@ Speech-to-text conversion using OpenAI Whisper with TTS playback:
   - `QueryService` processes legal queries through RAG pipeline
   - `TTSService` converts AI answers to natural speech
 - **Client Playback**: Returns base64-encoded MP3 for immediate browser playback
-- **Voice Options**: Default "alloy" voice with professional legal tone for Turkish
+- **Voice Options**: "onyx" (professional male voice) for Turkish legal content
 
 ### Voice-to-Voice Legal Assistant (October 2025)
 Complete conversational AI workflow for legal document queries:

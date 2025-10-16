@@ -836,7 +836,7 @@ async def transcribe_audio(
             tts_service = TTSService()
             tts_result = await tts_service.text_to_speech(
                 text=result['text'],
-                voice="alloy",  # Default voice, can be made configurable
+                voice="onyx",  # Professional male voice for Turkish
                 instructions="Speak clearly and naturally in Turkish." if language == "tr" else None,
                 response_format="mp3",
                 speed=1.0
@@ -1047,7 +1047,7 @@ async def voice_query(
             tts_service = TTSService()
             tts_result = await tts_service.text_to_speech(
                 text=ai_answer,
-                voice="alloy",
+                voice="onyx",
                 instructions="Speak clearly and naturally in Turkish with a professional legal tone." if language == "tr" else None,
                 response_format="mp3",
                 speed=1.0
