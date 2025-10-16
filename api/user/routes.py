@@ -943,9 +943,9 @@ async def voice_query(
             tts_result = await tts_service.text_to_speech(
                 text=ai_answer,
                 voice="onyx",
-                instructions="Speak clearly and naturally in Turkish with a professional legal tone." if language == "tr" else None,
+                instructions="Türkçe'de duygusal, sıcak ve doğal bir ifadeyle konuş. Tonlamayı değiştir, önemli noktaları vurgula ve gerçek bir konuşma yapan yardımsever, empatik bir hukuk danışmanı gibi ses çıkar." if language == "tr" else "Speak with emotion, warmth, and natural expression. Use varied intonation, emphasize important points, and sound like a helpful, empathetic advisor.",
                 response_format="mp3",
-                speed=1.0
+                speed=0.95
             )
             
             audio_base64 = tts_result['audio_base64']
