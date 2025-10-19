@@ -1148,6 +1148,193 @@ async def delete_document(
         logger.error(f"Failed to delete document {document_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
 
+@router.delete("/documents/bulk-delete")
+async def bulk_delete_documents(
+    institution: Optional[str] = None,
+    document_name: Optional[str] = None,
+    creation_date: Optional[str] = None,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Toplu belge silme (Admin only) - Filtrelere göre hem Supabase hem Elasticsearch'ten siler
+    
+    Filtreler (tümü optional, en az biri gerekli):
+    - institution: Kurum adı (exact match)
+    - document_name: Belge adı (contains - içerir araması)
+    - creation_date: Oluşturma tarihi (YYYY-MM-DD format, saat göz ardı edilir)
+    
+    Örnek:
+    - DELETE /api/admin/documents/bulk-delete?institution=TBB
+    - DELETE /api/admin/documents/bulk-delete?document_name=kanun&creation_date=2024-10-19
+    - DELETE /api/admin/documents/bulk-delete?institution=UYAP&document_name=tüzük
+    """
+    try:
+        # En az bir filtre gerekli
+        if not institution and not document_name and not creation_date:
+            raise HTTPException(
+                status_code=400, 
+                detail="En az bir filtre gereklidir (institution, document_name veya creation_date)"
+            )
+        
+        logger.warning(
+            f"Admin {current_user.email} toplu silme başlatıyor - "
+            f"Filtreler: institution={institution}, document_name={document_name}, creation_date={creation_date}"
+        )
+        
+        # Supabase query oluştur
+        query = supabase_client.supabase.table('mevzuat_documents').select('*')
+        
+        # Filtreleri uygula
+        if institution:
+            query = query.eq('institution', institution)
+        
+        if document_name:
+            query = query.ilike('document_title', f'%{document_name}%')
+        
+        if creation_date:
+            # Tarih validasyonu
+            from datetime import datetime as dt
+            try:
+                date_obj = dt.strptime(creation_date, '%Y-%m-%d')
+                # Başlangıç ve bitiş tarihleri (gün bazlı)
+                start_date = f"{creation_date}T00:00:00"
+                end_date = f"{creation_date}T23:59:59"
+                query = query.gte('created_at', start_date).lte('created_at', end_date)
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Geçersiz tarih formatı. YYYY-MM-DD formatını kullanın (örn: 2024-10-19)"
+                )
+        
+        # Belgeleri getir
+        documents_response = query.execute()
+        
+        if not documents_response.data:
+            return {
+                "success": True,
+                "message": "Filtreye uyan belge bulunamadı",
+                "data": {
+                    "filters": {
+                        "institution": institution,
+                        "document_name": document_name,
+                        "creation_date": creation_date
+                    },
+                    "total_found": 0,
+                    "total_deleted": 0,
+                    "deleted_documents": []
+                }
+            }
+        
+        documents = documents_response.data
+        total_found = len(documents)
+        
+        logger.info(f"Toplam {total_found} belge bulundu, silme işlemi başlatılıyor...")
+        
+        # Silme işlemleri için sonuç listesi
+        deletion_results = []
+        total_embeddings_deleted = 0
+        successful_deletions = 0
+        failed_deletions = 0
+        
+        # Her belge için silme işlemi
+        from services.elasticsearch_service import ElasticsearchService
+        from services.storage_service import StorageService
+        
+        storage_service = StorageService()
+        
+        for document in documents:
+            document_id = document['id']
+            document_title = document.get('document_title', 'Unknown')
+            
+            try:
+                logger.info(f"Siliniyor: {document_id} - {document_title}")
+                
+                # 1. Elasticsearch'ten embedding'leri sil
+                es_deleted_count = 0
+                try:
+                    async with ElasticsearchService() as es_service:
+                        es_deleted_count = await es_service.delete_document_embeddings(document_id)
+                        total_embeddings_deleted += es_deleted_count
+                        logger.info(f"{document_id}: {es_deleted_count} embedding silindi")
+                except Exception as es_error:
+                    logger.error(f"{document_id}: Elasticsearch silme hatası: {es_error}")
+                
+                # 2. Bunny.net'ten fiziksel dosyayı sil (optional)
+                physical_deleted = False
+                bunny_url = None
+                
+                if document.get('file_url'):
+                    bunny_url = document['file_url']
+                elif document.get('filename'):
+                    bunny_url = f"https://cdn.mevzuatgpt.org/documents/{document['filename']}"
+                
+                if bunny_url:
+                    try:
+                        await storage_service.delete_file(bunny_url)
+                        physical_deleted = True
+                        logger.info(f"{document_id}: Fiziksel dosya silindi")
+                    except Exception as bunny_error:
+                        logger.warning(f"{document_id}: Bunny.net silme hatası: {bunny_error}")
+                
+                # 3. Supabase'den belge kaydını sil
+                supabase_client.supabase.table('mevzuat_documents').delete().eq('id', document_id).execute()
+                logger.info(f"{document_id}: Veritabanı kaydı silindi")
+                
+                successful_deletions += 1
+                deletion_results.append({
+                    "document_id": document_id,
+                    "document_title": document_title,
+                    "institution": document.get('institution'),
+                    "status": "success",
+                    "embeddings_deleted": es_deleted_count,
+                    "physical_file_deleted": physical_deleted,
+                    "bunny_url": bunny_url
+                })
+                
+            except Exception as doc_error:
+                failed_deletions += 1
+                logger.error(f"{document_id} silme hatası: {doc_error}")
+                deletion_results.append({
+                    "document_id": document_id,
+                    "document_title": document_title,
+                    "institution": document.get('institution'),
+                    "status": "failed",
+                    "error": str(doc_error)
+                })
+        
+        logger.warning(
+            f"Toplu silme tamamlandı - Toplam: {total_found}, "
+            f"Başarılı: {successful_deletions}, Başarısız: {failed_deletions}, "
+            f"Toplam embedding silindi: {total_embeddings_deleted}"
+        )
+        
+        return {
+            "success": True,
+            "message": f"{successful_deletions}/{total_found} belge başarıyla silindi",
+            "data": {
+                "filters": {
+                    "institution": institution,
+                    "document_name": document_name,
+                    "creation_date": creation_date
+                },
+                "summary": {
+                    "total_found": total_found,
+                    "successful_deletions": successful_deletions,
+                    "failed_deletions": failed_deletions,
+                    "total_embeddings_deleted": total_embeddings_deleted
+                },
+                "deleted_documents": deletion_results,
+                "deleted_by": current_user.email,
+                "deletion_timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Toplu silme hatası: {e}")
+        raise HTTPException(status_code=500, detail=f"Toplu silme işlemi başarısız: {str(e)}")
+
 @router.put("/documents/{document_id}", response_model=DocumentResponse)
 async def update_document(
     document_id: str,
