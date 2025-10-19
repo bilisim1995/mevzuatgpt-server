@@ -89,13 +89,19 @@ def process_document_task(self, document_id: str):
         
         raise CeleryTaskError(f"Document processing failed after {self.max_retries} attempts: {str(e)}")
 
-async def _process_document_async(document_id: str, task_id: str = None) -> Dict[str, Any]:
+async def _process_document_async(
+    document_id: str, 
+    task_id: str = None, 
+    metadata_overrides: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
     Async document processing implementation with progress tracking
     
     Args:
         document_id: Document UUID
         task_id: Celery task ID for progress tracking
+        metadata_overrides: Optional metadata to override from bulk upload JSON
+            (e.g., title, description, keywords from section metadata)
         
     Returns:
         Processing result
@@ -206,12 +212,25 @@ async def _process_document_async(document_id: str, task_id: str = None) -> Dict
             embedding = await embedding_service.generate_embedding(chunk_text)
             
             # Prepare enhanced metadata for Elasticsearch
+            # Use metadata_overrides if provided (from bulk upload JSON)
+            doc_title = document['title']
+            doc_description = None
+            doc_keywords = None
+            
+            if metadata_overrides:
+                # Override with JSON metadata if available
+                doc_title = metadata_overrides.get('title', document['title'])
+                doc_description = metadata_overrides.get('description')
+                doc_keywords = metadata_overrides.get('keywords')
+            
             chunk_metadata = {
                 "total_chunks": len(chunks_with_sources),
                 "chunk_length": len(chunk_text),
-                "document_title": document['title'],
+                "document_title": doc_title,
                 "document_filename": document['filename'],
                 "belge_adi": document.get('belge_adi'),
+                "description": doc_description,
+                "keywords": doc_keywords,
                 "source_metadata": chunk_data.get("source_metadata", {}),
                 "processing_timestamp": datetime.now().isoformat(),
                 "text_preview": chunk_text[:200] + "..." if len(chunk_text) > 200 else chunk_text
