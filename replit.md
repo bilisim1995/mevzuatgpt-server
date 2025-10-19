@@ -61,6 +61,13 @@ Production-ready connection management to prevent "max clients reached" errors:
 - **Connection Reuse**: All Redis operations share the same pool for optimal resource utilization
 - **Free Plan Compatible**: Designed to work within Redis Cloud Free Plan limit (30 connections max)
 - **No Startup Recovery**: Task recovery disabled on startup to prevent connection overflow during initialization
+- **Connection Monitoring**: Admin endpoints for real-time connection analysis and cleanup:
+  - `GET /api/admin/redis/connection-details` - Shows connection breakdown (FastAPI pool vs Celery workers)
+  - `POST /api/admin/redis/cleanup-connections` - Restarts Celery workers to free connections
+- **Connection Sources**: Typical breakdown for 26/30 usage:
+  - FastAPI RedisService pool: ~15-20 connections
+  - Celery workers: ~3-5 connections per worker (broker + backend + control)
+  - Other: Temporary or monitoring connections
 
 ### Authentication and Authorization
 Role-based access control (RBAC) is implemented via Supabase Auth. Roles include:
@@ -76,6 +83,13 @@ An asynchronous processing pipeline handles documents:
 4.  **Vectorization**: Batch embedding generation via OpenAI API with 1536-dimensional vectors.
 5.  **Storage**: Vector embeddings stored in Elasticsearch for semantic search and similarity matching.
 6.  **Background Processing**: Celery workers manage long-running tasks with Redis queue.
+
+#### Celery Task Persistence (October 19, 2025)
+Worker restart behavior configured to prevent unwanted task re-execution:
+- **Task Acknowledgment**: `task_acks_late=False` - Tasks acknowledged immediately to prevent retry on worker restart
+- **Worker Lost Handling**: `task_reject_on_worker_lost=False` - Tasks NOT requeued when worker crashes/restarts
+- **Manual Recovery**: Task recovery disabled on startup; can be triggered manually via admin endpoint if needed
+- **Use Case**: Prevents duplicate PDF processing when Celery workers are manually restarted for maintenance
 
 #### PDF URL Resolution System (Fixed August 20, 2025)
 A three-tier fallback system ensures all documents have accessible URLs:

@@ -3922,6 +3922,237 @@ async def get_redis_connections(
         }
 
 
+@router.get("/redis/connection-details")
+async def get_redis_connection_details(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Redis connection detaylarını ve kaynaklarını göster (Admin only)
+    
+    26/30 connection kullanılıyorsa, bu endpoint bunların nereden geldiğini gösterir:
+    - FastAPI RedisService Pool
+    - Celery Worker(s)
+    - Celery Backend connections
+    """
+    try:
+        logger.info(f"Admin {current_user.email} Redis connection detaylarını sorguluyor")
+        
+        redis_service = RedisService()
+        
+        # Temel bilgiler
+        async with redis_service as client:
+            info = await client.info()
+            total_connections = info.get("connected_clients", 0)
+        
+        # Celery worker sayısı
+        import subprocess
+        celery_processes = subprocess.run(
+            ["pgrep", "-f", "celery.*worker"],
+            capture_output=True,
+            text=True
+        )
+        celery_worker_count = len(celery_processes.stdout.strip().split('\n')) if celery_processes.stdout.strip() else 0
+        
+        # Connection pool bilgisi
+        from services.redis_service import get_redis_pool
+        connection_pool = await get_redis_pool()
+        pool_max = getattr(connection_pool, "max_connections", 20)
+        pool_created = getattr(connection_pool, "_created_connections", 0)
+        
+        # Connection dağılımı tahmini
+        estimated_breakdown = {
+            "fastapi_pool": {
+                "max_connections": pool_max,
+                "created_connections": pool_created,
+                "description": "FastAPI RedisService global connection pool"
+            },
+            "celery_workers": {
+                "worker_count": celery_worker_count,
+                "estimated_connections_per_worker": 3,  # broker + backend + control
+                "total_estimated": celery_worker_count * 3,
+                "description": "Celery worker Redis broker/backend connections"
+            },
+            "other": {
+                "estimated": max(0, total_connections - pool_created - (celery_worker_count * 3)),
+                "description": "Diğer client'lar veya geçici bağlantılar"
+            }
+        }
+        
+        # Öneriler
+        recommendations = []
+        
+        if total_connections > 25:
+            recommendations.append({
+                "severity": "warning",
+                "message": f"Redis Cloud Free Plan limiti (30) dolmak üzere! ({total_connections}/30)",
+                "action": "Connection'ları temizlemek için POST /api/admin/redis/cleanup-connections endpoint'ini kullanın"
+            })
+        
+        if celery_worker_count > 2:
+            recommendations.append({
+                "severity": "info",
+                "message": f"Çok fazla Celery worker çalışıyor ({celery_worker_count} adet)",
+                "action": "Worker sayısını azaltmayı düşünün (her worker ~3 connection kullanır)"
+            })
+        
+        if pool_created > 15:
+            recommendations.append({
+                "severity": "info",
+                "message": f"FastAPI pool çok fazla connection oluşturmuş ({pool_created}/{pool_max})",
+                "action": "Yüksek trafik durumu. Normal koşullarda server restart ile temizlenebilir."
+            })
+        
+        return {
+            "success": True,
+            "message": "Redis connection detayları",
+            "data": {
+                "summary": {
+                    "total_connections": total_connections,
+                    "max_allowed": 30,
+                    "usage_percentage": round((total_connections / 30) * 100, 1),
+                    "available": 30 - total_connections
+                },
+                "breakdown": estimated_breakdown,
+                "recommendations": recommendations,
+                "timestamp": datetime.now().isoformat(),
+                "note": "Tahminler yaklaşık değerlerdir. Kesin detaylar için Redis CLIENT LIST komutu kullanılabilir."
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Redis connection detayları hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Connection detayları alınamadı: {str(e)}"
+        }
+
+@router.post("/redis/cleanup-connections")
+async def cleanup_redis_connections(
+    restart_celery: bool = True,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Redis connection'ları temizle (Admin only)
+    
+    NOT: Bu işlem aktif task'ları etkileyebilir!
+    
+    Args:
+        restart_celery: Celery worker'ları restart etsin mi? (default: True)
+    
+    Connection Kaynakları:
+    - FastAPI RedisService Pool: max 20 connection
+    - Celery Worker(s): Her worker ~3-5 connection (broker + backend)
+    
+    Temizleme Stratejisi:
+    1. Celery worker restart → Celery Redis connection'larını temizler
+    2. FastAPI server manuel restart → RedisService pool'u temizler
+    """
+    try:
+        logger.warning(f"Admin {current_user.email} Redis connection cleanup başlatıyor (restart_celery={restart_celery})")
+        
+        cleanup_results = {
+            "celery_restarted": False,
+            "connections_before": 0,
+            "connections_after": 0,
+            "action_taken": []
+        }
+        
+        # Önce mevcut connection sayısını al
+        try:
+            redis_service = RedisService()
+            async with redis_service as client:
+                info = await client.info()
+                cleanup_results["connections_before"] = info.get("connected_clients", 0)
+        except Exception as info_error:
+            logger.error(f"Connection info alınamadı: {info_error}")
+        
+        # 1. Celery worker'ları restart et
+        if restart_celery:
+            import subprocess
+            import asyncio
+            
+            try:
+                # Celery worker'ları durdur
+                kill_result = subprocess.run(
+                    ["pkill", "-f", "celery.*worker"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                logger.info(f"Celery worker'lar durduruldu")
+                
+                # Durması için bekle
+                await asyncio.sleep(2)
+                
+                # Yeni worker başlat
+                start_result = subprocess.Popen(
+                    ["celery", "-A", "tasks.celery_app", "worker", "--loglevel=info", "--concurrency=1"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    start_new_session=True
+                )
+                
+                # Başlaması için bekle
+                await asyncio.sleep(3)
+                
+                cleanup_results["celery_restarted"] = True
+                cleanup_results["action_taken"].append("Celery worker restart edildi")
+                logger.info("Celery worker yeniden başlatıldı")
+                
+            except Exception as celery_error:
+                logger.error(f"Celery restart hatası: {celery_error}")
+                cleanup_results["action_taken"].append(f"Celery restart başarısız: {str(celery_error)}")
+        
+        # Sonra güncel connection sayısını al
+        try:
+            async with redis_service as client:
+                info = await client.info()
+                cleanup_results["connections_after"] = info.get("connected_clients", 0)
+        except Exception as info_error:
+            logger.error(f"Connection info alınamadı: {info_error}")
+        
+        # Temizlik önerisi
+        recommendations = []
+        
+        if cleanup_results["connections_after"] > 20:
+            recommendations.append({
+                "issue": "Hala çok fazla connection var",
+                "current": cleanup_results["connections_after"],
+                "recommendation": "FastAPI server'ı restart etmeyi düşünün: POST /api/admin/system/restart (dikkat: tüm aktif istekler kesintiye uğrayacak)"
+            })
+        
+        if not restart_celery:
+            recommendations.append({
+                "issue": "Celery worker restart edilmedi",
+                "recommendation": "Celery connection'larını temizlemek için restart_celery=true parametresini kullanın"
+            })
+        
+        cleanup_results["recommendations"] = recommendations
+        cleanup_results["freed_connections"] = cleanup_results["connections_before"] - cleanup_results["connections_after"]
+        
+        logger.warning(
+            f"Redis cleanup tamamlandı - Önce: {cleanup_results['connections_before']}, "
+            f"Sonra: {cleanup_results['connections_after']}, "
+            f"Temizlenen: {cleanup_results['freed_connections']}"
+        )
+        
+        return {
+            "success": True,
+            "message": f"{cleanup_results['freed_connections']} connection temizlendi",
+            "data": {
+                **cleanup_results,
+                "timestamp": datetime.now().isoformat(),
+                "note": "Connection'lar otomatik olarak yeniden oluşturulacak. Sorun devam ederse FastAPI server restart gerekebilir."
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Redis cleanup hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Connection cleanup başarısız: {str(e)}"
+        }
+
 @router.get("/purchases")
 async def get_all_purchases(
     current_admin: UserResponse = Depends(get_admin_user)
