@@ -34,6 +34,7 @@ router = APIRouter()
 async def upload_document(
     file: UploadFile = File(...),
     title: str = Form(...),
+    belge_adi: Optional[str] = Form(None),
     category: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     keywords: Optional[str] = Form(None),
@@ -52,6 +53,7 @@ async def upload_document(
     Args:
         file: PDF file to upload
         title: Document title
+        belge_adi: Document name/identifier
         category: Document category
         description: Document description
         keywords: Comma-separated keywords
@@ -96,6 +98,7 @@ async def upload_document(
         
         document_data = {
             'title': title,
+            'belge_adi': belge_adi,
             'filename': filename,
             'file_url': file_url,
             'file_size': len(file_content),
@@ -104,6 +107,7 @@ async def upload_document(
             'status': 'processing',
             'institution': source_institution or 'Belirtilmemiş',
             'metadata': {
+                'belge_adi': belge_adi,
                 'category': category,
                 'description': description,
                 'keywords': keywords_list,
