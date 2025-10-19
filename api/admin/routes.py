@@ -3107,27 +3107,45 @@ async def purge_celery_queue(
     try:
         logger.warning(f"Admin {current_user.email} Celery queue'ları temizleniyor")
         
-        from tasks.celery_app import celery_app
+        # Redis connection pool'dan doğrudan temizle
+        from services.redis_service import RedisService
+        redis_service = RedisService()
         
-        # Tüm queue'ları purge et
-        purged_count = celery_app.control.purge()
-        
-        logger.info(f"Celery queue purged: {purged_count} tasks removed")
-        
-        return {
-            "success": True,
-            "message": f"Celery queue temizlendi",
-            "data": {
-                "purged_tasks": purged_count,
-                "timestamp": datetime.now().isoformat()
-            }
-        }
+        # Celery queue key'lerini temizle
+        async with RedisService() as client:
+            # Celery queue pattern'leri
+            queue_keys = await client.keys("celery*")
+            unacked_keys = await client.keys("unacked*")
+            
+            all_keys = list(set(queue_keys + unacked_keys))
+            
+            if all_keys:
+                deleted = await client.delete(*all_keys)
+                logger.info(f"Celery queue keys cleared: {deleted}")
+                
+                return {
+                    "success": True,
+                    "message": f"Celery queue temizlendi",
+                    "data": {
+                        "purged_tasks": deleted,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                }
+            else:
+                return {
+                    "success": True,
+                    "message": "Queue'da task bulunamadı",
+                    "data": {
+                        "purged_tasks": 0,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                }
         
     except Exception as e:
         logger.error(f"Celery queue temizleme hatası: {e}")
         return {
             "success": False,
-            "message": f"Celery queue temizleme başarısız: {str(e)}"
+            "message": f"Redis connection hatası - Lütfen tekrar deneyin"
         }
 
 @router.delete("/celery/clear-active")
@@ -3138,53 +3156,41 @@ async def clear_active_tasks(
     try:
         logger.warning(f"Admin {current_user.email} aktif task'ları iptal ediyor")
         
-        from tasks.celery_app import celery_app
+        # Redis'ten aktif task metadata'larını temizle
+        from services.redis_service import RedisService
         
-        # Aktif task'ları al
-        inspector = celery_app.control.inspect()
-        active_tasks = inspector.active()
-        
-        if not active_tasks:
+        async with RedisService() as client:
+            # Celery task metadata key'lerini bul
+            task_meta_keys = await client.keys("celery-task-meta-*")
+            
+            if not task_meta_keys:
+                return {
+                    "success": True,
+                    "message": "Aktif task bulunamadı",
+                    "data": {
+                        "revoked_count": 0,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                }
+            
+            # Task metadata key'lerini sil
+            deleted = await client.delete(*task_meta_keys)
+            logger.info(f"Active task metadata cleared: {deleted} keys")
+            
             return {
                 "success": True,
-                "message": "Aktif task bulunamadı",
+                "message": f"{deleted} aktif task metadata temizlendi",
                 "data": {
-                    "revoked_count": 0,
-                    "worker_count": 0,
+                    "revoked_count": deleted,
                     "timestamp": datetime.now().isoformat()
                 }
             }
-        
-        # Her worker'daki aktif task'ları iptal et
-        revoked_count = 0
-        worker_count = len(active_tasks)
-        
-        for worker_name, tasks in active_tasks.items():
-            for task in tasks:
-                task_id = task.get('id')
-                if task_id:
-                    # Task'ı revoke et (iptal et)
-                    celery_app.control.revoke(task_id, terminate=True, signal='SIGKILL')
-                    revoked_count += 1
-                    logger.info(f"Task revoked: {task_id} from worker {worker_name}")
-        
-        logger.info(f"Active tasks cleared: {revoked_count} tasks from {worker_count} workers")
-        
-        return {
-            "success": True,
-            "message": f"{revoked_count} aktif task iptal edildi",
-            "data": {
-                "revoked_count": revoked_count,
-                "worker_count": worker_count,
-                "timestamp": datetime.now().isoformat()
-            }
-        }
         
     except Exception as e:
         logger.error(f"Aktif task temizleme hatası: {e}")
         return {
             "success": False,
-            "message": f"Aktif task temizleme başarısız: {str(e)}"
+            "message": f"Redis connection hatası - Lütfen tekrar deneyin"
         }
 
 @router.post("/celery/restart-worker")
