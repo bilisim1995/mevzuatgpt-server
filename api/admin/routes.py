@@ -1050,104 +1050,6 @@ async def get_document_details(
         raise HTTPException(status_code=500, detail=f"Failed to get document details: {str(e)}")
 
 
-@router.delete("/documents/{document_id}")
-async def delete_document(
-    document_id: str,
-    current_user: UserResponse = Depends(get_admin_user)
-):
-    """
-    Complete document deletion (Admin only)
-    
-    Deletes:
-    1. Document record from Supabase database
-    2. Physical PDF file from Bunny.net CDN
-    3. All embeddings from Elasticsearch
-    
-    Returns detailed deletion report.
-    """
-    try:
-        logger.info(f"Admin {current_user.email} starting complete deletion for document: {document_id}")
-        
-        # Step 1: Get document info first
-        document_response = supabase_client.supabase.table('mevzuat_documents').select('*').eq('id', document_id).execute()
-        if not document_response.data:
-            raise HTTPException(status_code=404, detail="Document not found")
-        
-        document = document_response.data[0]
-        document_title = document.get('title', 'Unknown Document')
-        
-        # Step 2: Get embedding count before deletion
-        from services.embedding_service import EmbeddingService
-        embedding_service = EmbeddingService()
-        embedding_count_before = await embedding_service.get_embeddings_count(document_id)
-        
-        # Step 3: Delete embeddings from Elasticsearch
-        logger.info(f"Deleting {embedding_count_before} embeddings from Elasticsearch for document: {document_id}")
-        from services.elasticsearch_service import ElasticsearchService
-        async with ElasticsearchService() as es_service:
-            es_deleted_count = await es_service.delete_document_embeddings(document_id)
-            logger.info(f"Deleted {es_deleted_count} embeddings from Elasticsearch")
-        
-        # Step 4: Delete physical file from Bunny.net
-        physical_deleted = False
-        bunny_deletion_error = None
-        bunny_url = None
-        
-        # Generate Bunny.net URL for deletion
-        if document.get('file_url'):
-            bunny_url = document['file_url']
-        elif document.get('filename'):
-            bunny_url = f"https://cdn.mevzuatgpt.org/documents/{document['filename']}"
-        
-        if bunny_url:
-            try:
-                logger.info(f"Deleting physical file from Bunny.net: {bunny_url}")
-                from services.storage_service import StorageService
-                storage_service = StorageService()
-                await storage_service.delete_file(bunny_url)
-                physical_deleted = True
-                logger.info("Physical file deleted from Bunny.net successfully")
-            except Exception as e:
-                bunny_deletion_error = str(e)
-                logger.warning(f"Failed to delete physical file from Bunny.net: {e}")
-        else:
-            logger.warning("No file URL found, skipping Bunny.net deletion")
-        
-        # Step 5: Delete document record from database
-        logger.info(f"Deleting document record from database: {document_id}")
-        supabase_client.supabase.table('mevzuat_documents').delete().eq('id', document_id).execute()
-        logger.info("Document record deleted from database successfully")
-        
-        # Step 6: Return detailed deletion report
-        return {
-            "success": True,
-            "message": "Document deleted completely",
-            "data": {
-                "document_id": document_id,
-                "document_title": document_title,
-                "deletion_summary": {
-                    "database_deleted": True,
-                    "embeddings_deleted": es_deleted_count,
-                    "physical_file_deleted": physical_deleted,
-                    "bunny_url": bunny_url
-                },
-                "details": {
-                    "embeddings_count_before": embedding_count_before,
-                    "embeddings_deleted": es_deleted_count,
-                    "file_size_mb": round(document.get('file_size', 0) / (1024 * 1024), 2) if document.get('file_size') else 0,
-                    "bunny_deletion_error": bunny_deletion_error,
-                    "deleted_by": current_user.email,
-                    "deletion_timestamp": datetime.now().isoformat()
-                }
-            }
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to delete document {document_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
-
 @router.delete("/documents/bulk-delete")
 async def bulk_delete_documents(
     institution: Optional[str] = None,
@@ -1334,6 +1236,104 @@ async def bulk_delete_documents(
     except Exception as e:
         logger.error(f"Toplu silme hatası: {e}")
         raise HTTPException(status_code=500, detail=f"Toplu silme işlemi başarısız: {str(e)}")
+
+@router.delete("/documents/{document_id}")
+async def delete_document(
+    document_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Complete document deletion (Admin only)
+    
+    Deletes:
+    1. Document record from Supabase database
+    2. Physical PDF file from Bunny.net CDN
+    3. All embeddings from Elasticsearch
+    
+    Returns detailed deletion report.
+    """
+    try:
+        logger.info(f"Admin {current_user.email} starting complete deletion for document: {document_id}")
+        
+        # Step 1: Get document info first
+        document_response = supabase_client.supabase.table('mevzuat_documents').select('*').eq('id', document_id).execute()
+        if not document_response.data:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        document = document_response.data[0]
+        document_title = document.get('title', 'Unknown Document')
+        
+        # Step 2: Get embedding count before deletion
+        from services.embedding_service import EmbeddingService
+        embedding_service = EmbeddingService()
+        embedding_count_before = await embedding_service.get_embeddings_count(document_id)
+        
+        # Step 3: Delete embeddings from Elasticsearch
+        logger.info(f"Deleting {embedding_count_before} embeddings from Elasticsearch for document: {document_id}")
+        from services.elasticsearch_service import ElasticsearchService
+        async with ElasticsearchService() as es_service:
+            es_deleted_count = await es_service.delete_document_embeddings(document_id)
+            logger.info(f"Deleted {es_deleted_count} embeddings from Elasticsearch")
+        
+        # Step 4: Delete physical file from Bunny.net
+        physical_deleted = False
+        bunny_deletion_error = None
+        bunny_url = None
+        
+        # Generate Bunny.net URL for deletion
+        if document.get('file_url'):
+            bunny_url = document['file_url']
+        elif document.get('filename'):
+            bunny_url = f"https://cdn.mevzuatgpt.org/documents/{document['filename']}"
+        
+        if bunny_url:
+            try:
+                logger.info(f"Deleting physical file from Bunny.net: {bunny_url}")
+                from services.storage_service import StorageService
+                storage_service = StorageService()
+                await storage_service.delete_file(bunny_url)
+                physical_deleted = True
+                logger.info("Physical file deleted from Bunny.net successfully")
+            except Exception as e:
+                bunny_deletion_error = str(e)
+                logger.warning(f"Failed to delete physical file from Bunny.net: {e}")
+        else:
+            logger.warning("No file URL found, skipping Bunny.net deletion")
+        
+        # Step 5: Delete document record from database
+        logger.info(f"Deleting document record from database: {document_id}")
+        supabase_client.supabase.table('mevzuat_documents').delete().eq('id', document_id).execute()
+        logger.info("Document record deleted from database successfully")
+        
+        # Step 6: Return detailed deletion report
+        return {
+            "success": True,
+            "message": "Document deleted completely",
+            "data": {
+                "document_id": document_id,
+                "document_title": document_title,
+                "deletion_summary": {
+                    "database_deleted": True,
+                    "embeddings_deleted": es_deleted_count,
+                    "physical_file_deleted": physical_deleted,
+                    "bunny_url": bunny_url
+                },
+                "details": {
+                    "embeddings_count_before": embedding_count_before,
+                    "embeddings_deleted": es_deleted_count,
+                    "file_size_mb": round(document.get('file_size', 0) / (1024 * 1024), 2) if document.get('file_size') else 0,
+                    "bunny_deletion_error": bunny_deletion_error,
+                    "deleted_by": current_user.email,
+                    "deletion_timestamp": datetime.now().isoformat()
+                }
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete document {document_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
 
 @router.put("/documents/{document_id}", response_model=DocumentResponse)
 async def update_document(
