@@ -34,9 +34,9 @@ celery_app.conf.update(
     task_ignore_result=False,
     task_store_eager_result=True,
     
-    # CRITICAL: Task persistence settings - prevents task loss on worker restart
-    task_acks_late=True,  # Tasks acknowledged AFTER completion, not before
-    task_reject_on_worker_lost=True,  # Requeue tasks if worker crashes/restarts
+    # Task persistence settings - restart behavior disabled
+    task_acks_late=False,  # Acknowledge immediately, don't retry on restart
+    task_reject_on_worker_lost=False,  # Don't requeue tasks on worker restart
     task_track_started=True,  # Track task state when it starts
     worker_prefetch_multiplier=1,  # Only fetch one task at a time
     worker_max_tasks_per_child=1000,
