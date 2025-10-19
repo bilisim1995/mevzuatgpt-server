@@ -24,7 +24,7 @@ async def get_redis_pool():
         try:
             _redis_pool = redis.ConnectionPool.from_url(
                 url=settings.REDIS_URL,
-                max_connections=20,  # Limit max connections
+                max_connections=12,  # Optimized for Redis Cloud Free Plan (30 max total)
                 decode_responses=True,
                 encoding="utf-8",
                 socket_connect_timeout=5,
@@ -32,7 +32,7 @@ async def get_redis_pool():
                 socket_keepalive=True,
                 health_check_interval=30
             )
-            logger.info("✅ Redis connection pool created (max 20 connections)")
+            logger.info("✅ Redis connection pool created (max 12 connections)")
         except Exception as e:
             logger.error(f"Failed to create Redis pool: {e}")
             _redis_pool = None
