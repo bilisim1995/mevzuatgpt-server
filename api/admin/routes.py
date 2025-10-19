@@ -3247,56 +3247,210 @@ async def get_celery_status(
             "data": {"error": str(e)}
         }
 
-@router.post("/celery/restart-worker")
-async def restart_celery_worker(
+@router.post("/celery/start")
+async def start_celery_worker(
     current_user: UserResponse = Depends(get_admin_user)
 ):
-    """TÜM Celery worker'ları restart et (Admin only) - Redis connection pool safe"""
+    """Celery worker'ı başlat (Admin only) - Durmuşsa başlatır"""
     try:
-        logger.warning(f"Admin {current_user.email} TÜM Celery worker restart işlemi başlatıyor")
+        logger.warning(f"Admin {current_user.email} Celery worker başlatma işlemi başlatıyor")
         
         import subprocess
         import asyncio
         
-        # Worker'ı restart et (pkill ile)
+        # Önce worker'ın zaten çalışıp çalışmadığını kontrol et
+        check_result = subprocess.run(
+            ["pgrep", "-f", "celery.*worker"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if check_result.returncode == 0:
+            # Worker zaten çalışıyor
+            running_pids = [pid for pid in check_result.stdout.strip().split('\n') if pid]
+            logger.info(f"Celery worker zaten çalışıyor: {running_pids}")
+            return {
+                "success": True,
+                "message": "Celery worker zaten çalışıyor",
+                "data": {
+                    "status": "already_running",
+                    "process_ids": running_pids,
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
+        
+        # Worker durmuş, başlat
+        logger.info("Celery worker durmuş, başlatılıyor...")
+        
         try:
-            restart_result = subprocess.run(
-                ["pkill", "-f", "celery.*worker"],
-                capture_output=True,
-                text=True,
-                timeout=10
+            # Celery worker'ı arka planda başlat
+            start_result = subprocess.Popen(
+                ["celery", "-A", "tasks.celery_app", "worker", "--loglevel=info", "--concurrency=1"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
             )
             
-            logger.info(f"Celery worker restart signal sent. Return code: {restart_result.returncode}")
-            
-            # Worker'ın yeniden başlaması için bekle
+            # Worker'ın başlaması için bekle
             await asyncio.sleep(3)
             
-            restart_status = "success"
-            restart_message = "Tüm Celery worker'lar restart edildi. Workflow otomatik olarak yeniden başlatılacak."
+            # Başladığını doğrula
+            verify_result = subprocess.run(
+                ["pgrep", "-f", "celery.*worker"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if verify_result.returncode == 0:
+                new_pids = [pid for pid in verify_result.stdout.strip().split('\n') if pid]
+                logger.info(f"Celery worker başarıyla başlatıldı: {new_pids}")
+                return {
+                    "success": True,
+                    "message": "Celery worker başarıyla başlatıldı",
+                    "data": {
+                        "status": "started",
+                        "process_ids": new_pids,
+                        "timestamp": datetime.now().isoformat(),
+                        "note": "Worker durumunu /api/admin/celery/status endpoint'inden kontrol edebilirsiniz"
+                    }
+                }
+            else:
+                logger.error("Celery worker başlatıldı ama doğrulanamadı")
+                return {
+                    "success": False,
+                    "message": "Worker başlatıldı ama doğrulanamadı",
+                    "data": {"status": "verification_failed"}
+                }
                 
-        except subprocess.TimeoutExpired:
-            restart_status = "timeout"
-            restart_message = "Restart işlemi timeout"
-        except Exception as restart_error:
-            restart_status = "error"
-            restart_message = f"Restart hatası: {str(restart_error)}"
-        
-        return {
-            "success": restart_status == "success",
-            "message": restart_message,
-            "data": {
-                "restart_status": restart_status,
-                "timestamp": datetime.now().isoformat(),
-                "note": "Worker durumunu /api/admin/celery/status endpoint'inden kontrol edebilirsiniz"
+        except Exception as start_error:
+            logger.error(f"Worker başlatma hatası: {start_error}")
+            return {
+                "success": False,
+                "message": f"Worker başlatılamadı: {str(start_error)}",
+                "data": {"error": str(start_error)}
             }
+            
+    except Exception as e:
+        logger.error(f"Celery worker start hatası: {e}")
+        return {
+            "success": False,
+            "message": "Worker başlatma işlemi başarısız",
+            "data": {"error": str(e)}
+        }
+
+@router.post("/celery/restart")
+async def restart_celery_worker(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Celery worker'ı yeniden başlat (Admin only) - Durdur ve başlat"""
+    try:
+        logger.warning(f"Admin {current_user.email} Celery worker yeniden başlatma işlemi başlatıyor")
+        
+        import subprocess
+        import asyncio
+        
+        restart_info = {
+            "stopped": False,
+            "started": False,
+            "old_pids": [],
+            "new_pids": []
         }
         
+        # 1. Mevcut worker'ları kontrol et
+        check_result = subprocess.run(
+            ["pgrep", "-f", "celery.*worker"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if check_result.returncode == 0:
+            restart_info["old_pids"] = [pid for pid in check_result.stdout.strip().split('\n') if pid]
+            logger.info(f"Mevcut worker'lar bulundu: {restart_info['old_pids']}")
+            
+            # 2. Worker'ları durdur
+            try:
+                kill_result = subprocess.run(
+                    ["pkill", "-f", "celery.*worker"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                logger.info(f"Worker'lar durduruldu. Return code: {kill_result.returncode}")
+                restart_info["stopped"] = True
+                
+                # Durması için bekle
+                await asyncio.sleep(2)
+                
+            except Exception as kill_error:
+                logger.error(f"Worker durdurma hatası: {kill_error}")
+                return {
+                    "success": False,
+                    "message": f"Worker durdurulamadı: {str(kill_error)}",
+                    "data": restart_info
+                }
+        else:
+            logger.info("Hiç worker çalışmıyor, sadece başlatılacak")
+            restart_info["stopped"] = True
+        
+        # 3. Worker'ı başlat
+        try:
+            start_result = subprocess.Popen(
+                ["celery", "-A", "tasks.celery_app", "worker", "--loglevel=info", "--concurrency=1"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
+            
+            # Başlaması için bekle
+            await asyncio.sleep(3)
+            
+            # Başladığını doğrula
+            verify_result = subprocess.run(
+                ["pgrep", "-f", "celery.*worker"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if verify_result.returncode == 0:
+                restart_info["new_pids"] = [pid for pid in verify_result.stdout.strip().split('\n') if pid]
+                restart_info["started"] = True
+                logger.info(f"Worker yeniden başlatıldı: {restart_info['new_pids']}")
+                
+                return {
+                    "success": True,
+                    "message": "Celery worker başarıyla yeniden başlatıldı",
+                    "data": {
+                        **restart_info,
+                        "timestamp": datetime.now().isoformat(),
+                        "note": "Worker durumunu /api/admin/celery/status endpoint'inden kontrol edebilirsiniz"
+                    }
+                }
+            else:
+                logger.error("Worker başlatıldı ama doğrulanamadı")
+                return {
+                    "success": False,
+                    "message": "Worker başlatıldı ama doğrulanamadı",
+                    "data": restart_info
+                }
+                
+        except Exception as start_error:
+            logger.error(f"Worker başlatma hatası: {start_error}")
+            return {
+                "success": False,
+                "message": f"Worker başlatılamadı: {str(start_error)}",
+                "data": restart_info
+            }
+            
     except Exception as e:
         logger.error(f"Celery worker restart hatası: {e}")
         return {
             "success": False,
-            "message": f"Celery worker restart başarısız"
+            "message": "Worker yeniden başlatma işlemi başarısız",
+            "data": {"error": str(e)}
         }
 
 @router.delete("/celery/worker/{pid}")
