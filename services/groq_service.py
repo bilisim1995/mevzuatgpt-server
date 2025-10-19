@@ -122,57 +122,25 @@ class GroqService:
             # Adjust user prompt based on response style
             # MARKDOWN FORMAT RULES - Applied to ALL styles
             markdown_formatting_rules = """
-MUTLAKA UYULMASI GEREKEN BAŞLIK KURALLARI:
+KRİTİK: MARKDOWN FORMATINI DOĞRU KULLAN - HER ELEMENTIN SONRASINDA MUTLAKA BOŞ SATIR!
 
-1. Her başlıktan ÖNCE boş satır
-2. Başlığı yaz (## Başlık) - sonunda ## YOK!
-3. Başlıktan SONRA boş satır
-4. Sonra içeriği yaz
+TEMEL KURAL: Her markdown elementinin (başlık, liste, quote, paragraf) SONRASINDA mutlaka BOŞ SATIR bırak!
 
-BAŞLIK FORMATLARI:
-# Ana Başlık (H1)
-## İkinci Seviye (H2)
-### Üçüncü Seviye (H3)
-
-DOĞRU KULLANIM - DİKKATLE İNCELE:
-
-Yangın yönetmeliği, yangın önleme ve söndürme tedbirlerini belirler.
-
-## Yasal Çerçeve
-
-Yangın yönetmeliğinin yasal çerçevesi, Çevre Bakanlığı tarafından belirlenir.
-
-## Uygulama Detayları
-
-Uygulamada dikkat edilmesi gereken hususlar vardır.
-
-### Alt Başlık
-
-Detaylı açıklama burada yer alır.
-
-## Önemli Noktalar
-
-Son olarak belirtilmesi gerekenler...
-
-YANLIŞ KULLANIM ÖRNEKLERI (ASLA BÖYLE YAPMA):
-
-❌ bir yönetmeliktir. ## Yasal Çerçeve
-❌ yönetmeliktir. ## Yasal Çerçeve
-
-Yangın yönetmeliğinin...
-❌ ## Genel Açıklama ##
-❌ ## Genel Açıklama
-İçerik...
-
-DOĞRU FORMAT ŞEMASI:
-
-[paragraf sonu]
-(BOŞ SATIR - MUTLAKA!)
-## Başlık
-(BOŞ SATIR - MUTLAKA!)
-[yeni paragraf başlangıcı]
-
-TEMEL KURAL: Başlıktan ÖNCE ve SONRA mutlaka BOŞ SATIR!
+1. **BAŞLIKLAR** - Sonunda ## kapatma işareti YOK:
+   
+   DOĞRU ÖRNEK:
+   
+   ## Genel Açıklama
+   
+   Sigortalılık, bir bireyin sosyal güvenlik sistemi...
+   
+   ## Yasal Çerçeve
+   
+   İlgili mevzuat...
+   
+   YANLIŞ:
+   ## Genel Açıklama ##
+   Sigortalılık...
 
 2. **PARAGRAFLAR** - Her paragraf arasında boş satır:
    
