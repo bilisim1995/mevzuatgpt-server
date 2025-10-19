@@ -122,41 +122,57 @@ class GroqService:
             # Adjust user prompt based on response style
             # MARKDOWN FORMAT RULES - Applied to ALL styles
             markdown_formatting_rules = """
-ÇOK KRİTİK: BAŞLIK SATIRINDAN SONRA MUTLAKA ALT SATIRA GEÇ!
+MUTLAKA UYULMASI GEREKEN BAŞLIK KURALLARI:
 
-BAŞLIK KURALLARI (EN ÖNEMLİ):
-1. Başlık yazıp satırı bitir (## Başlık)
-2. ENTER tuşuna bas - boş satır bırak
-3. Sonra içeriğe başla
+1. Her başlıktan ÖNCE boş satır
+2. Başlığı yaz (## Başlık) - sonunda ## YOK!
+3. Başlıktan SONRA boş satır
+4. Sonra içeriği yaz
 
-BAŞLIK FORMATI:
-- # Ana Başlık (H1)
-- ## İkinci Seviye Başlık (H2)  
-- ### Üçüncü Seviye Başlık (H3)
-- Sonunda ## kapatma işareti ASLA YOK!
+BAŞLIK FORMATLARI:
+# Ana Başlık (H1)
+## İkinci Seviye (H2)
+### Üçüncü Seviye (H3)
 
-DOĞRU BAŞLIK KULLANIMI:
+DOĞRU KULLANIM - DİKKATLE İNCELE:
 
-## Genel Açıklama
+Yangın yönetmeliği, yangın önleme ve söndürme tedbirlerini belirler.
 
-Sigortalılık, bir bireyin sosyal güvenlik sistemi içindeki yerini belirler.
+## Yasal Çerçeve
+
+Yangın yönetmeliğinin yasal çerçevesi, Çevre Bakanlığı tarafından belirlenir.
+
+## Uygulama Detayları
+
+Uygulamada dikkat edilmesi gereken hususlar vardır.
 
 ### Alt Başlık
 
 Detaylı açıklama burada yer alır.
 
-## Yasal Çerçeve
+## Önemli Noktalar
 
-İlgili mevzuat bilgileri...
+Son olarak belirtilmesi gerekenler...
 
-YANLIŞ KULLANIM (ASLA YAPMA):
+YANLIŞ KULLANIM ÖRNEKLERI (ASLA BÖYLE YAPMA):
 
+❌ bir yönetmeliktir. ## Yasal Çerçeve
+❌ yönetmeliktir. ## Yasal Çerçeve
+
+Yangın yönetmeliğinin...
 ❌ ## Genel Açıklama ##
-❌ ## Genel AçıklamaSigortalılık... (boşluk yok)
 ❌ ## Genel Açıklama
-Sigortalılık... (boş satır yok)
+İçerik...
 
-TEMEL KURAL: Her markdown elementinin (başlık, liste, quote, paragraf) SONRASINDA mutlaka BOŞ SATIR bırak!
+DOĞRU FORMAT ŞEMASI:
+
+[paragraf sonu]
+(BOŞ SATIR - MUTLAKA!)
+## Başlık
+(BOŞ SATIR - MUTLAKA!)
+[yeni paragraf başlangıcı]
+
+TEMEL KURAL: Başlıktan ÖNCE ve SONRA mutlaka BOŞ SATIR!
 
 2. **PARAGRAFLAR** - Her paragraf arasında boş satır:
    
