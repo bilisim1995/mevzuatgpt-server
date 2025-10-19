@@ -29,20 +29,36 @@ celery_app.conf.update(
     enable_utc=True,
     
     # Task execution settings
-    task_always_eager=False,  # Set to True for testing without Redis
+    task_always_eager=False,
     task_eager_propagates=True,
     task_ignore_result=False,
     task_store_eager_result=True,
     
-    # Worker settings
-    worker_prefetch_multiplier=1,
+    # CRITICAL: Task persistence settings - prevents task loss on worker restart
+    task_acks_late=True,  # Tasks acknowledged AFTER completion, not before
+    task_reject_on_worker_lost=True,  # Requeue tasks if worker crashes/restarts
+    task_track_started=True,  # Track task state when it starts
+    worker_prefetch_multiplier=1,  # Only fetch one task at a time
     worker_max_tasks_per_child=1000,
     worker_disable_rate_limits=False,
     
+    # Broker connection retry
+    broker_connection_retry_on_startup=True,
+    broker_connection_retry=True,
+    broker_connection_max_retries=10,
+    
+    # CRITICAL: Redis connection pool optimization
+    broker_pool_limit=5,  # Max 5 broker connections
+    broker_transport_options={
+        'max_connections': 5,
+    },
+    redis_max_connections=5,  # Redis connection pool size
+    
     # Task routing
     task_routes={
-        "tasks.document_processor.process_document_task": {"queue": "document_processing"},
-        "tasks.document_processor.cleanup_failed_documents": {"queue": "maintenance"},
+        "tasks.document_processor.process_document_task": {"queue": "celery"},
+        "tasks.document_processor.bulk_process_documents_task": {"queue": "celery"},
+        "tasks.document_processor.cleanup_failed_documents": {"queue": "celery"},
     },
     
     # Task retry settings
@@ -52,6 +68,10 @@ celery_app.conf.update(
     # Result backend settings
     result_expires=3600,  # 1 hour
     result_persistent=True,
+    result_backend_transport_options={
+        'visibility_timeout': 3600,
+        'max_connections': 5,
+    },
     
     # Beat scheduler settings (for periodic tasks)
     beat_schedule={
