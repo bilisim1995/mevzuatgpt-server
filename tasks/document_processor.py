@@ -211,6 +211,7 @@ async def _process_document_async(document_id: str, task_id: str = None) -> Dict
                 "chunk_length": len(chunk_text),
                 "document_title": document['title'],
                 "document_filename": document['filename'],
+                "belge_adi": document.get('belge_adi'),
                 "source_metadata": chunk_data.get("source_metadata", {}),
                 "processing_timestamp": datetime.now().isoformat(),
                 "text_preview": chunk_text[:200] + "..." if len(chunk_text) > 200 else chunk_text
