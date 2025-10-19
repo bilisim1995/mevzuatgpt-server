@@ -101,6 +101,7 @@ class ElasticsearchService:
                         "line_end": data.get("line_end"),
                         "source_institution": data.get("source_institution"),
                         "source_document": data.get("source_document"),
+                        "belge_adi": data.get("belge_adi"),  # Document name field
                         "metadata": data.get("metadata", {}),
                         "created_at": datetime.utcnow().isoformat()
                     }
@@ -163,7 +164,7 @@ class ElasticsearchService:
                         "min_score": similarity_threshold + 1.0  # Adjust for +1.0 offset
                     }
                 },
-                "_source": ["document_id", "content", "chunk_index", "page_number", "source_institution", "source_document", "metadata"]
+                "_source": ["document_id", "content", "chunk_index", "page_number", "source_institution", "source_document", "belge_adi", "metadata"]
             }
             
             # Add institution filter if provided
@@ -210,6 +211,7 @@ class ElasticsearchService:
                             "page_number": source.get("page_number"),
                             "source_institution": source.get("source_institution"),
                             "source_document": source.get("source_document"),
+                            "belge_adi": source.get("belge_adi"),
                             "metadata": source.get("metadata", {}),
                             "similarity": similarity
                         })
@@ -386,7 +388,7 @@ class ElasticsearchService:
                         ]
                     }
                 },
-                "_source": ["document_id", "content", "chunk_index", "page_number", "source_institution", "source_document", "metadata"]
+                "_source": ["document_id", "content", "chunk_index", "page_number", "source_institution", "source_document", "belge_adi", "metadata"]
             }
             
             # Add institution filter

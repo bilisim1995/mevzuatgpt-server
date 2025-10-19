@@ -246,6 +246,7 @@ async def _process_document_async(
                 "line_end": chunk_data.get("line_end"),
                 "source_institution": document.get('source_institution') or document.get('institution') or 'Belirtilmemiş',
                 "source_document": document['filename'],
+                "belge_adi": document.get('belge_adi'),  # Top-level field for easier access
                 "metadata": chunk_metadata
             }
             chunks_for_elasticsearch.append(elasticsearch_chunk)
