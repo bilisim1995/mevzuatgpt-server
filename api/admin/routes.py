@@ -847,7 +847,7 @@ async def list_documents(
         
         # Build query
         query = supabase_client.supabase.table('mevzuat_documents').select(
-            'id, title, document_title, belge_adi, filename, file_url, category, institution, processing_status, file_size, created_at, updated_at, uploaded_by, content_preview'
+            'id, title, belge_adi, filename, file_url, category, institution, processing_status, file_size, created_at, updated_at, uploaded_by, content_preview'
         )
         
         # Apply filters
@@ -890,7 +890,6 @@ async def list_documents(
             processed_documents.append({
                 "id": doc['id'],
                 "title": doc.get('title'),
-                "document_title": doc.get('document_title'),
                 "belge_adi": doc.get('belge_adi'),
                 "filename": doc.get('filename'),
                 "bunny_url": bunny_url,
