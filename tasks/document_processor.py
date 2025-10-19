@@ -566,3 +566,174 @@ def reprocess_failed_document(self, document_id: str):
     except Exception as e:
         logger.error(f"Failed to reprocess document {document_id}: {str(e)}")
         raise CeleryTaskError(f"Document reprocessing failed: {str(e)}")
+
+@celery_app.task(bind=True, name="bulk_process_documents_task")
+def bulk_process_documents_task(self, task_payload: Dict[str, Any]):
+    """
+    Process multiple documents sequentially with progress tracking
+    
+    This task processes documents one-by-one (not in parallel) to avoid
+    overwhelming OpenAI API and Elasticsearch with concurrent requests.
+    
+    Args:
+        task_payload: Dictionary containing:
+            - task_id: Bulk upload task ID for progress tracking
+            - documents: List of document objects with filename, document_id, metadata
+            - user_id: User who initiated the bulk upload
+    
+    Returns:
+        Processing summary with success/failure counts
+    """
+    task_id = task_payload.get("task_id")
+    documents = task_payload.get("documents", [])
+    user_id = task_payload.get("user_id")
+    
+    logger.info(f"Starting bulk document processing: task_id={task_id}, total_documents={len(documents)}")
+    
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            result = loop.run_until_complete(_bulk_process_documents_async(task_id, documents, user_id))
+            return result
+        finally:
+            try:
+                loop.run_until_complete(_cleanup_connections())
+            except Exception as cleanup_error:
+                logger.warning(f"Bulk cleanup warning: {cleanup_error}")
+            finally:
+                loop.close()
+    
+    except Exception as e:
+        logger.error(f"Bulk document processing failed for task {task_id}: {str(e)}")
+        logger.error(traceback.format_exc())
+        
+        # Update Redis status to failed
+        try:
+            error_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(error_loop)
+            try:
+                from services.redis_service import RedisService
+                redis_service = RedisService()
+                error_loop.run_until_complete(
+                    redis_service.update_bulk_upload_progress(task_id, {"status": "failed", "error": str(e)})
+                )
+            finally:
+                error_loop.close()
+        except Exception as status_error:
+            logger.error(f"Failed to update bulk task status: {str(status_error)}")
+        
+        raise CeleryTaskError(f"Bulk document processing failed: {str(e)}")
+
+async def _bulk_process_documents_async(task_id: str, documents: List[Dict[str, Any]], user_id: str) -> Dict[str, Any]:
+    """
+    Async implementation of bulk document processing with sequential processing
+    
+    Args:
+        task_id: Bulk upload task ID
+        documents: List of document dictionaries
+        user_id: User ID who initiated upload
+        
+    Returns:
+        Processing summary
+    """
+    from services.redis_service import RedisService
+    redis_service = RedisService()
+    
+    # Update status to processing
+    await redis_service.update_bulk_upload_progress(task_id, {
+        "status": "processing",
+        "started_at": datetime.utcnow().isoformat()
+    })
+    
+    success_count = 0
+    failed_count = 0
+    
+    # Process documents sequentially (one at a time)
+    for index, doc in enumerate(documents):
+        filename = doc["filename"]
+        document_id = doc["document_id"]
+        section_metadata = doc.get("metadata", {})
+        
+        logger.info(f"Processing document {index + 1}/{len(documents)}: {filename}")
+        
+        # Update progress - currently processing this file
+        await redis_service.update_bulk_upload_progress(task_id, {
+            "current_index": index + 1,
+            "current_filename": filename
+        })
+        
+        try:
+            # Extract metadata overrides for this document
+            metadata_overrides = {
+                "title": section_metadata.get("title"),
+                "description": section_metadata.get("description"),
+                "keywords": section_metadata.get("keywords")
+            }
+            
+            # Process single document with metadata overrides
+            # Generate a sub-task ID for individual progress tracking
+            sub_task_id = f"{task_id}:doc{index}"
+            
+            result = await _process_document_async(
+                document_id=document_id,
+                task_id=sub_task_id,
+                metadata_overrides=metadata_overrides
+            )
+            
+            # Mark file as completed in Redis
+            await redis_service.complete_bulk_upload_file(task_id, filename, document_id)
+            success_count += 1
+            
+            logger.info(f"Successfully processed {filename}: {result.get('status')}")
+            
+        except Exception as doc_error:
+            logger.error(f"Failed to process {filename}: {str(doc_error)}")
+            logger.error(traceback.format_exc())
+            
+            # Mark file as failed in Redis
+            await redis_service.fail_bulk_upload_file(task_id, filename, str(doc_error))
+            failed_count += 1
+            
+            # Update document status to failed in database
+            try:
+                await _update_document_status(document_id, "failed", str(doc_error))
+            except Exception as status_error:
+                logger.error(f"Failed to update document status: {str(status_error)}")
+            
+            # Continue with next document (don't fail the entire batch)
+            continue
+    
+    # Determine final status
+    if failed_count == 0:
+        final_status = "completed"
+    elif success_count == 0:
+        final_status = "failed"
+    else:
+        final_status = "completed_with_errors"
+    
+    # Update final progress
+    await redis_service.update_bulk_upload_progress(task_id, {
+        "status": final_status,
+        "current_index": len(documents),
+        "current_filename": None,
+        "completed_at": datetime.utcnow().isoformat(),
+        "summary": {
+            "total": len(documents),
+            "success": success_count,
+            "failed": failed_count
+        }
+    })
+    
+    result = {
+        "task_id": task_id,
+        "status": final_status,
+        "total_documents": len(documents),
+        "successful": success_count,
+        "failed": failed_count,
+        "completed_at": datetime.utcnow().isoformat()
+    }
+    
+    logger.info(f"Bulk processing completed: {result}")
+    return result
