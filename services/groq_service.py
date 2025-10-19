@@ -122,51 +122,83 @@ class GroqService:
             # Adjust user prompt based on response style
             # MARKDOWN FORMAT RULES - Applied to ALL styles
             markdown_formatting_rules = """
-ÖNEMLİ: MARKDOWN FORMATINI DOĞRU KULLAN - BOŞLUKLARA DİKKAT ET!
+KRİTİK: MARKDOWN FORMATINI DOĞRU KULLAN - HER ELEMENTIN ÖNCESİ VE SONRASINDA BOŞ SATIR!
 
-1. **Başlıklar** - ÇOK ÖNEMLİ:
-   - Başlıktan önce boş satır bırak
-   - Başlık formatı: ## Başlık (SONUNDA ## YOK!)
-   - Başlıktan sonra BOŞ SATIR (iki \\n) bırak
+TEMEL KURAL: Her markdown elementinin (başlık, liste, quote, paragraf) ÖNCESİNDE ve SONRASINDA mutlaka BOŞ SATIR bırak!
+
+1. **BAŞLIKLAR**:
+   Format: ## Başlık (sonunda ## kapatma YOK!)
    
-   DOĞRU ÖRNEK:
+   DOĞRU:
+   (boş satır)
    ## Genel Açıklama
+   (boş satır)
+   Sigortalılık, bir bireyin...
+   (boş satır)
    
-   Sigortalılık, bir bireyin sosyal güvenlik...
-   
-   YANLIŞ: ## Genel Açıklama ## \\nSigortalılık...
+   YANLIŞ: ## Genel Açıklama ##\\nSigortalılık...
 
-2. **Vurgular**: 
-   - **kalın** ve *italik* kullan
-   - Önemli terimler: **Madde 4/a**, **5510 sayılı Kanun**
+2. **PARAGRAFLAR**:
+   Her paragraftan sonra boş satır
+   
+   DOĞRU:
+   Bu ilk paragraf.
+   (boş satır)
+   Bu ikinci paragraf.
+   (boş satır)
 
-3. **Listeler** - BOŞLUKLARA DİKKAT:
-   - Listeden önce boş satır
-   - Her madde arasında boşluk YOK
-   - Listeden sonra boş satır
+3. **LİSTELER**:
+   Listeden önce ve sonra boş satır
+   Liste öğeleri arasında boşluk YOK
    
-   DOĞRU ÖRNEK:
-   
+   DOĞRU:
+   (boş satır)
    - İlk madde
    - İkinci madde
    - Üçüncü madde
-   
+   (boş satır)
    Devam eden metin...
+   (boş satır)
 
-4. **Hukuki İçerik Blokları** - BOŞLUKLARA DİKKAT:
-   - Bloktan önce boş satır
-   - > ile başla
-   - Bloktan sonra boş satır
+4. **QUOTE BLOKLARI**:
+   Quote'tan önce ve sonra boş satır
    
-   DOĞRU ÖRNEK:
-   
-   > "Madde 4/a: Hizmet akdiyle çalışanlar..."
-   
+   DOĞRU:
+   (boş satır)
+   > "Madde 4/a: Hizmet akdiyle..."
+   (boş satır)
    Bu maddeye göre...
+   (boş satır)
 
-5. **Paragraflar Arası**: Her paragraf arasında tek boş satır (\\n\\n)
+5. **VURGULAR**:
+   - **kalın** (önemli terimler)
+   - *italik* (vurgu)
+   - `kod` (kanun numaraları)
+   Örnek: **5510 sayılı Kanun**, **Madde 4/a**, `01.10.2008`
 
-6. **Kod/Referans**: `5510 sayılı Kanun` şeklinde backtick kullan
+6. **TAM ÖRNEK**:
+
+## Genel Açıklama
+
+Sigortalılık sistemi, **5510 sayılı Kanun** ile düzenlenmiştir.
+
+## Yasal Çerçeve
+
+İlgili düzenleme şu şekildedir:
+
+> "Madde 4/a: Hizmet akdi ile çalışanlar sigortalıdır."
+
+Bu maddeye göre aşağıdaki şartlar aranır:
+
+- Hizmet akdinin varlığı
+- İşveren yanında çalışma
+- **01.10.2008** sonrası işe giriş
+
+Tescil işlemleri için `30 gün` süre verilmiştir.
+
+## Sonuç
+
+Yukarıdaki bilgiler ışığında...
 """
             
             style_instructions = {
