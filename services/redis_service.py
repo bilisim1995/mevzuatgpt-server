@@ -1,6 +1,6 @@
 """
-SIMPLE Redis service with context manager only
-Fixes max connection pool issue
+Redis service with global connection pool
+Fixes max connection leak issue
 """
 
 import redis.asyncio as redis
@@ -14,33 +14,54 @@ from utils.exceptions import AppException
 
 logger = logging.getLogger(__name__)
 
+# Global connection pool (singleton)
+_redis_pool = None
+
+async def get_redis_pool():
+    """Get or create global Redis connection pool"""
+    global _redis_pool
+    if _redis_pool is None:
+        try:
+            _redis_pool = redis.ConnectionPool.from_url(
+                url=settings.REDIS_URL,
+                max_connections=20,  # Limit max connections
+                decode_responses=True,
+                encoding="utf-8",
+                socket_connect_timeout=5,
+                socket_timeout=5,
+                socket_keepalive=True,
+                health_check_interval=30
+            )
+            logger.info("✅ Redis connection pool created (max 20 connections)")
+        except Exception as e:
+            logger.error(f"Failed to create Redis pool: {e}")
+            _redis_pool = None
+            raise
+    return _redis_pool
+
+async def close_redis_pool():
+    """Close global Redis connection pool"""
+    global _redis_pool
+    if _redis_pool is not None:
+        await _redis_pool.disconnect()
+        _redis_pool = None
+        logger.info("Redis connection pool closed")
+
 class RedisService:
-    """Simple Redis service with context manager pattern"""
+    """Redis service using global connection pool with context manager support"""
     
     def __init__(self):
         self.redis_url = settings.REDIS_URL
         self.redis_client = None
-        self._shared_client = None
     
     async def __aenter__(self):
-        """Context manager entry"""
+        """Context manager entry - get client from pool"""
         try:
-            self.redis_client = redis.from_url(
-                self.redis_url,
-                encoding="utf-8",
-                decode_responses=True,
-                socket_connect_timeout=2,  # Daha kısa timeout
-                socket_timeout=2,          # Socket operations timeout
-                socket_keepalive=False,
-                health_check_interval=None,
-                retry_on_timeout=True,     # Timeout'ta retry
-                retry_on_error=[ConnectionError, TimeoutError]  # Hata durumlarında retry
-            )
-            await self.redis_client.ping()
-            logger.debug("Redis connection established")
+            pool = await get_redis_pool()
+            self.redis_client = redis.Redis(connection_pool=pool)
             return self.redis_client
         except Exception as e:
-            logger.error(f"Failed to connect to Redis: {e}")
+            logger.error(f"Failed to get Redis client from pool: {e}")
             raise AppException(
                 message="Redis connection failed",
                 detail=str(e),
@@ -48,54 +69,67 @@ class RedisService:
             )
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit"""
+        """Context manager exit - return client to pool"""
         if self.redis_client:
-            await self.redis_client.aclose()
+            await self.redis_client.close(close_connection_pool=False)
             self.redis_client = None
-            logger.debug("Redis connection closed")
-
-    async def _get_client(self):
-        """Get shared Redis client"""
-        if not self._shared_client:
-            try:
-                self._shared_client = redis.from_url(
-                    self.redis_url,
-                    encoding="utf-8",
-                    decode_responses=True,
-                    socket_connect_timeout=2,
-                    socket_timeout=2,
-                    socket_keepalive=False,
-                    health_check_interval=None,
-                    retry_on_timeout=True,
-                    retry_on_error=[ConnectionError, TimeoutError]
-                )
-                await self._shared_client.ping()
-                logger.debug("Shared Redis client established")
-            except Exception as e:
-                logger.error(f"Failed to connect to Redis: {e}")
-                self._shared_client = None
-                raise
-        return self._shared_client
     
-    async def _close_client(self):
-        """Close shared client"""
-        if self._shared_client:
-            await self._shared_client.aclose()
-            self._shared_client = None
-            logger.debug("Shared Redis client closed")
-
-    # Simple utility method for ping test
     async def ping(self):
         """Ping Redis (for health checks only)"""
         try:
-            client = await self._get_client()
-            return await client.ping()
+            async with self as client:
+                return await client.ping()
         except Exception as e:
             logger.error(f"Redis ping failed: {e}")
-            # Try to reconnect
-            await self._close_client()
             raise
-
+    
+    async def get_info(self):
+        """Redis sunucu bilgilerini al"""
+        try:
+            async with self as client:
+                return await client.info()
+        except Exception as e:
+            logger.error(f"Redis get_info failed: {e}")
+            raise
+    
+    async def get_db_size(self):
+        """Redis database boyutunu al"""
+        try:
+            async with self as client:
+                return await client.dbsize()
+        except Exception as e:
+            logger.error(f"Redis get_db_size failed: {e}")
+            raise
+    
+    async def get_keys_pattern(self, pattern):
+        """Pattern'e göre key'leri al"""
+        try:
+            async with self as client:
+                return await client.keys(pattern)
+        except Exception as e:
+            logger.error(f"Redis get_keys_pattern failed: {e}")
+            raise
+    
+    async def delete_keys(self, keys):
+        """Birden fazla key'i sil"""
+        if not keys:
+            return 0
+        try:
+            async with self as client:
+                return await client.delete(*keys)
+        except Exception as e:
+            logger.error(f"Redis delete_keys failed: {e}")
+            raise
+    
+    async def flush_db(self):
+        """Database'i tamamen temizle"""
+        try:
+            async with self as client:
+                return await client.flushdb()
+        except Exception as e:
+            logger.error(f"Redis flush_db failed: {e}")
+            raise
+    
     # Cache methods (stub implementations)
     async def get_cached_search_results(self, query, filters=None, limit=None, similarity_threshold=None):
         return None
@@ -130,182 +164,124 @@ class RedisService:
     async def cache_institutions(self, institutions_list, ttl=86400):
         pass
     
-    # Admin methods for system management
-    async def get_info(self):
-        """Redis sunucu bilgilerini al"""
-        try:
-            client = await self._get_client()
-            return await client.info()
-        except Exception as e:
-            logger.error(f"Redis get_info failed: {e}")
-            await self._close_client()
-            raise
-    
-    async def get_db_size(self):
-        """Redis database boyutunu al"""
-        try:
-            client = await self._get_client()
-            return await client.dbsize()
-        except Exception as e:
-            logger.error(f"Redis get_db_size failed: {e}")
-            await self._close_client()
-            raise
-    
-    async def get_keys_pattern(self, pattern):
-        """Pattern'e göre key'leri al"""
-        try:
-            client = await self._get_client()
-            return await client.keys(pattern)
-        except Exception as e:
-            logger.error(f"Redis get_keys_pattern failed: {e}")
-            await self._close_client()
-            raise
-    
-    async def delete_keys(self, keys):
-        """Birden fazla key'i sil"""
-        if not keys:
-            return 0
-        try:
-            client = await self._get_client()
-            return await client.delete(*keys)
-        except Exception as e:
-            logger.error(f"Redis delete_keys failed: {e}")
-            await self._close_client()
-            raise
-    
-    async def flush_db(self):
-        """Database'i tamamen temizle"""
-        try:
-            client = await self._get_client()
-            return await client.flushdb()
-        except Exception as e:
-            logger.error(f"Redis flush_db failed: {e}")
-            await self._close_client()
-            raise
-    
     async def init_bulk_upload_progress(self, task_id: str, total_files: int, filenames: List[str]):
         """Initialize bulk upload progress tracking"""
         try:
-            client = await self._get_client()
-            progress_data = {
-                "status": "queued",
-                "total_files": total_files,
-                "current_index": 0,
-                "current_filename": None,
-                "completed_files": [],
-                "filenames": filenames,
-                "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat()
-            }
-            key = f"bulk_upload:{task_id}"
-            await client.setex(key, 86400, json.dumps(progress_data))
-            logger.info(f"Initialized bulk upload progress for task {task_id} with {total_files} files")
-            return progress_data
+            async with self as client:
+                progress_data = {
+                    "status": "queued",
+                    "total_files": total_files,
+                    "current_index": 0,
+                    "current_filename": None,
+                    "completed_files": [],
+                    "filenames": filenames,
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+                key = f"bulk_upload:{task_id}"
+                await client.setex(key, 86400, json.dumps(progress_data))
+                logger.info(f"Initialized bulk upload progress for task {task_id} with {total_files} files")
+                return progress_data
         except Exception as e:
             logger.error(f"Failed to initialize bulk upload progress: {e}")
-            await self._close_client()
             raise
     
     async def update_bulk_upload_progress(self, task_id: str, updates: Dict[str, Any]):
         """Update bulk upload progress"""
         try:
-            client = await self._get_client()
-            key = f"bulk_upload:{task_id}"
-            
-            existing_data = await client.get(key)
-            if not existing_data:
-                logger.warning(f"Bulk upload progress not found for task {task_id}")
-                return None
-            
-            progress_data = json.loads(existing_data)
-            progress_data.update(updates)
-            progress_data["updated_at"] = datetime.utcnow().isoformat()
-            
-            await client.setex(key, 86400, json.dumps(progress_data))
-            logger.debug(f"Updated bulk upload progress for task {task_id}")
-            return progress_data
+            async with self as client:
+                key = f"bulk_upload:{task_id}"
+                
+                existing_data = await client.get(key)
+                if not existing_data:
+                    logger.warning(f"Bulk upload progress not found for task {task_id}")
+                    return None
+                
+                progress_data = json.loads(existing_data)
+                progress_data.update(updates)
+                progress_data["updated_at"] = datetime.utcnow().isoformat()
+                
+                await client.setex(key, 86400, json.dumps(progress_data))
+                logger.debug(f"Updated bulk upload progress for task {task_id}")
+                return progress_data
         except Exception as e:
             logger.error(f"Failed to update bulk upload progress: {e}")
-            await self._close_client()
             raise
     
     async def get_bulk_upload_progress(self, task_id: str) -> Optional[Dict[str, Any]]:
         """Get bulk upload progress"""
         try:
-            client = await self._get_client()
-            key = f"bulk_upload:{task_id}"
-            data = await client.get(key)
-            
-            if not data:
-                return None
-            
-            progress_data = json.loads(data)
-            
-            if progress_data["total_files"] > 0:
-                progress_data["progress_percent"] = int((len(progress_data.get("completed_files", [])) / progress_data["total_files"]) * 100)
-            else:
-                progress_data["progress_percent"] = 0
-            
-            return progress_data
+            async with self as client:
+                key = f"bulk_upload:{task_id}"
+                data = await client.get(key)
+                
+                if not data:
+                    return None
+                
+                progress_data = json.loads(data)
+                
+                if progress_data["total_files"] > 0:
+                    progress_data["progress_percent"] = int((len(progress_data.get("completed_files", [])) / progress_data["total_files"]) * 100)
+                else:
+                    progress_data["progress_percent"] = 0
+                
+                return progress_data
         except Exception as e:
             logger.error(f"Failed to get bulk upload progress: {e}")
-            await self._close_client()
             raise
     
     async def complete_bulk_upload_file(self, task_id: str, filename: str, document_id: str):
         """Mark a file as completed in bulk upload"""
         try:
-            client = await self._get_client()
-            key = f"bulk_upload:{task_id}"
-            
-            existing_data = await client.get(key)
-            if not existing_data:
-                return None
-            
-            progress_data = json.loads(existing_data)
-            progress_data["completed_files"].append({
-                "filename": filename,
-                "document_id": document_id,
-                "status": "completed",
-                "error": None,
-                "completed_at": datetime.utcnow().isoformat()
-            })
-            progress_data["updated_at"] = datetime.utcnow().isoformat()
-            
-            await client.setex(key, 86400, json.dumps(progress_data))
-            logger.info(f"Marked file {filename} as completed for task {task_id}")
-            return progress_data
+            async with self as client:
+                key = f"bulk_upload:{task_id}"
+                
+                existing_data = await client.get(key)
+                if not existing_data:
+                    return None
+                
+                progress_data = json.loads(existing_data)
+                progress_data["completed_files"].append({
+                    "filename": filename,
+                    "document_id": document_id,
+                    "status": "completed",
+                    "error": None,
+                    "completed_at": datetime.utcnow().isoformat()
+                })
+                progress_data["updated_at"] = datetime.utcnow().isoformat()
+                
+                await client.setex(key, 86400, json.dumps(progress_data))
+                logger.info(f"Marked file {filename} as completed for task {task_id}")
+                return progress_data
         except Exception as e:
             logger.error(f"Failed to complete bulk upload file: {e}")
-            await self._close_client()
             raise
     
     async def fail_bulk_upload_file(self, task_id: str, filename: str, error: str):
         """Mark a file as failed in bulk upload"""
         try:
-            client = await self._get_client()
-            key = f"bulk_upload:{task_id}"
-            
-            existing_data = await client.get(key)
-            if not existing_data:
-                return None
-            
-            progress_data = json.loads(existing_data)
-            progress_data["completed_files"].append({
-                "filename": filename,
-                "document_id": None,
-                "status": "failed",
-                "error": error,
-                "failed_at": datetime.utcnow().isoformat()
-            })
-            progress_data["updated_at"] = datetime.utcnow().isoformat()
-            
-            await client.setex(key, 86400, json.dumps(progress_data))
-            logger.warning(f"Marked file {filename} as failed for task {task_id}: {error}")
-            return progress_data
+            async with self as client:
+                key = f"bulk_upload:{task_id}"
+                
+                existing_data = await client.get(key)
+                if not existing_data:
+                    return None
+                
+                progress_data = json.loads(existing_data)
+                progress_data["completed_files"].append({
+                    "filename": filename,
+                    "document_id": None,
+                    "status": "failed",
+                    "error": error,
+                    "failed_at": datetime.utcnow().isoformat()
+                })
+                progress_data["updated_at"] = datetime.utcnow().isoformat()
+                
+                await client.setex(key, 86400, json.dumps(progress_data))
+                logger.warning(f"Marked file {filename} as failed for task {task_id}: {error}")
+                return progress_data
         except Exception as e:
             logger.error(f"Failed to mark bulk upload file as failed: {e}")
-            await self._close_client()
             raise
 
 # Global instance for backward compatibility

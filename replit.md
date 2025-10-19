@@ -49,9 +49,18 @@ Enterprise-grade bulk PDF processing with individual task management:
   - `task_progress:{task_id}` - Individual task status/metadata with 48h TTL
   - `batch_progress:{batch_id}` - Batch metadata (total_files, created_at) with 48h TTL
   - `batch_tasks:{batch_id}` - Set of task_ids in batch with 48h TTL
-- **Automatic Recovery**: Task recovery service scans `task_progress:*` keys and re-queues orphaned tasks after worker crashes
+- **Automatic Recovery**: Task recovery disabled on startup to prevent connection overflow (can be triggered manually via admin endpoint)
 - **Mathematical Invariant**: `completed_count + failed_count = total_files` ensures accurate batch completion detection
 - **Cleanup**: Automatic cleanup of old completed/failed tasks after 24 hours via scheduled service
+
+#### Redis Connection Pooling (October 19, 2025)
+Production-ready connection management to prevent "max clients reached" errors:
+- **Global Connection Pool**: Singleton connection pool pattern with max 20 connections
+- **Pool Lifecycle**: Initialized on app startup, closed on shutdown via FastAPI lifespan
+- **Context Manager Support**: RedisService uses `async with` pattern for automatic connection release
+- **Connection Reuse**: All Redis operations share the same pool for optimal resource utilization
+- **Free Plan Compatible**: Designed to work within Redis Cloud Free Plan limit (30 connections max)
+- **No Startup Recovery**: Task recovery disabled on startup to prevent connection overflow during initialization
 
 ### Authentication and Authorization
 Role-based access control (RBAC) is implemented via Supabase Auth. Roles include:

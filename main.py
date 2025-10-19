@@ -44,30 +44,22 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """
     Application lifespan events - runs on startup and shutdown
-    Handles orphaned task recovery after worker restarts
+    Handles Redis pool, orphaned task recovery
     """
     # Startup
     logger.info("🚀 MevzuatGPT API Server starting up...")
     
-    # Recover orphaned tasks from previous sessions
+    # Initialize Redis connection pool
     try:
-        from services.task_recovery_service import TaskRecoveryService
-        
-        recovery_service = TaskRecoveryService()
-        logger.info("🔄 Checking for orphaned bulk upload tasks...")
-        
-        recovery_result = await recovery_service.recover_orphaned_tasks()
-        
-        if recovery_result.get("recovered", 0) > 0:
-            logger.info(f"✅ Recovered {recovery_result['recovered']} orphaned task(s)")
-        elif recovery_result.get("skipped", 0) > 0:
-            logger.info(f"⏭️ Found {recovery_result['skipped']} completed/failed task(s), no recovery needed")
-        else:
-            logger.info("✅ No orphaned tasks found")
-            
+        from services.redis_service import get_redis_pool
+        await get_redis_pool()
+        logger.info("✅ Redis connection pool initialized")
     except Exception as e:
-        # Don't crash the app if recovery fails
-        logger.error(f"⚠️ Task recovery failed (non-critical): {str(e)}")
+        logger.error(f"⚠️ Redis pool initialization failed: {str(e)}")
+    
+    # Task recovery disabled to avoid Redis connection limits on startup
+    # Recovery can be triggered manually via admin endpoint if needed
+    logger.info("⏭️ Task recovery disabled on startup (prevents Redis connection overflow)")
     
     logger.info("✅ Application startup complete")
     
@@ -75,6 +67,14 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("🛑 MevzuatGPT API Server shutting down...")
+    
+    # Close Redis connection pool
+    try:
+        from services.redis_service import close_redis_pool
+        await close_redis_pool()
+        logger.info("✅ Redis connection pool closed")
+    except Exception as e:
+        logger.error(f"⚠️ Redis pool closure failed: {str(e)}")
 
 
 # Initialize FastAPI app with lifespan
