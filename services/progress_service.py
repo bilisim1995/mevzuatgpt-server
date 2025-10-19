@@ -4,8 +4,9 @@ Provides real-time progress updates via Redis
 """
 import json
 import time
+import uuid
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from core.config import settings
 from services.redis_service import RedisService
 import logging
@@ -18,6 +19,8 @@ class ProgressService:
     def __init__(self):
         self.redis_service = RedisService()
         self.progress_key_prefix = "task_progress:"
+        self.batch_key_prefix = "batch_progress:"
+        self.batch_tasks_prefix = "batch_tasks:"
         self.progress_ttl = 3600  # 1 hour TTL for progress data
     
     async def initialize_task_progress(
@@ -25,7 +28,9 @@ class ProgressService:
         task_id: str, 
         document_id: str, 
         document_title: str,
-        total_steps: int = 5
+        total_steps: int = 5,
+        batch_id: Optional[str] = None,
+        filename: Optional[str] = None
     ) -> None:
         """Initialize progress tracking for a new task"""
         try:
@@ -33,6 +38,8 @@ class ProgressService:
                 "task_id": task_id,
                 "document_id": document_id,
                 "document_title": document_title,
+                "filename": filename or document_title,
+                "batch_id": batch_id,
                 "status": "pending",
                 "stage": "upload",
                 "progress_percent": 0,
@@ -48,7 +55,12 @@ class ProgressService:
             key = f"{self.progress_key_prefix}{task_id}"
             async with RedisService() as client:
                 await client.setex(key, self.progress_ttl, json.dumps(progress_data))
-            logger.info(f"Initialized progress tracking for task {task_id}")
+                
+                if batch_id:
+                    await client.sadd(f"{self.batch_tasks_prefix}{batch_id}", task_id)
+                    await client.expire(f"{self.batch_tasks_prefix}{batch_id}", self.progress_ttl)
+                    
+            logger.info(f"Initialized progress tracking for task {task_id}" + (f" in batch {batch_id}" if batch_id else ""))
             
         except Exception as e:
             logger.error(f"Failed to initialize progress for task {task_id}: {e}")
@@ -214,6 +226,92 @@ class ProgressService:
         except Exception as e:
             logger.error(f"Failed to complete task progress {task_id}: {e}")
             return False
+
+    async def initialize_batch_progress(
+        self, 
+        batch_id: str, 
+        total_files: int,
+        admin_id: str
+    ) -> None:
+        """Initialize progress tracking for a batch upload"""
+        try:
+            batch_data = {
+                "batch_id": batch_id,
+                "admin_id": admin_id,
+                "total_files": total_files,
+                "status": "processing",
+                "queued_count": total_files,
+                "processing_count": 0,
+                "completed_count": 0,
+                "failed_count": 0,
+                "created_at": datetime.utcnow().isoformat(),
+                "completed_at": None
+            }
+            
+            key = f"{self.batch_key_prefix}{batch_id}"
+            async with RedisService() as client:
+                await client.setex(key, self.progress_ttl, json.dumps(batch_data))
+            logger.info(f"Initialized batch progress for {batch_id} with {total_files} files")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize batch progress for {batch_id}: {e}")
+
+    async def get_batch_progress(self, batch_id: str) -> Optional[Dict[str, Any]]:
+        """Get progress for all tasks in a batch"""
+        try:
+            async with RedisService() as client:
+                batch_key = f"{self.batch_key_prefix}{batch_id}"
+                tasks_key = f"{self.batch_tasks_prefix}{batch_id}"
+                
+                batch_data_raw = await client.get(batch_key)
+                task_ids = await client.smembers(tasks_key)
+                
+                if not batch_data_raw:
+                    return None
+                
+                batch_data = json.loads(batch_data_raw)
+                
+                tasks = []
+                status_counts = {"queued": 0, "pending": 0, "processing": 0, "completed": 0, "failed": 0}
+                
+                for task_id_raw in task_ids:
+                    task_id = task_id_raw.decode('utf-8') if isinstance(task_id_raw, bytes) else task_id_raw
+                    task_data = await self.get_task_progress(task_id)
+                    if task_data:
+                        tasks.append(task_data)
+                        status = task_data.get("status", "pending")
+                        status_counts[status] = status_counts.get(status, 0) + 1
+                
+                batch_data["tasks"] = tasks
+                batch_data["queued_count"] = status_counts.get("queued", 0) + status_counts.get("pending", 0)
+                batch_data["processing_count"] = status_counts["processing"]
+                batch_data["completed_count"] = status_counts["completed"]
+                batch_data["failed_count"] = status_counts["failed"]
+                
+                if batch_data["completed_count"] + batch_data["failed_count"] >= batch_data["total_files"]:
+                    batch_data["status"] = "completed"
+                    batch_data["completed_at"] = datetime.utcnow().isoformat()
+                
+                await client.setex(batch_key, self.progress_ttl, json.dumps(batch_data))
+                
+                return batch_data
+                
+        except Exception as e:
+            logger.error(f"Failed to get batch progress for {batch_id}: {e}")
+            return None
+
+    async def get_tasks_by_ids(self, task_ids: List[str]) -> List[Dict[str, Any]]:
+        """Get progress for multiple tasks by their IDs"""
+        try:
+            tasks = []
+            for task_id in task_ids:
+                task_data = await self.get_task_progress(task_id)
+                if task_data:
+                    tasks.append(task_data)
+            return tasks
+        except Exception as e:
+            logger.error(f"Failed to get tasks by IDs: {e}")
+            return []
 
 # Global instance
 progress_service = ProgressService()

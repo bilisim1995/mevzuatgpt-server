@@ -3740,48 +3740,86 @@ async def bulk_upload_documents(
                     error_code="UPLOAD_FAILED"
                 )
         
-        # Generate task ID for bulk processing
-        task_id = str(uuid.uuid4())
+        # Generate batch ID for grouping tasks
+        batch_id = str(uuid.uuid4())
         
-        # Initialize Redis progress tracking
-        filenames = [doc["filename"] for doc in uploaded_documents]
-        await redis_service.init_bulk_upload_progress(
-            task_id=task_id,
+        logger.info(f"Created batch {batch_id} for {len(uploaded_documents)} documents")
+        
+        # Initialize batch progress tracking
+        from services.progress_service import progress_service
+        await progress_service.initialize_batch_progress(
+            batch_id=batch_id,
             total_files=len(uploaded_documents),
-            filenames=filenames
+            admin_id=str(current_user.id)
         )
         
-        logger.info(f"Initialized bulk upload progress tracking: {task_id}")
+        # Queue individual Celery tasks for each PDF
+        from tasks.document_processor import process_document_task
         
-        # Queue Celery bulk processing task
-        from tasks.document_processor import bulk_process_documents_task
+        task_list = []
         
-        task_payload = {
-            "task_id": task_id,
-            "documents": uploaded_documents,
-            "user_id": str(current_user.id)
-        }
+        for doc in uploaded_documents:
+            try:
+                # Create individual task for this document
+                celery_task = process_document_task.delay(doc["document_id"])
+                task_id = celery_task.id
+                
+                # Initialize progress tracking for this task
+                await progress_service.initialize_task_progress(
+                    task_id=task_id,
+                    document_id=doc["document_id"],
+                    document_title=doc["metadata"].get("title", doc["filename"]),
+                    batch_id=batch_id,
+                    filename=doc["filename"]
+                )
+                
+                task_list.append({
+                    "task_id": task_id,
+                    "document_id": doc["document_id"],
+                    "filename": doc["filename"],
+                    "status": "queued"
+                })
+                
+                logger.info(f"Queued task {task_id} for document {doc['document_id']}")
+                
+            except Exception as task_error:
+                logger.error(f"Failed to queue task for {doc['filename']}: {str(task_error)}")
+                
+                # Create synthetic task_id for failed enqueue and track it
+                failed_task_id = f"failed_{uuid.uuid4()}"
+                
+                # Initialize progress with failed status to maintain batch consistency
+                await progress_service.initialize_task_progress(
+                    task_id=failed_task_id,
+                    document_id=doc["document_id"],
+                    document_title=doc["metadata"].get("title", doc["filename"]),
+                    batch_id=batch_id,
+                    filename=doc["filename"]
+                )
+                
+                # Mark as failed immediately
+                await progress_service.mark_task_failed(
+                    task_id=failed_task_id,
+                    error_message=f"Failed to enqueue: {str(task_error)}"
+                )
+                
+                task_list.append({
+                    "task_id": failed_task_id,
+                    "document_id": doc["document_id"],
+                    "filename": doc["filename"],
+                    "status": "failed",
+                    "error": str(task_error)
+                })
         
-        try:
-            celery_task = bulk_process_documents_task.delay(task_payload)
-            logger.info(f"Bulk processing task queued: {celery_task.id}")
-        except Exception as task_error:
-            logger.error(f"Failed to queue bulk processing task: {str(task_error)}")
-            # Progress tracking already initialized, user can still monitor
+        logger.info(f"Batch {batch_id}: {len(task_list)} tasks queued")
         
         return success_response(
             data={
-                "task_id": task_id,
-                "enqueued_count": len(uploaded_documents),
-                "documents": [
-                    {
-                        "filename": doc["filename"],
-                        "document_id": doc["document_id"]
-                    }
-                    for doc in uploaded_documents
-                ],
-                "message": f"Bulk upload queued: {len(uploaded_documents)} documents"
-            }
+                "batch_id": batch_id,
+                "total_files": len(uploaded_documents),
+                "tasks": task_list
+            },
+            message=f"Bulk upload queued: {len(uploaded_documents)} documents"
         )
         
     except AppException:
@@ -3795,42 +3833,82 @@ async def bulk_upload_documents(
             error_code="BULK_UPLOAD_FAILED"
         )
 
-@router.get("/documents/bulk-upload/progress/{task_id}")
-async def get_bulk_upload_progress(
-    task_id: str,
+@router.get("/documents/bulk-upload/batch/{batch_id}/progress")
+async def get_batch_progress(
+    batch_id: str,
     current_user: UserResponse = Depends(get_admin_user)
 ):
     """
-    Get progress status for bulk upload task
+    Get progress for all tasks in a batch upload
     
     Args:
-        task_id: Bulk upload task ID
+        batch_id: Batch ID from bulk upload
         current_user: Current admin user
     
     Returns:
-        Progress data with status, current file, completed files, etc.
+        Batch progress with all individual task statuses
     """
     try:
-        redis_service = RedisService()
+        from services.progress_service import progress_service
         
-        progress_data = await redis_service.get_bulk_upload_progress(task_id)
+        batch_data = await progress_service.get_batch_progress(batch_id)
         
-        if not progress_data:
+        if not batch_data:
             raise AppException(
-                message="Bulk upload task not found",
+                message="Batch not found",
                 status_code=status.HTTP_404_NOT_FOUND,
-                error_code="TASK_NOT_FOUND"
+                error_code="BATCH_NOT_FOUND"
             )
         
-        return success_response(data=progress_data)
+        return success_response(data=batch_data)
         
     except AppException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get bulk upload progress: {str(e)}")
+        logger.error(f"Failed to get batch progress: {str(e)}")
         raise AppException(
-            message="Failed to get progress",
+            message="Failed to get batch progress",
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            error_code="PROGRESS_FETCH_FAILED"
+            error_code="BATCH_PROGRESS_FAILED"
+        )
+
+@router.get("/documents/bulk-upload/progress/{task_id}")
+async def get_task_progress(
+    task_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Get progress status for a single task
+    
+    Args:
+        task_id: Individual task ID
+        current_user: Current admin user
+    
+    Returns:
+        Task progress data
+    """
+    try:
+        from services.progress_service import progress_service
+        
+        task_data = await progress_service.get_task_progress(task_id)
+        
+        if not task_data:
+            raise AppException(
+                message="Task not found",
+                status_code=status.HTTP_404_NOT_FOUND,
+                error_code="TASK_NOT_FOUND"
+            )
+        
+        return success_response(data=task_data)
+        
+    except AppException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get task progress: {str(e)}")
+        raise AppException(
+            message="Failed to get task progress",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="TASK_PROGRESS_FAILED"
         )
