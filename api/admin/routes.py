@@ -3297,9 +3297,9 @@ async def get_redis_connections(
             info_task = asyncio.create_task(redis_service.get_info())
             redis_info = await asyncio.wait_for(info_task, timeout=5.0)
             
-            # Connection pool bilgileri  
-            client = await redis_service._get_client()
-            connection_pool = client.connection_pool
+            # Connection pool bilgileri - global pool kullan
+            from services.redis_service import get_redis_pool
+            connection_pool = await get_redis_pool()
             
             logger.info(f"Redis info keys: {list(redis_info.keys())}")
             logger.info(f"Redis version: {redis_info.get('redis_version', 'N/A')}")
