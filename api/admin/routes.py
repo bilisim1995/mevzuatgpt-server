@@ -185,6 +185,51 @@ async def elasticsearch_health(
             detail=f"Failed to check Elasticsearch health: {str(e)}"
         )
 
+@router.get("/institutions", response_model=Dict[str, Any])
+async def get_institutions(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Get list of unique institution names from documents (Admin only)
+    
+    Returns:
+        List of unique institution names from mevzuat_documents table
+    """
+    try:
+        logger.info(f"Admin {current_user.id} requesting institution list")
+        
+        # Query distinct institutions from Supabase
+        response = supabase_client.supabase.table('mevzuat_documents')\
+            .select('institution')\
+            .execute()
+        
+        # Extract unique institutions and filter out None/empty values
+        institutions = set()
+        if response.data:
+            for doc in response.data:
+                institution = doc.get('institution')
+                if institution and institution.strip():
+                    institutions.add(institution.strip())
+        
+        # Sort institutions alphabetically
+        institutions_list = sorted(list(institutions))
+        
+        logger.info(f"Found {len(institutions_list)} unique institutions")
+        
+        return success_response(
+            data={
+                "institutions": institutions_list,
+                "total_count": len(institutions_list)
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch institutions: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch institutions: {str(e)}"
+        )
+
 # ===============================
 # ANNOUNCEMENTS CRUD ENDPOINTS
 # ===============================
