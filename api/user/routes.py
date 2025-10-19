@@ -84,6 +84,59 @@ async def search_documents(
             error_code="SEARCH_FAILED"
         )
 
+@router.get("/institutions")
+async def get_institutions(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get list of unique institution names from documents (User access)
+    
+    Returns list of unique institution names from mevzuat_documents table
+    for filtering purposes.
+    
+    Args:
+        current_user: Current authenticated user
+    
+    Returns:
+        List of unique institution names
+    """
+    try:
+        logger.info(f"User {current_user.id} requesting institution list")
+        
+        # Query distinct institutions from Supabase
+        response = supabase_client.supabase.table('mevzuat_documents')\
+            .select('institution')\
+            .execute()
+        
+        # Extract unique institutions and filter out None/empty values
+        institutions = set()
+        if response.data:
+            for doc in response.data:
+                institution = doc.get('institution')
+                if institution and institution.strip():
+                    institutions.add(institution.strip())
+        
+        # Sort institutions alphabetically
+        institutions_list = sorted(list(institutions))
+        
+        logger.info(f"Returned {len(institutions_list)} unique institutions to user {current_user.id}")
+        
+        return success_response(
+            data={
+                "institutions": institutions_list,
+                "total_count": len(institutions_list)
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch institutions for user {current_user.id}: {str(e)}")
+        raise AppException(
+            message="Failed to retrieve institutions",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="FETCH_FAILED"
+        )
+
 @router.get("/documents", response_model=DocumentListResponse)
 async def get_published_documents(
     page: int = Query(1, ge=1, description="Page number"),
