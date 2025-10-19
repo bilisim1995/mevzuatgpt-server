@@ -3251,9 +3251,9 @@ async def get_celery_status(
 async def restart_celery_worker(
     current_user: UserResponse = Depends(get_admin_user)
 ):
-    """Celery worker'ı restart et (Admin only) - Redis connection pool safe"""
+    """TÜM Celery worker'ları restart et (Admin only) - Redis connection pool safe"""
     try:
-        logger.warning(f"Admin {current_user.email} Celery worker restart işlemi başlatıyor")
+        logger.warning(f"Admin {current_user.email} TÜM Celery worker restart işlemi başlatıyor")
         
         import subprocess
         import asyncio
@@ -3273,7 +3273,7 @@ async def restart_celery_worker(
             await asyncio.sleep(3)
             
             restart_status = "success"
-            restart_message = "Celery worker restart sinyali gönderildi. Workflow otomatik olarak yeniden başlatılacak."
+            restart_message = "Tüm Celery worker'lar restart edildi. Workflow otomatik olarak yeniden başlatılacak."
                 
         except subprocess.TimeoutExpired:
             restart_status = "timeout"
@@ -3297,6 +3297,126 @@ async def restart_celery_worker(
         return {
             "success": False,
             "message": f"Celery worker restart başarısız"
+        }
+
+@router.delete("/celery/worker/{pid}")
+async def kill_celery_worker_by_pid(
+    pid: int,
+    force: bool = False,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Belirli bir PID'e sahip Celery worker'ı kapat (Admin only)
+    
+    Args:
+        pid: Process ID
+        force: True ise SIGKILL (kill -9), False ise SIGTERM (kill -15) kullanır
+    """
+    try:
+        logger.warning(f"Admin {current_user.email} PID {pid} ile Celery worker kapatma işlemi başlatıyor (force={force})")
+        
+        import subprocess
+        import signal
+        import os
+        
+        # Önce PID'in gerçekten celery worker'a ait olup olmadığını kontrol et
+        try:
+            check_cmd = f"ps -p {pid} -o cmd="
+            check_result = subprocess.run(
+                check_cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if check_result.returncode != 0:
+                return {
+                    "success": False,
+                    "message": f"PID {pid} bulunamadı",
+                    "data": {"error": "process_not_found"}
+                }
+            
+            process_cmd = check_result.stdout.strip()
+            
+            # Celery worker olup olmadığını kontrol et
+            if "celery" not in process_cmd.lower() or "worker" not in process_cmd.lower():
+                logger.warning(f"PID {pid} bir Celery worker değil: {process_cmd}")
+                return {
+                    "success": False,
+                    "message": f"PID {pid} bir Celery worker değil",
+                    "data": {
+                        "error": "not_celery_worker",
+                        "process_command": process_cmd
+                    }
+                }
+            
+            logger.info(f"PID {pid} doğrulandı: {process_cmd}")
+            
+        except subprocess.TimeoutExpired:
+            return {
+                "success": False,
+                "message": "Process kontrolü timeout",
+                "data": {"error": "timeout"}
+            }
+        except Exception as check_error:
+            logger.error(f"PID kontrol hatası: {check_error}")
+            return {
+                "success": False,
+                "message": "Process kontrol edilemedi",
+                "data": {"error": str(check_error)}
+            }
+        
+        # Worker'ı kapat
+        try:
+            if force:
+                # SIGKILL (kill -9) - Force kill
+                os.kill(pid, signal.SIGKILL)
+                kill_method = "SIGKILL (force kill)"
+            else:
+                # SIGTERM (kill -15) - Graceful shutdown
+                os.kill(pid, signal.SIGTERM)
+                kill_method = "SIGTERM (graceful shutdown)"
+            
+            logger.info(f"PID {pid} kapatıldı ({kill_method})")
+            
+            return {
+                "success": True,
+                "message": f"Celery worker (PID {pid}) başarıyla kapatıldı",
+                "data": {
+                    "pid": pid,
+                    "kill_method": kill_method,
+                    "process_command": process_cmd,
+                    "timestamp": datetime.now().isoformat(),
+                    "note": "Workflow otomatik olarak yeni worker başlatacak. Durumu /api/admin/celery/status'dan kontrol edebilirsiniz."
+                }
+            }
+            
+        except ProcessLookupError:
+            return {
+                "success": False,
+                "message": f"PID {pid} bulunamadı veya zaten kapatılmış",
+                "data": {"error": "process_already_dead"}
+            }
+        except PermissionError:
+            return {
+                "success": False,
+                "message": f"PID {pid} kapatma izni yok",
+                "data": {"error": "permission_denied"}
+            }
+        except Exception as kill_error:
+            logger.error(f"Worker kapatma hatası: {kill_error}")
+            return {
+                "success": False,
+                "message": f"Worker kapatılamadı: {str(kill_error)}",
+                "data": {"error": str(kill_error)}
+            }
+            
+    except Exception as e:
+        logger.error(f"Celery worker PID kill hatası: {e}")
+        return {
+            "success": False,
+            "message": "Worker kapatma işlemi başarısız",
+            "data": {"error": str(e)}
         }
 
 @router.get("/redis/connections")
