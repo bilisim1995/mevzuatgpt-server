@@ -120,11 +120,48 @@ class GroqService:
             creativity_mode = current_settings.get("creativity_mode", "balanced")
             
             # Adjust user prompt based on response style
+            # MARKDOWN FORMAT RULES - Applied to ALL styles
+            markdown_formatting_rules = """
+FORMATLAMADA MUTLAKA MARKDOWN KULLAN:
+
+1. **Başlıklar**: ## ile başlıklar oluştur (## Ana Başlık, ### Alt Başlık)
+2. **Vurgular**: **kalın** ve *italik* kullan (önemli terimler için **kalın**)
+3. **Listeler**: 
+   - Madde işaretli listeler için - veya * kullan
+   - Numaralı listeler için 1., 2., 3. kullan
+4. **Hukuki İçerik Blokları**: Kanun maddeleri için > alıntı bloğu kullan
+   > Örnek: "Madde 4/a: Hizmet akdiyle çalışanlar..."
+5. **Özel Vurgular**:
+   - Kanun maddeleri: **Madde 4/a**, **5510 sayılı Kanun**
+   - Önemli tarihler: **01.10.2008**
+   - Yükümlülükler: **zorunlu**, **gereklidir**
+6. **Kod/Referans**: Kanun numaraları ve resmi belgeler için `backtick` kullan
+"""
+            
             style_instructions = {
-                "concise": "Kısa ve öz bir cevap ver. Ana noktaları özetleyerek maksimum 100-150 kelimelik açıklama yap.",
-                "detailed": "Bu soruyu kapsamlı, detaylı ve analitik şekilde cevapla. Sadece kısa cevap verme - konuyu derinlemesine açıkla, belgedeki ilgili tüm bilgileri kullan ve hukuki terimleri anlaşılır şekilde açıkla. En az 200-300 kelimelik detaylı analiz yap.",
-                "analytical": "Bu soruyu analitik bir yaklaşımla cevapla. Konuyu sistematik olarak incele, farklı boyutlarını ele al ve hukuki çerçevede değerlendir. Sebep-sonuç ilişkilerini açıkla.",
-                "conversational": "Bu soruyu sohbet tarzında, anlaşılır ve samimi bir dille cevapla. Karmaşık terimleri basit örneklerle açıkla ve kullanıcıyla diyalog kuruyormuş gibi yaz."
+                "concise": f"""Kısa ve öz bir cevap ver. Ana noktaları özetleyerek maksimum 100-150 kelimelik açıklama yap.
+
+{markdown_formatting_rules}""",
+                "detailed": f"""Bu soruyu kapsamlı, detaylı ve analitik şekilde cevapla. Sadece kısa cevap verme - konuyu derinlemesine açıkla, belgedeki ilgili tüm bilgileri kullan ve hukuki terimleri anlaşılır şekilde açıkla. En az 200-300 kelimelik detaylı analiz yap.
+
+{markdown_formatting_rules}
+
+YAPISAL ORGANİZASYON:
+- ## Genel Açıklama (giriş paragrafı)
+- ## Yasal Çerçeve (ilgili kanun maddeleri)
+- ## Uygulama Detayları (pratik bilgiler)
+- ## Önemli Noktalar (dikkat edilmesi gerekenler)""",
+                "analytical": f"""Bu soruyu analitik bir yaklaşımla cevapla. Konuyu sistematik olarak incele, farklı boyutlarını ele al ve hukuki çerçevede değerlendir. Sebep-sonuç ilişkilerini açıkla.
+
+{markdown_formatting_rules}
+
+YAPISAL ORGANİZASYON:
+- ## Hukuki Analiz (yasal dayanak)
+- ## Değerlendirme (farklı boyutlar)
+- ## Sonuç ve Öneriler""",
+                "conversational": f"""Bu soruyu sohbet tarzında, anlaşılır ve samimi bir dille cevapla. Karmaşık terimleri basit örneklerle açıkla ve kullanıcıyla diyalog kuruyormuş gibi yaz.
+
+{markdown_formatting_rules}"""
             }
             
             style_instruction = style_instructions.get(response_style_final, style_instructions["detailed"])
