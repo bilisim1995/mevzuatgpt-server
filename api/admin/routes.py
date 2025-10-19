@@ -3182,33 +3182,84 @@ async def clear_active_tasks(
             "message": f"Redis connection hatası - Lütfen tekrar deneyin"
         }
 
+@router.get("/celery/status")
+async def get_celery_status(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Celery worker durumunu kontrol et (Admin only) - Redis connection safe"""
+    try:
+        logger.info(f"Admin {current_user.email} Celery worker durumunu sorguluyor")
+        
+        import subprocess
+        
+        # Celery process'ini kontrol et
+        try:
+            # pgrep ile celery worker process'ini ara
+            check_result = subprocess.run(
+                ["pgrep", "-f", "celery.*worker"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            is_running = check_result.returncode == 0
+            process_ids = check_result.stdout.strip().split('\n') if is_running else []
+            
+            # Redis'ten task istatistikleri al (connection pool safe)
+            task_stats = {"note": "Task istatistikleri için Redis gerekiyor"}
+            try:
+                async with RedisService() as redis:
+                    # Sadece basit sayımlar al
+                    celery_keys_task = asyncio.create_task(redis.get_keys_pattern("celery-task-meta-*"))
+                    celery_keys = await asyncio.wait_for(celery_keys_task, timeout=2.0)
+                    task_stats = {
+                        "total_tasks_in_redis": len(celery_keys) if celery_keys else 0
+                    }
+            except asyncio.TimeoutError:
+                task_stats = {"error": "timeout"}
+            except Exception as redis_error:
+                task_stats = {"error": str(redis_error)}
+            
+            return {
+                "success": True,
+                "message": "Celery worker " + ("çalışıyor" if is_running else "durmuş"),
+                "data": {
+                    "worker_status": "running" if is_running else "stopped",
+                    "process_count": len([pid for pid in process_ids if pid]),
+                    "process_ids": [pid for pid in process_ids if pid],
+                    "task_stats": task_stats,
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
+            
+        except subprocess.TimeoutExpired:
+            return {
+                "success": False,
+                "message": "Worker durum kontrolü timeout",
+                "data": {"error": "timeout"}
+            }
+            
+    except Exception as e:
+        logger.error(f"Celery status hatası: {e}")
+        return {
+            "success": False,
+            "message": "Celery durumu kontrol edilemedi",
+            "data": {"error": str(e)}
+        }
+
 @router.post("/celery/restart-worker")
 async def restart_celery_worker(
     current_user: UserResponse = Depends(get_admin_user)
 ):
-    """Celery worker'ı restart et (Admin only)"""
+    """Celery worker'ı restart et (Admin only) - Redis connection pool safe"""
     try:
         logger.warning(f"Admin {current_user.email} Celery worker restart işlemi başlatıyor")
         
         import subprocess
         import asyncio
-        from tasks.celery_app import celery_app
         
-        # Önce worker'ın durumunu kontrol et
-        inspector = celery_app.control.inspect()
-        active_workers = inspector.active()
-        stats = inspector.stats()
-        
-        worker_info = {
-            "before_restart": {
-                "active_workers": len(active_workers) if active_workers else 0,
-                "worker_stats": stats
-            }
-        }
-        
-        # Worker'ı restart et (workflow restart)
+        # Worker'ı restart et (pkill ile)
         try:
-            # Replit workflow restart komutu
             restart_result = subprocess.run(
                 ["pkill", "-f", "celery.*worker"],
                 capture_output=True,
@@ -3218,43 +3269,26 @@ async def restart_celery_worker(
             
             logger.info(f"Celery worker restart signal sent. Return code: {restart_result.returncode}")
             
-            # Kısa bir bekleme
-            await asyncio.sleep(2)
+            # Worker'ın yeniden başlaması için bekle
+            await asyncio.sleep(3)
             
-            # Restart sonrası durum kontrolü
-            try:
-                inspector_after = celery_app.control.inspect()
-                active_workers_after = inspector_after.active()
-                stats_after = inspector_after.stats()
-                
-                worker_info["after_restart"] = {
-                    "active_workers": len(active_workers_after) if active_workers_after else 0,
-                    "worker_stats": stats_after
-                }
-                restart_status = "success"
-                
-            except Exception as check_error:
-                worker_info["after_restart"] = {
-                    "error": "Worker durumu kontrol edilemedi",
-                    "details": str(check_error)
-                }
-                restart_status = "partial"
+            restart_status = "success"
+            restart_message = "Celery worker restart sinyali gönderildi. Workflow otomatik olarak yeniden başlatılacak."
                 
         except subprocess.TimeoutExpired:
             restart_status = "timeout"
-            worker_info["restart_error"] = "Restart işlemi timeout"
+            restart_message = "Restart işlemi timeout"
         except Exception as restart_error:
             restart_status = "error"
-            worker_info["restart_error"] = str(restart_error)
+            restart_message = f"Restart hatası: {str(restart_error)}"
         
         return {
-            "success": restart_status in ["success", "partial"],
-            "message": f"Celery worker restart {'başarılı' if restart_status == 'success' else 'kısmen başarılı' if restart_status == 'partial' else 'başarısız'}",
+            "success": restart_status == "success",
+            "message": restart_message,
             "data": {
                 "restart_status": restart_status,
-                "worker_info": worker_info,
                 "timestamp": datetime.now().isoformat(),
-                "note": "Worker Replit workflow sistemi tarafından otomatik olarak yeniden başlatılacak"
+                "note": "Worker durumunu /api/admin/celery/status endpoint'inden kontrol edebilirsiniz"
             }
         }
         
@@ -3262,7 +3296,7 @@ async def restart_celery_worker(
         logger.error(f"Celery worker restart hatası: {e}")
         return {
             "success": False,
-            "message": f"Celery worker restart başarısız: {str(e)}"
+            "message": f"Celery worker restart başarısız"
         }
 
 @router.get("/redis/connections")
