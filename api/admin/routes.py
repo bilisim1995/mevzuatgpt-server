@@ -3130,6 +3130,63 @@ async def purge_celery_queue(
             "message": f"Celery queue temizleme başarısız: {str(e)}"
         }
 
+@router.delete("/celery/clear-active")
+async def clear_active_tasks(
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """Aktif çalışan task'ları iptal et (Admin only)"""
+    try:
+        logger.warning(f"Admin {current_user.email} aktif task'ları iptal ediyor")
+        
+        from tasks.celery_app import celery_app
+        
+        # Aktif task'ları al
+        inspector = celery_app.control.inspect()
+        active_tasks = inspector.active()
+        
+        if not active_tasks:
+            return {
+                "success": True,
+                "message": "Aktif task bulunamadı",
+                "data": {
+                    "revoked_count": 0,
+                    "worker_count": 0,
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
+        
+        # Her worker'daki aktif task'ları iptal et
+        revoked_count = 0
+        worker_count = len(active_tasks)
+        
+        for worker_name, tasks in active_tasks.items():
+            for task in tasks:
+                task_id = task.get('id')
+                if task_id:
+                    # Task'ı revoke et (iptal et)
+                    celery_app.control.revoke(task_id, terminate=True, signal='SIGKILL')
+                    revoked_count += 1
+                    logger.info(f"Task revoked: {task_id} from worker {worker_name}")
+        
+        logger.info(f"Active tasks cleared: {revoked_count} tasks from {worker_count} workers")
+        
+        return {
+            "success": True,
+            "message": f"{revoked_count} aktif task iptal edildi",
+            "data": {
+                "revoked_count": revoked_count,
+                "worker_count": worker_count,
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Aktif task temizleme hatası: {e}")
+        return {
+            "success": False,
+            "message": f"Aktif task temizleme başarısız: {str(e)}"
+        }
+
 @router.post("/celery/restart-worker")
 async def restart_celery_worker(
     current_user: UserResponse = Depends(get_admin_user)
