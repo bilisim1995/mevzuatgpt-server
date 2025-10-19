@@ -182,6 +182,131 @@ class RedisService:
             logger.error(f"Redis flush_db failed: {e}")
             await self._close_client()
             raise
+    
+    async def init_bulk_upload_progress(self, task_id: str, total_files: int, filenames: List[str]):
+        """Initialize bulk upload progress tracking"""
+        try:
+            client = await self._get_client()
+            progress_data = {
+                "status": "queued",
+                "total_files": total_files,
+                "current_index": 0,
+                "current_filename": None,
+                "completed_files": [],
+                "filenames": filenames,
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            key = f"bulk_upload:{task_id}"
+            await client.setex(key, 86400, json.dumps(progress_data))
+            logger.info(f"Initialized bulk upload progress for task {task_id} with {total_files} files")
+            return progress_data
+        except Exception as e:
+            logger.error(f"Failed to initialize bulk upload progress: {e}")
+            await self._close_client()
+            raise
+    
+    async def update_bulk_upload_progress(self, task_id: str, updates: Dict[str, Any]):
+        """Update bulk upload progress"""
+        try:
+            client = await self._get_client()
+            key = f"bulk_upload:{task_id}"
+            
+            existing_data = await client.get(key)
+            if not existing_data:
+                logger.warning(f"Bulk upload progress not found for task {task_id}")
+                return None
+            
+            progress_data = json.loads(existing_data)
+            progress_data.update(updates)
+            progress_data["updated_at"] = datetime.utcnow().isoformat()
+            
+            await client.setex(key, 86400, json.dumps(progress_data))
+            logger.debug(f"Updated bulk upload progress for task {task_id}")
+            return progress_data
+        except Exception as e:
+            logger.error(f"Failed to update bulk upload progress: {e}")
+            await self._close_client()
+            raise
+    
+    async def get_bulk_upload_progress(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Get bulk upload progress"""
+        try:
+            client = await self._get_client()
+            key = f"bulk_upload:{task_id}"
+            data = await client.get(key)
+            
+            if not data:
+                return None
+            
+            progress_data = json.loads(data)
+            
+            if progress_data["total_files"] > 0:
+                progress_data["progress_percent"] = int((len(progress_data.get("completed_files", [])) / progress_data["total_files"]) * 100)
+            else:
+                progress_data["progress_percent"] = 0
+            
+            return progress_data
+        except Exception as e:
+            logger.error(f"Failed to get bulk upload progress: {e}")
+            await self._close_client()
+            raise
+    
+    async def complete_bulk_upload_file(self, task_id: str, filename: str, document_id: str):
+        """Mark a file as completed in bulk upload"""
+        try:
+            client = await self._get_client()
+            key = f"bulk_upload:{task_id}"
+            
+            existing_data = await client.get(key)
+            if not existing_data:
+                return None
+            
+            progress_data = json.loads(existing_data)
+            progress_data["completed_files"].append({
+                "filename": filename,
+                "document_id": document_id,
+                "status": "completed",
+                "error": None,
+                "completed_at": datetime.utcnow().isoformat()
+            })
+            progress_data["updated_at"] = datetime.utcnow().isoformat()
+            
+            await client.setex(key, 86400, json.dumps(progress_data))
+            logger.info(f"Marked file {filename} as completed for task {task_id}")
+            return progress_data
+        except Exception as e:
+            logger.error(f"Failed to complete bulk upload file: {e}")
+            await self._close_client()
+            raise
+    
+    async def fail_bulk_upload_file(self, task_id: str, filename: str, error: str):
+        """Mark a file as failed in bulk upload"""
+        try:
+            client = await self._get_client()
+            key = f"bulk_upload:{task_id}"
+            
+            existing_data = await client.get(key)
+            if not existing_data:
+                return None
+            
+            progress_data = json.loads(existing_data)
+            progress_data["completed_files"].append({
+                "filename": filename,
+                "document_id": None,
+                "status": "failed",
+                "error": error,
+                "failed_at": datetime.utcnow().isoformat()
+            })
+            progress_data["updated_at"] = datetime.utcnow().isoformat()
+            
+            await client.setex(key, 86400, json.dumps(progress_data))
+            logger.warning(f"Marked file {filename} as failed for task {task_id}: {error}")
+            return progress_data
+        except Exception as e:
+            logger.error(f"Failed to mark bulk upload file as failed: {e}")
+            await self._close_client()
+            raise
 
 # Global instance for backward compatibility
 redis_service = RedisService()
