@@ -32,6 +32,10 @@ class SupabaseClient:
                 'metadata': doc_data.get('metadata', {})
             }
             
+            # Add belge_adi to both table column and metadata
+            if doc_data.get('belge_adi'):
+                insert_data['belge_adi'] = doc_data.get('belge_adi')
+            
             # Add optional fields from metadata if provided - use category column only
             metadata = doc_data.get('metadata', {})
             if metadata.get('category'):
