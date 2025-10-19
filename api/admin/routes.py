@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional, Dict, Any
 import logging
 import asyncio
+import json
+import uuid
 from datetime import datetime
 
 from core.database import get_db
@@ -3550,4 +3552,285 @@ async def update_payment_settings(
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="ADMIN_PAYMENT_UPDATE_FAILED"
+        )
+
+@router.post("/documents/bulk-upload")
+async def bulk_upload_documents(
+    files: List[UploadFile] = File(...),
+    metadata: str = Form(...),
+    category: str = Form(...),
+    institution: str = Form(...),
+    belge_adi: str = Form(...),
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Bulk upload multiple PDF documents with JSON metadata
+    
+    Workflow:
+    1. Validate files are PDFs
+    2. Parse and validate metadata JSON
+    3. Match PDFs to JSON entries by filename
+    4. Upload all PDFs to Bunny CDN
+    5. Create Supabase metadata records
+    6. Initialize Redis progress tracking
+    7. Queue Celery bulk processing task
+    
+    Args:
+        files: List of PDF files to upload
+        metadata: JSON string with metadata array (title, description, keywords, output_filename for each PDF)
+        category: Document category (from form)
+        institution: Source institution (from form)
+        belge_adi: Document name (from form)
+        current_user: Current admin user
+    
+    Returns:
+        Task ID for progress tracking and summary
+    """
+    try:
+        logger.info(f"Bulk upload request from admin {current_user.id}: {len(files)} files")
+        
+        # Validate files
+        if not files or len(files) == 0:
+            raise AppException(
+                message="No files uploaded",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="NO_FILES"
+            )
+        
+        # Validate all files are PDFs
+        for file in files:
+            if not file.filename or not file.filename.lower().endswith('.pdf'):
+                raise AppException(
+                    message=f"File {file.filename} is not a PDF",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    error_code="INVALID_FILE_TYPE"
+                )
+        
+        # Parse metadata JSON
+        try:
+            metadata_obj = json.loads(metadata)
+            if "pdf_sections" not in metadata_obj:
+                raise ValueError("JSON must contain 'pdf_sections' array")
+            
+            pdf_sections = metadata_obj["pdf_sections"]
+            
+            if not isinstance(pdf_sections, list):
+                raise ValueError("pdf_sections must be an array")
+            
+        except json.JSONDecodeError as e:
+            raise AppException(
+                message="Invalid JSON metadata format",
+                detail=str(e),
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="INVALID_JSON"
+            )
+        except ValueError as e:
+            raise AppException(
+                message=str(e),
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="INVALID_METADATA_STRUCTURE"
+            )
+        
+        # Validate counts match
+        if len(files) != len(pdf_sections):
+            raise AppException(
+                message=f"File count ({len(files)}) does not match metadata entries ({len(pdf_sections)})",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="COUNT_MISMATCH"
+            )
+        
+        # Match files to metadata by filename
+        file_metadata_map = {}
+        unmatched_files = []
+        
+        for file in files:
+            matched = False
+            for section in pdf_sections:
+                output_filename = section.get("output_filename", "")
+                
+                # Case-insensitive filename match
+                if file.filename.lower() == output_filename.lower():
+                    file_metadata_map[file.filename] = section
+                    matched = True
+                    break
+            
+            if not matched:
+                unmatched_files.append(file.filename)
+        
+        if unmatched_files:
+            raise AppException(
+                message=f"Files without matching metadata: {', '.join(unmatched_files)}",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="UNMATCHED_FILES"
+            )
+        
+        logger.info(f"Validation passed: {len(files)} files matched with metadata")
+        
+        # Initialize services
+        storage_service = StorageService()
+        redis_service = RedisService()
+        
+        # Upload PDFs and create database records
+        uploaded_documents = []
+        
+        for file in files:
+            try:
+                # Read file content
+                file_content = await file.read()
+                
+                # Upload to Bunny CDN
+                logger.info(f"Uploading {file.filename} to CDN")
+                file_url = await storage_service.upload_file(
+                    file_content=file_content,
+                    filename=file.filename,
+                    content_type="application/pdf"
+                )
+                
+                # Get metadata for this file
+                section_metadata = file_metadata_map[file.filename]
+                
+                # Prepare document data
+                keywords_list = []
+                if section_metadata.get("keywords"):
+                    keywords_list = [k.strip() for k in section_metadata["keywords"].split(",")]
+                
+                document_data = {
+                    'title': section_metadata.get("title", file.filename),
+                    'belge_adi': belge_adi,
+                    'filename': file.filename,
+                    'file_url': file_url,
+                    'file_size': len(file_content),
+                    'content_preview': section_metadata.get("description", "")[:500],
+                    'uploaded_by': str(current_user.id),
+                    'status': 'pending',
+                    'institution': institution,
+                    'metadata': {
+                        'belge_adi': belge_adi,
+                        'category': category,
+                        'description': section_metadata.get("description"),
+                        'keywords': keywords_list,
+                        'source_institution': institution,
+                        'start_page': section_metadata.get("start_page"),
+                        'end_page': section_metadata.get("end_page"),
+                        'original_filename': file.filename,
+                        'section_title': section_metadata.get("title"),
+                        'bulk_upload': True
+                    }
+                }
+                
+                # Save to Supabase
+                logger.info(f"Saving metadata for {file.filename}")
+                document_id = await supabase_client.create_document(document_data)
+                
+                uploaded_documents.append({
+                    "filename": file.filename,
+                    "document_id": str(document_id),
+                    "file_url": file_url,
+                    "metadata": section_metadata
+                })
+                
+                logger.info(f"Document {file.filename} uploaded successfully: {document_id}")
+                
+            except Exception as upload_error:
+                logger.error(f"Failed to upload {file.filename}: {str(upload_error)}")
+                raise AppException(
+                    message=f"Failed to upload {file.filename}",
+                    detail=str(upload_error),
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    error_code="UPLOAD_FAILED"
+                )
+        
+        # Generate task ID for bulk processing
+        task_id = str(uuid.uuid4())
+        
+        # Initialize Redis progress tracking
+        filenames = [doc["filename"] for doc in uploaded_documents]
+        await redis_service.init_bulk_upload_progress(
+            task_id=task_id,
+            total_files=len(uploaded_documents),
+            filenames=filenames
+        )
+        
+        logger.info(f"Initialized bulk upload progress tracking: {task_id}")
+        
+        # Queue Celery bulk processing task
+        from tasks.document_processor import bulk_process_documents_task
+        
+        task_payload = {
+            "task_id": task_id,
+            "documents": uploaded_documents,
+            "user_id": str(current_user.id)
+        }
+        
+        try:
+            celery_task = bulk_process_documents_task.delay(task_payload)
+            logger.info(f"Bulk processing task queued: {celery_task.id}")
+        except Exception as task_error:
+            logger.error(f"Failed to queue bulk processing task: {str(task_error)}")
+            # Progress tracking already initialized, user can still monitor
+        
+        return success_response(
+            data={
+                "task_id": task_id,
+                "enqueued_count": len(uploaded_documents),
+                "documents": [
+                    {
+                        "filename": doc["filename"],
+                        "document_id": doc["document_id"]
+                    }
+                    for doc in uploaded_documents
+                ],
+                "message": f"Bulk upload queued: {len(uploaded_documents)} documents"
+            }
+        )
+        
+    except AppException:
+        raise
+    except Exception as e:
+        logger.error(f"Bulk upload failed: {str(e)}")
+        raise AppException(
+            message="Bulk upload failed",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="BULK_UPLOAD_FAILED"
+        )
+
+@router.get("/documents/bulk-upload/progress/{task_id}")
+async def get_bulk_upload_progress(
+    task_id: str,
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Get progress status for bulk upload task
+    
+    Args:
+        task_id: Bulk upload task ID
+        current_user: Current admin user
+    
+    Returns:
+        Progress data with status, current file, completed files, etc.
+    """
+    try:
+        redis_service = RedisService()
+        
+        progress_data = await redis_service.get_bulk_upload_progress(task_id)
+        
+        if not progress_data:
+            raise AppException(
+                message="Bulk upload task not found",
+                status_code=status.HTTP_404_NOT_FOUND,
+                error_code="TASK_NOT_FOUND"
+            )
+        
+        return success_response(data=progress_data)
+        
+    except AppException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get bulk upload progress: {str(e)}")
+        raise AppException(
+            message="Failed to get progress",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="PROGRESS_FETCH_FAILED"
         )
