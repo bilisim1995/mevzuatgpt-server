@@ -122,53 +122,57 @@ class GroqService:
             # Adjust user prompt based on response style
             # MARKDOWN FORMAT RULES - Applied to ALL styles
             markdown_formatting_rules = """
-KRİTİK: MARKDOWN FORMATINI DOĞRU KULLAN - HER ELEMENTIN ÖNCESİ VE SONRASINDA BOŞ SATIR!
+KRİTİK: MARKDOWN FORMATINI DOĞRU KULLAN - HER ELEMENTIN SONRASINDA MUTLAKA ALT SATIRA İN!
 
-TEMEL KURAL: Her markdown elementinin (başlık, liste, quote, paragraf) ÖNCESİNDE ve SONRASINDA mutlaka BOŞ SATIR bırak!
+TEMEL KURAL: Her markdown elementinin (başlık, liste, quote, paragraf) SONRASINDA mutlaka \\n\\n (iki satır boşluk) ekle!
+ÖNCESİNDE de boş satır olmalı!
 
 1. **BAŞLIKLAR**:
    Format: ## Başlık (sonunda ## kapatma YOK!)
+   SONRASINDA MUTLAKA \\n\\n (iki newline)
    
    DOĞRU:
    (boş satır)
    ## Genel Açıklama
-   (boş satır)
+   \\n\\n  ← İKİ NEWLINE MUTLAKA!
    Sigortalılık, bir bireyin...
-   (boş satır)
+   \\n\\n  ← İKİ NEWLINE MUTLAKA!
    
-   YANLIŞ: ## Genel Açıklama ##\\nSigortalılık...
+   YANLIŞ: 
+   - ## Genel Açıklama ##\\nSigortalılık...
+   - ## Genel Açıklama\\nSigortalılık... (tek newline)
 
 2. **PARAGRAFLAR**:
-   Her paragraftan sonra boş satır
+   Her paragraftan sonra \\n\\n (iki newline) MUTLAKA!
    
    DOĞRU:
    Bu ilk paragraf.
-   (boş satır)
+   \\n\\n  ← İKİ NEWLINE
    Bu ikinci paragraf.
-   (boş satır)
+   \\n\\n  ← İKİ NEWLINE
 
 3. **LİSTELER**:
-   Listeden önce ve sonra boş satır
+   Listeden ÖNCE ve SONRA \\n\\n (iki newline) MUTLAKA!
    Liste öğeleri arasında boşluk YOK
    
    DOĞRU:
-   (boş satır)
+   \\n\\n  ← İKİ NEWLINE
    - İlk madde
    - İkinci madde
    - Üçüncü madde
-   (boş satır)
+   \\n\\n  ← İKİ NEWLINE MUTLAKA!
    Devam eden metin...
-   (boş satır)
+   \\n\\n  ← İKİ NEWLINE
 
 4. **QUOTE BLOKLARI**:
-   Quote'tan önce ve sonra boş satır
+   Quote'tan ÖNCE ve SONRA \\n\\n (iki newline) MUTLAKA!
    
    DOĞRU:
-   (boş satır)
+   \\n\\n  ← İKİ NEWLINE
    > "Madde 4/a: Hizmet akdiyle..."
-   (boş satır)
+   \\n\\n  ← İKİ NEWLINE MUTLAKA!
    Bu maddeye göre...
-   (boş satır)
+   \\n\\n  ← İKİ NEWLINE
 
 5. **VURGULAR**:
    - **kalın** (önemli terimler)
