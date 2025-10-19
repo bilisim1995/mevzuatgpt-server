@@ -122,87 +122,90 @@ class GroqService:
             # Adjust user prompt based on response style
             # MARKDOWN FORMAT RULES - Applied to ALL styles
             markdown_formatting_rules = """
-KRİTİK: MARKDOWN FORMATINI DOĞRU KULLAN - HER ELEMENTIN SONRASINDA MUTLAKA ALT SATIRA İN!
+KRİTİK: MARKDOWN FORMATINI DOĞRU KULLAN - HER ELEMENTIN SONRASINDA MUTLAKA BOŞ SATIR!
 
-TEMEL KURAL: Her markdown elementinin (başlık, liste, quote, paragraf) SONRASINDA mutlaka \\n\\n (iki satır boşluk) ekle!
-ÖNCESİNDE de boş satır olmalı!
+TEMEL KURAL: Her markdown elementinin (başlık, liste, quote, paragraf) SONRASINDA mutlaka BOŞ SATIR bırak!
 
-1. **BAŞLIKLAR**:
-   Format: ## Başlık (sonunda ## kapatma YOK!)
-   SONRASINDA MUTLAKA \\n\\n (iki newline)
+1. **BAŞLIKLAR** - Sonunda ## kapatma işareti YOK:
    
-   DOĞRU:
-   (boş satır)
+   DOĞRU ÖRNEK:
+   
    ## Genel Açıklama
-   \\n\\n  ← İKİ NEWLINE MUTLAKA!
-   Sigortalılık, bir bireyin...
-   \\n\\n  ← İKİ NEWLINE MUTLAKA!
    
-   YANLIŞ: 
-   - ## Genel Açıklama ##\\nSigortalılık...
-   - ## Genel Açıklama\\nSigortalılık... (tek newline)
+   Sigortalılık, bir bireyin sosyal güvenlik sistemi...
+   
+   ## Yasal Çerçeve
+   
+   İlgili mevzuat...
+   
+   YANLIŞ:
+   ## Genel Açıklama ##
+   Sigortalılık...
 
-2. **PARAGRAFLAR**:
-   Her paragraftan sonra \\n\\n (iki newline) MUTLAKA!
+2. **PARAGRAFLAR** - Her paragraf arasında boş satır:
    
-   DOĞRU:
-   Bu ilk paragraf.
-   \\n\\n  ← İKİ NEWLINE
-   Bu ikinci paragraf.
-   \\n\\n  ← İKİ NEWLINE
+   DOĞRU ÖRNEK:
+   
+   Bu ilk paragraf bilgi içerir.
+   
+   Bu ikinci paragraf başka bilgi verir.
+   
+   Bu üçüncü paragraf sonuçtur.
 
-3. **LİSTELER**:
-   Listeden ÖNCE ve SONRA \\n\\n (iki newline) MUTLAKA!
-   Liste öğeleri arasında boşluk YOK
+3. **LİSTELER** - Liste öncesi ve sonrası boş satır:
    
-   DOĞRU:
-   \\n\\n  ← İKİ NEWLINE
-   - İlk madde
-   - İkinci madde
-   - Üçüncü madde
-   \\n\\n  ← İKİ NEWLINE MUTLAKA!
-   Devam eden metin...
-   \\n\\n  ← İKİ NEWLINE
+   DOĞRU ÖRNEK:
+   
+   Başvuru için gerekli belgeler:
+   
+   - Kimlik fotokopisi
+   - İkametgah belgesi
+   - Hizmet akdi
+   
+   Belgeler teslim edildikten sonra...
 
-4. **QUOTE BLOKLARI**:
-   Quote'tan ÖNCE ve SONRA \\n\\n (iki newline) MUTLAKA!
+4. **QUOTE BLOKLARI** - Quote öncesi ve sonrası boş satır:
    
-   DOĞRU:
-   \\n\\n  ← İKİ NEWLINE
-   > "Madde 4/a: Hizmet akdiyle..."
-   \\n\\n  ← İKİ NEWLINE MUTLAKA!
-   Bu maddeye göre...
-   \\n\\n  ← İKİ NEWLINE
+   DOĞRU ÖRNEK:
+   
+   Kanun maddesi şu şekildedir:
+   
+   > "Madde 4/a: Hizmet akdi ile bir veya birden fazla işveren yanında çalışanlar sigortalı sayılır."
+   
+   Bu maddeye göre sigortalılık şartları...
 
 5. **VURGULAR**:
-   - **kalın** (önemli terimler)
-   - *italik* (vurgu)
-   - `kod` (kanun numaraları)
-   Örnek: **5510 sayılı Kanun**, **Madde 4/a**, `01.10.2008`
+   - **kalın** yazı (önemli terimler)
+   - *italik* yazı (vurgu)
+   - `kod formatı` (kanun numaraları, tarihler)
 
-6. **TAM ÖRNEK**:
+6. **KOMPLE DOĞRU ÖRNEK**:
 
 ## Genel Açıklama
 
-Sigortalılık sistemi, **5510 sayılı Kanun** ile düzenlenmiştir.
+Sigortalılık, **5510 sayılı Sosyal Sigortalar ve Genel Sağlık Sigortası Kanunu** kapsamında düzenlenen bir sistemdir.
 
 ## Yasal Çerçeve
 
 İlgili düzenleme şu şekildedir:
 
-> "Madde 4/a: Hizmet akdi ile çalışanlar sigortalıdır."
+> "Madde 4/a: Hizmet akdi ile bir veya birden fazla işveren yanında çalışanlar sigortalı sayılır."
 
 Bu maddeye göre aşağıdaki şartlar aranır:
 
 - Hizmet akdinin varlığı
 - İşveren yanında çalışma
-- **01.10.2008** sonrası işe giriş
+- **01.10.2008** tarihinden sonra işe başlama
 
-Tescil işlemleri için `30 gün` süre verilmiştir.
+Tescil işlemleri için `30 gün` süre tanınmıştır.
+
+## Uygulama Detayları
+
+Uygulamada dikkat edilmesi gereken hususlar vardır.
 
 ## Sonuç
 
-Yukarıdaki bilgiler ışığında...
+Yukarıdaki bilgiler ışığında değerlendirme yapılabilir.
 """
             
             style_instructions = {
