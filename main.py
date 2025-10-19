@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
 import logging
 import time
 
@@ -125,6 +126,35 @@ async def add_process_time_header(request: Request, call_next):
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = str(process_time)
     return response
+
+# Validation error handler (422 errors)
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
+    logger.error(f"Validation error on {request.url.path}: {errors}")
+    
+    # Extract missing fields for better error message
+    missing_fields = []
+    for error in errors:
+        if error.get("type") == "missing":
+            field_name = error.get("loc", [])[-1] if error.get("loc") else "unknown"
+            missing_fields.append(field_name)
+    
+    if missing_fields:
+        logger.error(f"❌ Missing required fields: {', '.join(missing_fields)}")
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False,
+            "error": {
+                "message": "Validation error - required fields missing",
+                "detail": errors,
+                "missing_fields": missing_fields,
+                "code": "VALIDATION_ERROR"
+            }
+        }
+    )
 
 # Custom exception handler
 @app.exception_handler(AppException)

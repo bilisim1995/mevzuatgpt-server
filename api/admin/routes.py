@@ -3,7 +3,7 @@ Admin routes for document management and system administration
 Only accessible by users with 'admin' role
 """
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Query
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional, Dict, Any
@@ -3556,6 +3556,7 @@ async def update_payment_settings(
 
 @router.post("/documents/bulk-upload")
 async def bulk_upload_documents(
+    request: Request,
     files: List[UploadFile] = File(...),
     metadata: str = Form(...),
     category: str = Form(...),
