@@ -2888,31 +2888,20 @@ async def get_system_status(
             except asyncio.TimeoutError:
                 redis_status["user_histories"] = "timeout"
             
-            # Close Redis connection
-            await redis_service._close_client()
+            # Connection pool automatically manages connections
             
         except asyncio.TimeoutError:
             redis_status = {
                 "connection": "timeout",
                 "error": "Redis operations timed out"
             }
-            # Close connection on timeout
-            if redis_service:
-                try:
-                    await redis_service._close_client()
-                except:
-                    pass
+            # Connection pool automatically manages connections
         except Exception as redis_error:
             redis_status = {
                 "connection": "error",
                 "error": str(redis_error)
             }
-            # Close connection on error
-            if redis_service:
-                try:
-                    await redis_service._close_client()
-                except:
-                    pass
+            # Connection pool automatically manages connections
         
         # Celery durumu - Redis üzerinden kontrol
         celery_status = {}
@@ -3410,7 +3399,7 @@ async def get_redis_connections(
                     "error": str(keys_error)
                 }
             
-            await redis_service._close_client()
+            # Connection pool automatically manages connections
             logger.info(f"Final connection_info keys: {list(connection_info.keys())}")
             logger.info(f"Connection status: {connection_info.get('connection_status', 'NOT SET')}")
             
@@ -3421,11 +3410,7 @@ async def get_redis_connections(
                 "error": str(redis_error),
                 "timestamp": datetime.now().isoformat()
             }
-            if redis_service:
-                try:
-                    await redis_service._close_client()
-                except:
-                    pass
+            # Connection pool automatically manages connections
         
         return {
             "success": connection_info.get("connection_status") == "healthy",
