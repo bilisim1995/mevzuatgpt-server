@@ -122,20 +122,51 @@ class GroqService:
             # Adjust user prompt based on response style
             # MARKDOWN FORMAT RULES - Applied to ALL styles
             markdown_formatting_rules = """
-FORMATLAMADA MUTLAKA MARKDOWN KULLAN:
+ÖNEMLİ: MARKDOWN FORMATINI DOĞRU KULLAN - BOŞLUKLARA DİKKAT ET!
 
-1. **Başlıklar**: ## ile başlıklar oluştur (## Ana Başlık, ### Alt Başlık)
-2. **Vurgular**: **kalın** ve *italik* kullan (önemli terimler için **kalın**)
-3. **Listeler**: 
-   - Madde işaretli listeler için - veya * kullan
-   - Numaralı listeler için 1., 2., 3. kullan
-4. **Hukuki İçerik Blokları**: Kanun maddeleri için > alıntı bloğu kullan
-   > Örnek: "Madde 4/a: Hizmet akdiyle çalışanlar..."
-5. **Özel Vurgular**:
-   - Kanun maddeleri: **Madde 4/a**, **5510 sayılı Kanun**
-   - Önemli tarihler: **01.10.2008**
-   - Yükümlülükler: **zorunlu**, **gereklidir**
-6. **Kod/Referans**: Kanun numaraları ve resmi belgeler için `backtick` kullan
+1. **Başlıklar** - ÇOK ÖNEMLİ:
+   - Başlıktan önce boş satır bırak
+   - Başlık formatı: ## Başlık (SONUNDA ## YOK!)
+   - Başlıktan sonra BOŞ SATIR (iki \\n) bırak
+   
+   DOĞRU ÖRNEK:
+   ## Genel Açıklama
+   
+   Sigortalılık, bir bireyin sosyal güvenlik...
+   
+   YANLIŞ: ## Genel Açıklama ## \\nSigortalılık...
+
+2. **Vurgular**: 
+   - **kalın** ve *italik* kullan
+   - Önemli terimler: **Madde 4/a**, **5510 sayılı Kanun**
+
+3. **Listeler** - BOŞLUKLARA DİKKAT:
+   - Listeden önce boş satır
+   - Her madde arasında boşluk YOK
+   - Listeden sonra boş satır
+   
+   DOĞRU ÖRNEK:
+   
+   - İlk madde
+   - İkinci madde
+   - Üçüncü madde
+   
+   Devam eden metin...
+
+4. **Hukuki İçerik Blokları** - BOŞLUKLARA DİKKAT:
+   - Bloktan önce boş satır
+   - > ile başla
+   - Bloktan sonra boş satır
+   
+   DOĞRU ÖRNEK:
+   
+   > "Madde 4/a: Hizmet akdiyle çalışanlar..."
+   
+   Bu maddeye göre...
+
+5. **Paragraflar Arası**: Her paragraf arasında tek boş satır (\\n\\n)
+
+6. **Kod/Referans**: `5510 sayılı Kanun` şeklinde backtick kullan
 """
             
             style_instructions = {
@@ -146,19 +177,40 @@ FORMATLAMADA MUTLAKA MARKDOWN KULLAN:
 
 {markdown_formatting_rules}
 
-YAPISAL ORGANİZASYON:
-- ## Genel Açıklama (giriş paragrafı)
-- ## Yasal Çerçeve (ilgili kanun maddeleri)
-- ## Uygulama Detayları (pratik bilgiler)
-- ## Önemli Noktalar (dikkat edilmesi gerekenler)""",
+YAPISAL ORGANİZASYON (bu başlıkları kullan, arada boş satırlar bırak):
+
+## Genel Açıklama
+
+(giriş paragrafı - konunun temel tanımı)
+
+## Yasal Çerçeve
+
+(ilgili kanun maddeleri ve yasal düzenlemeler)
+
+## Uygulama Detayları
+
+(pratik bilgiler ve uygulamadaki durum)
+
+## Önemli Noktalar
+
+(dikkat edilmesi gerekenler ve özel durumlar)""",
                 "analytical": f"""Bu soruyu analitik bir yaklaşımla cevapla. Konuyu sistematik olarak incele, farklı boyutlarını ele al ve hukuki çerçevede değerlendir. Sebep-sonuç ilişkilerini açıkla.
 
 {markdown_formatting_rules}
 
-YAPISAL ORGANİZASYON:
-- ## Hukuki Analiz (yasal dayanak)
-- ## Değerlendirme (farklı boyutlar)
-- ## Sonuç ve Öneriler""",
+YAPISAL ORGANİZASYON (bu başlıkları kullan, arada boş satırlar bırak):
+
+## Hukuki Analiz
+
+(yasal dayanak ve hukuki çerçeve)
+
+## Değerlendirme
+
+(farklı boyutlar ve sebep-sonuç ilişkileri)
+
+## Sonuç ve Öneriler
+
+(genel değerlendirme ve öneriler)""",
                 "conversational": f"""Bu soruyu sohbet tarzında, anlaşılır ve samimi bir dille cevapla. Karmaşık terimleri basit örneklerle açıkla ve kullanıcıyla diyalog kuruyormuş gibi yaz.
 
 {markdown_formatting_rules}"""
