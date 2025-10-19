@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # Redis Cloud & Celery
     REDIS_URL: str = "redis://default:password@redis-cloud-endpoint:port"
     CELERY_BROKER_URL: str = "redis://default:password@redis-cloud-endpoint:port"
-    CELERY_RESULT_BACKEND: str = "redis://default:password@redis-cloud-endpoint:port"
+    # CELERY_RESULT_BACKEND disabled - using custom Redis progress tracking instead
     
     # AI Model Configuration
     GROQ_API_KEY: str = "your-groq-api-key-here"
