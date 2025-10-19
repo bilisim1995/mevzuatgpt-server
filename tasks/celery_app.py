@@ -10,10 +10,11 @@ from core.config import settings
 logger = logging.getLogger(__name__)
 
 # Create Celery app instance
+# backend=None to disable result backend - we use custom Redis progress tracking
 celery_app = Celery(
     "mevzuat_gpt",
     broker=settings.CELERY_BROKER_URL,
-    backend=settings.CELERY_RESULT_BACKEND,
+    backend=None,  # Disabled to reduce Redis connections
     include=[
         "tasks.document_processor"
     ]
@@ -31,8 +32,8 @@ celery_app.conf.update(
     # Task execution settings
     task_always_eager=False,
     task_eager_propagates=True,
-    task_ignore_result=False,
-    task_store_eager_result=True,
+    task_ignore_result=True,  # Ignore results - using custom progress tracking
+    task_store_eager_result=False,  # Don't store results
     
     # Task persistence settings - restart behavior disabled
     task_acks_late=False,  # Acknowledge immediately, don't retry on restart
@@ -47,12 +48,11 @@ celery_app.conf.update(
     broker_connection_retry=True,
     broker_connection_max_retries=10,
     
-    # CRITICAL: Redis connection pool optimization
-    broker_pool_limit=5,  # Max 5 broker connections
+    # CRITICAL: Redis connection pool optimization for Free Plan (30 max)
+    broker_pool_limit=3,  # Max 3 broker connections per worker
     broker_transport_options={
-        'max_connections': 5,
+        'max_connections': 3,
     },
-    redis_max_connections=5,  # Redis connection pool size
     
     # Task routing
     task_routes={
@@ -64,14 +64,6 @@ celery_app.conf.update(
     # Task retry settings
     task_default_retry_delay=60,  # 1 minute
     task_max_retries=3,
-    
-    # Result backend settings
-    result_expires=3600,  # 1 hour
-    result_persistent=True,
-    result_backend_transport_options={
-        'visibility_timeout': 3600,
-        'max_connections': 5,
-    },
     
     # Beat scheduler settings (for periodic tasks)
     beat_schedule={
