@@ -37,6 +37,18 @@ Document upload workflow fully operational:
 - Background processing via Celery for text extraction and vectorization
 - Elasticsearch indexing for semantic search capabilities
 
+#### Bulk Upload with Progress Tracking (October 19, 2025)
+Enterprise-grade bulk PDF processing system with automatic recovery:
+- **Variable Capacity**: Supports any number of PDFs per upload (tested with 14+ documents)
+- **Sequential Processing**: One PDF at a time to respect OpenAI API rate limits and prevent worker overload
+- **Real-time Progress**: Redis-based progress tracking with file-by-file status updates
+  - Endpoint: `GET /api/admin/documents/bulk-upload/progress/{task_id}`
+  - Data: Current file index, filename, completion percentage, completed files array
+- **Automatic Recovery**: FastAPI lifespan event detects orphaned tasks after worker restarts and re-queues them
+- **Redis Persistence**: Celery task persistence with `task_acks_late=True` and `task_reject_on_worker_lost=True`
+- **Task Recovery Service**: Scans Redis for stuck tasks in "queued" or "processing" status and rebuilds payloads
+- **Cleanup**: Automatic cleanup of old completed/failed tasks after 24 hours
+
 ### Authentication and Authorization
 Role-based access control (RBAC) is implemented via Supabase Auth. Roles include:
 - **Admin**: Full document upload, management, and administrative functions.

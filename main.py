@@ -3,6 +3,7 @@ MevzuatGPT - Production Ready RAG System
 Modern FastAPI backend with role-based authentication and vector search
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -37,13 +38,52 @@ from utils.exceptions import AppException
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan events - runs on startup and shutdown
+    Handles orphaned task recovery after worker restarts
+    """
+    # Startup
+    logger.info("🚀 MevzuatGPT API Server starting up...")
+    
+    # Recover orphaned tasks from previous sessions
+    try:
+        from services.task_recovery_service import TaskRecoveryService
+        
+        recovery_service = TaskRecoveryService()
+        logger.info("🔄 Checking for orphaned bulk upload tasks...")
+        
+        recovery_result = await recovery_service.recover_orphaned_tasks()
+        
+        if recovery_result.get("recovered", 0) > 0:
+            logger.info(f"✅ Recovered {recovery_result['recovered']} orphaned task(s)")
+        elif recovery_result.get("skipped", 0) > 0:
+            logger.info(f"⏭️ Found {recovery_result['skipped']} completed/failed task(s), no recovery needed")
+        else:
+            logger.info("✅ No orphaned tasks found")
+            
+    except Exception as e:
+        # Don't crash the app if recovery fails
+        logger.error(f"⚠️ Task recovery failed (non-critical): {str(e)}")
+    
+    logger.info("✅ Application startup complete")
+    
+    yield
+    
+    # Shutdown
+    logger.info("🛑 MevzuatGPT API Server shutting down...")
+
+
+# Initialize FastAPI app with lifespan
 app = FastAPI(
     title="MevzuatGPT API",
     description="Production-ready RAG system for legal document processing and search",
     version="1.0.0",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
+    lifespan=lifespan,
 )
 
 # Security middleware
