@@ -122,25 +122,39 @@ class GroqService:
             # Adjust user prompt based on response style
             # MARKDOWN FORMAT RULES - Applied to ALL styles
             markdown_formatting_rules = """
-KRİTİK: MARKDOWN FORMATINI DOĞRU KULLAN - HER ELEMENTIN SONRASINDA MUTLAKA BOŞ SATIR!
+KRİTİK: MARKDOWN FORMATINI DOĞRU KULLAN - BAŞLIKLARIN ÖNCESİ VE SONRASINDA MUTLAKA BOŞ SATIR!
 
-TEMEL KURAL: Her markdown elementinin (başlık, liste, quote, paragraf) SONRASINDA mutlaka BOŞ SATIR bırak!
+TEMEL KURAL: Her markdown başlığının ÖNCESİNDE ve SONRASINDA mutlaka BOŞ SATIR bırak!
 
-1. **BAŞLIKLAR** - Sonunda ## kapatma işareti YOK:
+1. **BAŞLIKLAR** - ÇOK ÖNEMLİ:
+   - Başlıktan ÖNCE boş satır
+   - Başlıktan SONRA boş satır  
+   - Sonunda ## kapatma işareti YOK
    
    DOĞRU ÖRNEK:
    
+   ...bir bireyin sosyal güvenlik sistemine dahil olması demektir.
+   
    ## Genel Açıklama
    
-   Sigortalılık, bir bireyin sosyal güvenlik sistemi...
+   Sigortalılık sistemi kapsamında...
    
    ## Yasal Çerçeve
    
-   İlgili mevzuat...
+   İlgili mevzuat şu şekildedir...
    
-   YANLIŞ:
+   YANLIŞ ÖRNEKLERİ:
+   
+   ❌ YANLIŞ 1: Başlıktan önce boş satır yok
+   ...sosyal güvenlik sistemine dahil olması demektir.
+   ## Genel Açıklama
+   
+   ❌ YANLIŞ 2: Başlıkta ## kapatma var
    ## Genel Açıklama ##
-   Sigortalılık...
+   
+   ❌ YANLIŞ 3: Başlıktan sonra boş satır yok
+   ## Genel Açıklama
+   Sigortalılık sistemi...
 
 2. **PARAGRAFLAR** - Her paragraf arasında boş satır:
    
