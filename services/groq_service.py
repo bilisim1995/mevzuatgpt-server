@@ -122,104 +122,172 @@ class GroqService:
             # Adjust user prompt based on response style
             # MARKDOWN FORMAT RULES - Applied to ALL styles
             markdown_formatting_rules = """
-KRİTİK: MARKDOWN FORMATINI DOĞRU KULLAN - BAŞLIKLARIN ÖNCESİ VE SONRASINDA MUTLAKA BOŞ SATIR!
+🎯 KRİTİK: GÖRSEL VE ANLAŞILIR MARKDOWN FORMATINI KULLAN!
 
 TEMEL KURAL: Her markdown başlığının ÖNCESİNDE ve SONRASINDA mutlaka BOŞ SATIR bırak!
 
-1. **BAŞLIKLAR** - ÇOK ÖNEMLİ:
+1. **📌 BAŞLIKLAR + EMOJİ** - ÇOK ÖNEMLİ:
    - Başlıktan ÖNCE boş satır
    - Başlıktan SONRA boş satır  
    - Sonunda ## kapatma işareti YOK
+   - Başlıkta uygun emoji kullan (görsel çekicilik için)
    
    DOĞRU ÖRNEK:
    
    ...bir bireyin sosyal güvenlik sistemine dahil olması demektir.
    
-   ## Genel Açıklama
-   
-   Sigortalılık sistemi kapsamında...
-   
-   ## Yasal Çerçeve
+   ## ⚖️ Yasal Çerçeve
    
    İlgili mevzuat şu şekildedir...
    
-   YANLIŞ ÖRNEKLERİ:
+   ## 📋 Gerekli Belgeler
    
-   ❌ YANLIŞ 1: Başlıktan önce boş satır yok
-   ...sosyal güvenlik sistemine dahil olması demektir.
-   ## Genel Açıklama
-   
-   ❌ YANLIŞ 2: Başlıkta ## kapatma var
-   ## Genel Açıklama ##
-   
-   ❌ YANLIŞ 3: Başlıktan sonra boş satır yok
-   ## Genel Açıklama
-   Sigortalılık sistemi...
+   Başvuru için şunlar gerekir...
 
-2. **PARAGRAFLAR** - Her paragraf arasında boş satır:
+2. **🔢 NUMMARALI LİSTELER** - Adım adım işlemler için:
    
-   DOĞRU ÖRNEK:
+   Başvuru süreci:
    
-   Bu ilk paragraf bilgi içerir.
-   
-   Bu ikinci paragraf başka bilgi verir.
-   
-   Bu üçüncü paragraf sonuçtur.
+   1. İlk olarak başvuru formunu doldurun
+   2. Gerekli belgeleri hazırlayın
+   3. SGK'ya başvurun
+   4. Sonuç bekleyin
 
-3. **LİSTELER** - Liste öncesi ve sonrası boş satır:
+3. **📝 MADDE İMLİ LİSTELER** - Normal listeler için:
    
-   DOĞRU ÖRNEK:
+   Gerekli belgeler:
    
-   Başvuru için gerekli belgeler:
-   
-   - Kimlik fotokopisi
+   - TC Kimlik fotokopisi
    - İkametgah belgesi
    - Hizmet akdi
-   
-   Belgeler teslim edildikten sonra...
 
-4. **QUOTE BLOKLARI** - Quote öncesi ve sonrası boş satır:
+4. **🔸 İÇ İÇE LİSTELER** - Detaylı kategoriler için:
    
-   DOĞRU ÖRNEK:
+   Belge kategorileri:
    
-   Kanun maddesi şu şekildedir:
-   
-   > "Madde 4/a: Hizmet akdi ile bir veya birden fazla işveren yanında çalışanlar sigortalı sayılır."
-   
-   Bu maddeye göre sigortalılık şartları...
+   - **Kimlik Belgeleri:**
+     - TC Kimlik fotokopisi
+     - İkametgah belgesi
+     - Nüfus kayıt örneği
+   - **İş Belgeleri:**
+     - Hizmet akdi
+     - SGK bildirge formu
 
-5. **VURGULAR**:
-   - **kalın** yazı (önemli terimler)
+5. **💬 QUOTE BLOKLARI** - Kanun metinleri için:
+   
+   Kanun maddesi:
+   
+   > **📜 5510 Sayılı Kanun - Madde 4/a:**  
+   > "Hizmet akdi ile bir veya birden fazla işveren yanında çalışanlar sigortalı sayılır."
+   
+   Bu maddeye göre...
+
+6. **💡 VURGU KUTULARI** - Önemli notlar için:
+   
+   > **💡 İpucu:**  
+   > Başvurunuzu 30 gün içinde yapmanız gerekmektedir.
+   
+   > **⚠️ Dikkat:**  
+   > Eksik belge durumunda başvuru reddedilir.
+   
+   > **✅ Not:**  
+   > Online başvuru daha hızlı sonuçlanır.
+
+7. **📊 TABLOLAR** - Karşılaştırmalar için:
+   
+   | Sigorta Türü | Prim Oranı | Özellik |
+   |--------------|------------|---------|
+   | 4/a Sigortalı | %35.5 | Tam zamanlı çalışan |
+   | 4/b Sigortalı | %20.5 | Kendi hesabına |
+   | 4/c Sigortalı | %22.5 | Tarımda çalışan |
+
+8. **📐 AYIRICI ÇİZGİLER** - Bölüm geçişleri için:
+   
+   İlk konu hakkında detaylı açıklama...
+   
+   ---
+   
+   İkinci konu hakkında detaylı açıklama...
+
+9. **💻 KOD BLOKLARI** - Uzun kanun metinleri için:
+   
+   Kanun metninin tam hali:
+   
+   ```
+   5510 Sayılı Sosyal Sigortalar ve Genel Sağlık Sigortası Kanunu
+   Madde 4 - Sigortalı Sayılanlar
+   
+   a) Hizmet akdi ile bir veya birden fazla işveren yanında 
+   çalışanlar (4/a sigortalı)
+   
+   b) Kendi adına ve hesabına bağımsız çalışanlar (4/b sigortalı)
+   ```
+   
+   Yukarıdaki düzenlemeye göre...
+
+10. **✨ VURGULAR**:
+   - **kalın** yazı (çok önemli terimler - SGK, kanun isimleri)
    - *italik* yazı (vurgu)
-   - `kod formatı` (kanun numaraları, tarihler)
+   - `kod formatı` (tarihler, sayılar, madde numaraları)
+   - **`kombinasyon`** (hem vurgu hem önemli)
 
-6. **KOMPLE DOĞRU ÖRNEK**:
+11. **🎨 KOMPLE GÖRSEL ÖRNEK**:
 
-## Genel Açıklama
+## 📖 Genel Açıklama
 
-Sigortalılık, **5510 sayılı Sosyal Sigortalar ve Genel Sağlık Sigortası Kanunu** kapsamında düzenlenen bir sistemdir.
+Sigortalılık, **5510 sayılı Sosyal Sigortalar ve Genel Sağlık Sigortası Kanunu** kapsamında düzenlenen bir sistemdir. Bu sistem, çalışanların sosyal güvenlik haklarını korur.
 
-## Yasal Çerçeve
+---
+
+## ⚖️ Yasal Çerçeve
 
 İlgili düzenleme şu şekildedir:
 
+> **📜 Kanun Maddesi:**  
 > "Madde 4/a: Hizmet akdi ile bir veya birden fazla işveren yanında çalışanlar sigortalı sayılır."
 
 Bu maddeye göre aşağıdaki şartlar aranır:
 
-- Hizmet akdinin varlığı
-- İşveren yanında çalışma
-- **01.10.2008** tarihinden sonra işe başlama
+1. Hizmet akdinin varlığı
+2. İşveren yanında çalışma
+3. **`01.10.2008`** tarihinden sonra işe başlama
 
-Tescil işlemleri için `30 gün` süre tanınmıştır.
+> **💡 Önemli Not:**  
+> Tescil işlemleri için **30 gün** süre tanınmıştır.
 
-## Uygulama Detayları
+---
 
-Uygulamada dikkat edilmesi gereken hususlar vardır.
+## 📋 Gerekli Belgeler
 
-## Sonuç
+Başvuru için aşağıdaki belgeler gereklidir:
 
-Yukarıdaki bilgiler ışığında değerlendirme yapılabilir.
+- **Kimlik Belgeleri:**
+  - TC Kimlik fotokopisi
+  - İkametgah belgesi
+- **İş Belgeleri:**
+  - Hizmet akdi
+  - SGK bildirge formu
+
+---
+
+## 📊 Sigorta Türleri Karşılaştırması
+
+| Tür | Tanım | Prim Oranı |
+|-----|-------|------------|
+| 4/a | Hizmet akdi ile çalışan | %35.5 |
+| 4/b | Bağımsız çalışan | %20.5 |
+
+---
+
+## ✅ Önemli Noktalar
+
+> **⚠️ Dikkat:**  
+> Eksik belge ile başvuru kabul edilmez.
+
+> **💡 İpucu:**  
+> E-devlet üzerinden online başvuru yapabilirsiniz.
+
+Yukarıdaki bilgiler ışığında işlemlerinizi tamamlayabilirsiniz.
 """
             
             style_instructions = {
@@ -230,40 +298,50 @@ Yukarıdaki bilgiler ışığında değerlendirme yapılabilir.
 
 {markdown_formatting_rules}
 
-YAPISAL ORGANİZASYON (bu başlıkları kullan, arada boş satırlar bırak):
+YAPISAL ORGANİZASYON (bu başlıkları EMOJİ ile kullan):
 
-## Genel Açıklama
+## 📖 Genel Açıklama
 
 (giriş paragrafı - konunun temel tanımı)
 
-## Yasal Çerçeve
+---
 
-(ilgili kanun maddeleri ve yasal düzenlemeler)
+## ⚖️ Yasal Çerçeve
 
-## Uygulama Detayları
+(ilgili kanun maddeleri ve yasal düzenlemeler - quote blokları kullan)
 
-(pratik bilgiler ve uygulamadaki durum)
+---
 
-## Önemli Noktalar
+## 🔍 Uygulama Detayları
 
-(dikkat edilmesi gerekenler ve özel durumlar)""",
+(pratik bilgiler, adım adım süreçler - numaralı listeler kullan)
+
+---
+
+## ✅ Önemli Noktalar
+
+(dikkat edilmesi gerekenler - vurgu kutuları kullan: ⚠️ Dikkat, 💡 İpucu)""",
                 "analytical": f"""Bu soruyu analitik bir yaklaşımla cevapla. Konuyu sistematik olarak incele, farklı boyutlarını ele al ve hukuki çerçevede değerlendir. Sebep-sonuç ilişkilerini açıkla.
 
 {markdown_formatting_rules}
 
-YAPISAL ORGANİZASYON (bu başlıkları kullan, arada boş satırlar bırak):
+YAPISAL ORGANİZASYON (bu başlıkları EMOJİ ile kullan):
 
-## Hukuki Analiz
+## 🔬 Hukuki Analiz
 
-(yasal dayanak ve hukuki çerçeve)
+(yasal dayanak ve hukuki çerçeve - quote blokları ve tablolar kullan)
 
-## Değerlendirme
+---
 
-(farklı boyutlar ve sebep-sonuç ilişkileri)
+## 📊 Değerlendirme
 
-## Sonuç ve Öneriler
+(farklı boyutlar ve sebep-sonuç ilişkileri - numaralı listeler ve karşılaştırma tabloları)
 
-(genel değerlendirme ve öneriler)""",
+---
+
+## 💡 Sonuç ve Öneriler
+
+(genel değerlendirme ve öneriler - vurgu kutuları kullan)""",
                 "conversational": f"""Bu soruyu sohbet tarzında, anlaşılır ve samimi bir dille cevapla. Karmaşık terimleri basit örneklerle açıkla ve kullanıcıyla diyalog kuruyormuş gibi yaz.
 
 {markdown_formatting_rules}"""
