@@ -995,10 +995,10 @@ async def voice_query(
             tts_service = TTSService()
             tts_result = await tts_service.text_to_speech(
                 text=ai_answer,
-                voice="onyx",
-                instructions="Türkçe'de duygusal, sıcak ve doğal bir ifadeyle konuş. Tonlamayı değiştir, önemli noktaları vurgula ve gerçek bir konuşma yapan yardımsever, empatik bir hukuk danışmanı gibi ses çıkar." if language == "tr" else "Speak with emotion, warmth, and natural expression. Use varied intonation, emphasize important points, and sound like a helpful, empathetic advisor.",
+                voice="shimmer",
+                instructions="Türkçe konuşurken hafif bir İstanbul şivesiyle, içten ve samimi bir tonla konuş. Mevzuatı anlatırken sanki bir arkadaşına anlatıyormuş gibi doğal ol. Kelimeler arasında doğal duraklamalar yap, cümleleri akıcı bir şekilde oku. Robot gibi değil, gerçek bir hukuk danışmanı gibi ses çıkar - sıcak, anlayışlı ve yardımsever. Hızlı konuşma, tonunu yumuşak tut." if language == "tr" else "Speak in a warm, conversational tone as if explaining to a friend. Use natural pauses between words and phrases. Sound like a real helpful advisor, not a robot - warm, understanding, and supportive. Keep your tone soft and gentle.",
                 response_format="mp3",
-                speed=0.95
+                speed=0.92
             )
             
             audio_base64 = tts_result['audio_base64']
