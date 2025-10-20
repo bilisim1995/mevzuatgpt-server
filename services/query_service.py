@@ -29,6 +29,41 @@ logger = logging.getLogger(__name__)
 # Intent classification types
 QueryIntent = Literal["general_conversation", "legal_question", "ambiguous"]
 
+def fix_markdown_formatting(text: str) -> str:
+    """
+    Post-process AI response to ensure proper markdown formatting.
+    Adds blank lines before headings if missing.
+    
+    Args:
+        text: AI-generated markdown text
+        
+    Returns:
+        Properly formatted markdown text
+    """
+    if not text:
+        return text
+    
+    lines = text.split('\n')
+    fixed_lines = []
+    
+    for i, line in enumerate(lines):
+        # Check if current line is a heading (starts with ##)
+        is_heading = line.strip().startswith('##')
+        
+        if is_heading and i > 0:
+            # Get previous line
+            prev_line = lines[i-1].strip()
+            
+            # If previous line is not empty, add blank line before heading
+            if prev_line and not prev_line.startswith('##'):
+                # Check if the line before this in fixed_lines is already empty
+                if fixed_lines and fixed_lines[-1].strip():
+                    fixed_lines.append('')  # Add blank line
+        
+        fixed_lines.append(line)
+    
+    return '\n'.join(fixed_lines)
+
 class QueryService:
     """Service for orchestrating the complete ask pipeline"""
     
@@ -637,7 +672,7 @@ class QueryService:
                     )
                     
                     llm_response = {
-                        "answer": ai_result["response"],
+                        "answer": fix_markdown_formatting(ai_result["response"]),  # Post-process markdown
                         "confidence_score": ai_result["confidence_score"],
                         "sources": self.source_enhancement_service.format_sources_for_response(search_results),
                         "ai_model": ai_result["model_used"],
@@ -696,6 +731,9 @@ class QueryService:
                     context=search_results,
                     institution_filter=institution_filter
                 )
+                # Post-process markdown for Ollama responses too
+                if "answer" in llm_response:
+                    llm_response["answer"] = fix_markdown_formatting(llm_response["answer"])
             
             ai_time = int((time.time() - ai_start) * 1000)
             
@@ -1181,7 +1219,7 @@ Benzerlik: {similarity:.2f}
             processing_time = int((time.time() - start_time) * 1000)
             
             return {
-                "answer": ai_response,
+                "answer": fix_markdown_formatting(ai_response),  # Post-process markdown
                 "confidence_score": 0.8,  # Default confidence for OpenAI fallback
                 "sources": self.source_enhancement_service.format_sources_for_response(search_results),
                 "ai_model": "gpt-4o (fallback)",
