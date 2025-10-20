@@ -998,7 +998,7 @@ async def voice_query(
                 voice="shimmer",
                 instructions="Türkçe konuşurken hafif bir İstanbul şivesiyle, içten ve samimi bir tonla konuş. Mevzuatı anlatırken sanki bir arkadaşına anlatıyormuş gibi doğal ol. Kelimeler arasında doğal duraklamalar yap, cümleleri akıcı bir şekilde oku. Robot gibi değil, gerçek bir hukuk danışmanı gibi ses çıkar - sıcak, anlayışlı ve yardımsever. Hızlı konuşma, tonunu yumuşak tut." if language == "tr" else "Speak in a warm, conversational tone as if explaining to a friend. Use natural pauses between words and phrases. Sound like a real helpful advisor, not a robot - warm, understanding, and supportive. Keep your tone soft and gentle.",
                 response_format="mp3",
-                speed=0.92
+                speed=1.05
             )
             
             audio_base64 = tts_result['audio_base64']
