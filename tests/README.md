@@ -91,4 +91,3 @@ python tests/check_celery_status.py
 Environment variables:
 - `REDIS_URL`
 - `CELERY_BROKER_URL`
-- `CELERY_RESULT_BACKEND`
