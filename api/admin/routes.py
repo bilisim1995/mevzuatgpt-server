@@ -827,7 +827,7 @@ async def embeddings_count(
 @router.get("/documents")
 async def list_documents(
     page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(20, ge=1, le=100, description="Items per page"),
+    limit: int = Query(20, ge=1, description="Items per page"),
     category: Optional[str] = Query(None, description="Filter by category"),
     status: Optional[str] = Query(None, description="Filter by processing status"),
     search: Optional[str] = Query(None, description="Search in title or filename"),
@@ -1092,7 +1092,7 @@ async def bulk_delete_documents(
             query = query.eq('institution', institution)
         
         if document_name:
-            query = query.ilike('document_title', f'%{document_name}%')
+            query = query.ilike('belge_adi', f'%{document_name}%')
         
         if creation_date:
             # Tarih validasyonu

@@ -12,7 +12,7 @@ from datetime import datetime
 import PyPDF2
 import pdfplumber
 import io
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from tasks.celery_app import celery_app, CeleryTaskError, TaskStates
 from models.supabase_client import supabase_client
