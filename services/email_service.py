@@ -626,6 +626,10 @@ Bu otomatik bir bildirimdir, lütfen bu e-postayı yanıtlamayınız.
             
             logger.info(f"Sending credit notification email to {to_email}")
             return self._send_email_smtp(to_email, subject, html_content, text_content)
+            
+        except Exception as e:
+            logger.error(f"Failed to send credit notification email to {to_email}: {e}")
+            return False
 
 # Global email service instance
 email_service = EmailService()
