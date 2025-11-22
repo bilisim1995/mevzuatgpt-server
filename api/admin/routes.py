@@ -771,7 +771,7 @@ async def system_health(
     - Redis cache
     - Elasticsearch
     - Celery workers
-    - Email service (SendGrid)
+    - Email service (SMTP)
     - AI services (OpenAI, Groq)
     - Storage (Bunny.net)
     - API performance metrics

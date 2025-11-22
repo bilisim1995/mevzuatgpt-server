@@ -149,6 +149,17 @@ class SupabaseAuthService:
                 }
             )
             
+            # Send welcome email (async, don't block registration)
+            try:
+                await email_service.send_welcome_email(
+                    to_email=user_data.email,
+                    user_name=user_data.full_name
+                )
+                logger.info(f"Welcome email sent to {user_data.email}")
+            except Exception as email_error:
+                logger.error(f"Failed to send welcome email to {user_data.email}: {email_error}")
+                # Don't fail registration if email fails
+            
             return {
                 "user": user_response,
                 "access_token": access_token,

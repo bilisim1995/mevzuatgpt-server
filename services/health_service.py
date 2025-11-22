@@ -223,48 +223,49 @@ class HealthService:
             }
     
     async def _check_email_health(self) -> Dict[str, Any]:
-        """Check SendGrid email service health"""
+        """Check SMTP email service health"""
         try:
-            if not hasattr(settings, 'SENDGRID_API_KEY') or not settings.SENDGRID_API_KEY:
+            if not hasattr(settings, 'SMTP_PASSWORD') or not settings.SMTP_PASSWORD:
                 return {
                     "status": "not_configured",
-                    "error": "SendGrid API key not configured",
+                    "error": "SMTP password not configured",
                     "last_check": datetime.utcnow().isoformat()
                 }
             
+            smtp_host = getattr(settings, 'SMTP_HOST', 'smtp.hostinger.com')
+            smtp_port = getattr(settings, 'SMTP_PORT', 465)
+            smtp_user = getattr(settings, 'SMTP_USER', 'info@mevzuatgpt.org')
+            
             start_time = time.time()
             
-            # Test SendGrid API with a simple request
+            # Test SMTP connection
             try:
-                async with aiohttp.ClientSession() as session:
-                    headers = {
-                        'Authorization': f'Bearer {settings.SENDGRID_API_KEY}',
-                        'Content-Type': 'application/json'
-                    }
-                    
-                    async with session.get(
-                        'https://api.sendgrid.com/v3/user/profile',
-                        headers=headers
-                    ) as response:
-                        api_response_time = round((time.time() - start_time) * 1000, 2)
-                        
-                        if response.status == 200:
-                            return {
-                                "status": "healthy",
-                                "api_response_time_ms": api_response_time,
-                                "provider": "sendgrid",
-                                "last_check": datetime.utcnow().isoformat()
-                            }
-                        else:
-                            return {
-                                "status": "error",
-                                "error": f"SendGrid API returned {response.status}",
-                                "last_check": datetime.utcnow().isoformat()
-                            }
+                import smtplib
+                
+                if smtp_port == 587:
+                    server = smtplib.SMTP(smtp_host, smtp_port, timeout=5)
+                    server.starttls()
+                else:
+                    server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=5)
+                
+                # Just check connection, don't login (to avoid rate limiting)
+                server.quit()
+                
+                connection_time = round((time.time() - start_time) * 1000, 2)
+                
+                return {
+                    "status": "healthy",
+                    "connection_time_ms": connection_time,
+                    "provider": "smtp",
+                    "host": smtp_host,
+                    "port": smtp_port,
+                    "user": smtp_user,
+                    "last_check": datetime.utcnow().isoformat()
+                }
             except Exception as e:
                 return {
                     "status": "error",
-                    "error": f"SendGrid API request failed: {str(e)}",
+                    "error": f"SMTP connection failed: {str(e)}",
                     "last_check": datetime.utcnow().isoformat()
                 }
                         

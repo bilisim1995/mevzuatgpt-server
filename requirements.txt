@@ -44,7 +44,6 @@ httpx>=0.28.1
 # External Services
 supabase>=2.18.0
 elasticsearch>=9.1.0
-sendgrid>=6.12.4
 
 # Utilities
 python-dotenv>=1.0.0
