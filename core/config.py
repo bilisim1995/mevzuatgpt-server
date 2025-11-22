@@ -99,7 +99,8 @@ class Settings(BaseSettings):
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": True,
-        "env_ignore_empty": False
+        "env_ignore_empty": False,
+        "extra": "ignore"  # Ignore extra fields in .env file (e.g., deprecated SENDGRID_API_KEY)
     }
 
     @field_validator("ALLOWED_FILE_TYPES")
