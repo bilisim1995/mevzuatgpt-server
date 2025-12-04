@@ -25,6 +25,10 @@ pyjwt>=2.10.1
 python-multipart>=0.0.6
 pypdf2>=3.0.1
 pdfplumber>=0.11.7
+# OCR support (optional - for image-based PDFs)
+pytesseract>=0.3.10
+pdf2image>=1.16.3
+Pillow>=10.0.0
 
 # AI & ML
 openai>=1.99.1

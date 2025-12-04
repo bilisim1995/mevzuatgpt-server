@@ -1,6 +1,7 @@
 """
 PDF Source Parser - Enhanced PDF parsing with source tracking
 Extracts text with page numbers, line ranges, and source metadata
+Supports OCR fallback for image-based PDFs
 """
 
 import logging
@@ -10,6 +11,15 @@ import pdfplumber
 from io import BytesIO
 
 logger = logging.getLogger(__name__)
+
+# Try to import OCR dependencies (optional)
+try:
+    import pytesseract
+    from pdf2image import convert_from_bytes
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+    logger.warning("OCR dependencies (pytesseract, pdf2image) not available. OCR fallback disabled.")
 
 
 class PDFSourceParser:
@@ -77,6 +87,9 @@ class PDFSourceParser:
         
         try:
             with pdfplumber.open(BytesIO(pdf_content)) as pdf:
+                total_pages = len(pdf.pages)
+                pages_with_text = 0
+                
                 for page_num, page in enumerate(pdf.pages, 1):
                     try:
                         # Extract text from page
@@ -98,6 +111,7 @@ class PDFSourceParser:
                             }
                             
                             pages_data.append(page_data)
+                            pages_with_text += 1
                             
                         else:
                             logger.warning(f"Empty text on page {page_num}")
@@ -105,6 +119,16 @@ class PDFSourceParser:
                     except Exception as e:
                         logger.error(f"Error processing page {page_num}: {e}")
                         continue
+                
+                # If no text extracted from any page, try OCR fallback
+                if pages_with_text == 0 and OCR_AVAILABLE:
+                    logger.info(f"No text extracted from PDF. Attempting OCR fallback for {total_pages} pages...")
+                    ocr_pages_data = self._extract_with_ocr(pdf_content, total_pages)
+                    if ocr_pages_data:
+                        logger.info(f"OCR successfully extracted text from {len(ocr_pages_data)} pages")
+                        return ocr_pages_data
+                    else:
+                        logger.warning("OCR fallback also failed to extract text")
             
             return pages_data
             
@@ -281,6 +305,73 @@ class PDFSourceParser:
                 end_line = line_pos["line_number"]
         
         return {"start": start_line, "end": max(start_line, end_line)}
+    
+    def _extract_with_ocr(self, pdf_content: bytes, total_pages: int) -> List[Dict[str, Any]]:
+        """
+        Extract text from PDF using OCR (fallback for image-based PDFs)
+        
+        Args:
+            pdf_content: PDF file content as bytes
+            total_pages: Total number of pages in PDF
+            
+        Returns:
+            List of page data dictionaries with extracted text
+        """
+        if not OCR_AVAILABLE:
+            logger.warning("OCR not available. Install pytesseract and pdf2image to enable OCR fallback.")
+            return []
+        
+        pages_data = []
+        
+        try:
+            logger.info("Converting PDF pages to images for OCR...")
+            # Convert PDF pages to images
+            images = convert_from_bytes(pdf_content, dpi=300)
+            
+            if len(images) != total_pages:
+                logger.warning(f"Page count mismatch: expected {total_pages}, got {len(images)} images")
+            
+            for page_num, image in enumerate(images, 1):
+                try:
+                    logger.info(f"Running OCR on page {page_num}/{len(images)}...")
+                    # Extract text using Tesseract OCR with Turkish language
+                    # Try Turkish first, fallback to English if Turkish not available
+                    try:
+                        page_text = pytesseract.image_to_string(image, lang='tur+eng')
+                    except Exception as lang_error:
+                        logger.warning(f"Turkish OCR failed, trying English: {lang_error}")
+                        page_text = pytesseract.image_to_string(image, lang='eng')
+                    
+                    if page_text and page_text.strip():
+                        # Clean and process OCR text
+                        cleaned_text = self._clean_text(page_text)
+                        
+                        # Split into lines for line tracking
+                        lines = cleaned_text.split('\n')
+                        
+                        page_data = {
+                            "page_number": page_num,
+                            "text": cleaned_text,
+                            "lines": lines,
+                            "line_count": len(lines),
+                            "char_count": len(cleaned_text),
+                            "extraction_method": "ocr"
+                        }
+                        
+                        pages_data.append(page_data)
+                        logger.info(f"OCR extracted {len(cleaned_text)} characters from page {page_num}")
+                    else:
+                        logger.warning(f"OCR found no text on page {page_num}")
+                        
+                except Exception as page_error:
+                    logger.error(f"OCR error on page {page_num}: {page_error}")
+                    continue
+            
+            return pages_data
+            
+        except Exception as e:
+            logger.error(f"OCR extraction failed: {e}")
+            return []
     
     def _detect_legal_terms(self, text: str) -> bool:
         """Detect if chunk contains legal terminology"""

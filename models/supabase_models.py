@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS public.mevzuat_documents (
     upload_date TIMESTAMPTZ DEFAULT NOW(),
     uploaded_by UUID REFERENCES auth.users(id),
     status TEXT DEFAULT 'processing' CHECK (status IN ('processing', 'completed', 'failed')),
+    processing_status TEXT DEFAULT 'pending' CHECK (processing_status IN ('pending', 'processing', 'completed', 'failed')),
+    processing_error TEXT,
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
