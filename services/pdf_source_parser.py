@@ -10,16 +10,40 @@ from typing import Dict, List, Any, Optional, Tuple
 import pdfplumber
 from io import BytesIO
 
+# numpy for RapidOCR image conversion
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Try to import OCR dependencies (optional)
+# Primary: RapidOCR (faster)
+# Fallback: Tesseract (pytesseract)
+RAPIDOCR_AVAILABLE = False
+TESSERACT_AVAILABLE = False
+OCR_AVAILABLE = False
+
+try:
+    from rapidocr_onnxruntime import RapidOCR
+    RAPIDOCR_AVAILABLE = True
+    OCR_AVAILABLE = True
+    logger.info("RapidOCR available - will be used as primary OCR engine")
+except ImportError:
+    logger.warning("RapidOCR not available. Will try Tesseract as fallback.")
+
 try:
     import pytesseract
     from pdf2image import convert_from_bytes
-    OCR_AVAILABLE = True
+    TESSERACT_AVAILABLE = True
+    if not OCR_AVAILABLE:
+        OCR_AVAILABLE = True
+        logger.info("Tesseract available - will be used as OCR engine")
 except ImportError:
-    OCR_AVAILABLE = False
-    logger.warning("OCR dependencies (pytesseract, pdf2image) not available. OCR fallback disabled.")
+    if not OCR_AVAILABLE:
+        logger.warning("OCR dependencies (rapidocr, pytesseract, pdf2image) not available. OCR fallback disabled.")
 
 
 class PDFSourceParser:
@@ -31,6 +55,15 @@ class PDFSourceParser:
     def __init__(self):
         self.chunk_size = 500  # Characters per chunk
         self.overlap_size = 50  # Overlap between chunks
+        # Initialize RapidOCR if available
+        self.rapidocr_engine = None
+        if RAPIDOCR_AVAILABLE:
+            try:
+                self.rapidocr_engine = RapidOCR()
+                logger.info("RapidOCR engine initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize RapidOCR: {e}")
+                self.rapidocr_engine = None
     
     def parse_pdf_with_sources(self, pdf_content: bytes, filename: str) -> Dict[str, Any]:
         """
@@ -309,6 +342,7 @@ class PDFSourceParser:
     def _extract_with_ocr(self, pdf_content: bytes, total_pages: int) -> List[Dict[str, Any]]:
         """
         Extract text from PDF using OCR (fallback for image-based PDFs)
+        Uses RapidOCR as primary engine (faster), falls back to Tesseract if needed
         
         Args:
             pdf_content: PDF file content as bytes
@@ -318,15 +352,17 @@ class PDFSourceParser:
             List of page data dictionaries with extracted text
         """
         if not OCR_AVAILABLE:
-            logger.warning("OCR not available. Install pytesseract and pdf2image to enable OCR fallback.")
+            logger.warning("OCR not available. Install rapidocr-onnxruntime or pytesseract to enable OCR fallback.")
             return []
         
         pages_data = []
         
         try:
             logger.info("Converting PDF pages to images for OCR...")
-            # Convert PDF pages to images
-            images = convert_from_bytes(pdf_content, dpi=300)
+            # Convert PDF pages to images (lower DPI for faster processing with RapidOCR)
+            # RapidOCR is more efficient, so we can use lower DPI
+            dpi = 200 if RAPIDOCR_AVAILABLE else 300
+            images = convert_from_bytes(pdf_content, dpi=dpi)
             
             if len(images) != total_pages:
                 logger.warning(f"Page count mismatch: expected {total_pages}, got {len(images)} images")
@@ -334,13 +370,43 @@ class PDFSourceParser:
             for page_num, image in enumerate(images, 1):
                 try:
                     logger.info(f"Running OCR on page {page_num}/{len(images)}...")
-                    # Extract text using Tesseract OCR with Turkish language
-                    # Try Turkish first, fallback to English if Turkish not available
-                    try:
-                        page_text = pytesseract.image_to_string(image, lang='tur+eng')
-                    except Exception as lang_error:
-                        logger.warning(f"Turkish OCR failed, trying English: {lang_error}")
-                        page_text = pytesseract.image_to_string(image, lang='eng')
+                    page_text = None
+                    ocr_method = None
+                    
+                    # Try RapidOCR first (faster)
+                    if self.rapidocr_engine is not None and NUMPY_AVAILABLE:
+                        try:
+                            # Convert PIL image to numpy array for RapidOCR
+                            img_array = np.array(image)
+                            result, _ = self.rapidocr_engine(img_array)
+                            
+                            # RapidOCR returns list of [bbox, text, confidence]
+                            # Extract text from results
+                            if result:
+                                page_text = '\n'.join([item[1] for item in result if item[1]])
+                                ocr_method = "rapidocr"
+                                logger.debug(f"RapidOCR extracted text from page {page_num}")
+                            else:
+                                logger.warning(f"RapidOCR found no text on page {page_num}")
+                        except Exception as rapid_error:
+                            logger.warning(f"RapidOCR failed on page {page_num}: {rapid_error}. Trying Tesseract...")
+                            page_text = None
+                    
+                    # Fallback to Tesseract if RapidOCR failed or not available
+                    if not page_text and TESSERACT_AVAILABLE:
+                        try:
+                            # Extract text using Tesseract OCR with Turkish language
+                            # Try Turkish first, fallback to English if Turkish not available
+                            try:
+                                page_text = pytesseract.image_to_string(image, lang='tur+eng')
+                                ocr_method = "tesseract"
+                            except Exception as lang_error:
+                                logger.warning(f"Turkish OCR failed, trying English: {lang_error}")
+                                page_text = pytesseract.image_to_string(image, lang='eng')
+                                ocr_method = "tesseract"
+                        except Exception as tesseract_error:
+                            logger.error(f"Tesseract OCR error on page {page_num}: {tesseract_error}")
+                            page_text = None
                     
                     if page_text and page_text.strip():
                         # Clean and process OCR text
@@ -355,11 +421,11 @@ class PDFSourceParser:
                             "lines": lines,
                             "line_count": len(lines),
                             "char_count": len(cleaned_text),
-                            "extraction_method": "ocr"
+                            "extraction_method": f"ocr_{ocr_method}" if ocr_method else "ocr"
                         }
                         
                         pages_data.append(page_data)
-                        logger.info(f"OCR extracted {len(cleaned_text)} characters from page {page_num}")
+                        logger.info(f"{ocr_method.upper() if ocr_method else 'OCR'} extracted {len(cleaned_text)} characters from page {page_num}")
                     else:
                         logger.warning(f"OCR found no text on page {page_num}")
                         
