@@ -60,6 +60,44 @@ class SupabaseClient:
         except Exception as e:
             print(f"Get document error: {e}")
             return None
+
+    async def create_yargitay_document(self, doc_data: dict) -> str:
+        """Create a new Yargitay document record"""
+        try:
+            insert_data = {
+                "kurum_id": doc_data.get("kurum_id"),
+                "category": doc_data.get("category"),
+                "institution": doc_data.get("institution"),
+                "belge_adi": doc_data.get("belge_adi"),
+                "daire": doc_data.get("daire"),
+                "esas_no": doc_data.get("esas_no"),
+                "karar_no": doc_data.get("karar_no"),
+                "karar_tarihi": doc_data.get("karar_tarihi"),
+                "etiketler": doc_data.get("etiketler"),
+                "icerik_html": doc_data.get("icerik_html"),
+                "icerik_text": doc_data.get("icerik_text"),
+                "pdf_url": doc_data.get("pdf_url"),
+                "url_slug": doc_data.get("url_slug"),
+                "status": doc_data.get("status", "aktif"),
+                "sayfa_sayisi": doc_data.get("sayfa_sayisi"),
+                "dosya_boyutu_mb": doc_data.get("dosya_boyutu_mb"),
+                "belge_durumu": doc_data.get("belge_durumu", "Yürürlükte")
+            }
+
+            response = self.supabase.table('yargitay_documents').insert(insert_data).execute()
+            return response.data[0]['id']
+        except Exception as e:
+            print(f"Yargitay document creation error: {e}")
+            raise
+
+    async def get_yargitay_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
+        """Get Yargitay document by ID"""
+        try:
+            response = self.supabase.table('yargitay_documents').select('*').eq('id', doc_id).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Get Yargitay document error: {e}")
+            return None
     
     async def update_document_status(self, doc_id: str, status: str, error: Optional[str] = None):
         """Update document processing status"""

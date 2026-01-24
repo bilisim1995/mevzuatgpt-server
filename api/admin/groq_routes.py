@@ -31,11 +31,7 @@ class GroqSettingsResponse(BaseModel):
     creativity_mode: str
     response_style: str
     
-    class Config:
-        # Ensure all fields are included in response
-        fields = {
-            "default_model": {"description": "Currently selected default model"}
-        }
+
 
 class GroqSettingsUpdate(BaseModel):
     """Request model for updating Groq settings"""

@@ -56,6 +56,19 @@ async def lifespan(app: FastAPI):
         logger.info("✅ Redis connection pool initialized")
     except Exception as e:
         logger.error(f"⚠️ Redis pool initialization failed: {str(e)}")
+
+    # Celery broker/worker health check (best-effort)
+    try:
+        from tasks.celery_app import celery_app
+        logger.info(f"ℹ️ Celery broker: {celery_app.conf.broker_url}")
+        inspect = celery_app.control.inspect(timeout=1.0)
+        ping_result = inspect.ping()
+        if ping_result:
+            logger.info(f"✅ Celery worker OK: {list(ping_result.keys())}")
+        else:
+            logger.warning("⚠️ Celery worker not responding")
+    except Exception as e:
+        logger.warning(f"⚠️ Celery health check failed: {str(e)}")
     
     # Task recovery disabled to avoid Redis connection limits on startup
     # Recovery can be triggered manually via admin endpoint if needed

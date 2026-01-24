@@ -4,7 +4,7 @@ Search history schemas for request/response models
 
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, ConfigDict
 
 
 class SearchHistoryItem(BaseModel):
@@ -26,10 +26,9 @@ class SearchHistoryItem(BaseModel):
             return datetime.fromisoformat(v.replace('Z', '+00:00'))
         return v
     
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+    model_config = ConfigDict(json_encoders={
+        datetime: lambda v: v.isoformat()
+    })
 
 
 class SearchHistoryResponse(BaseModel):

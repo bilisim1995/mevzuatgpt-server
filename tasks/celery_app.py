@@ -4,6 +4,7 @@ Sets up distributed task queue for background processing
 """
 
 from celery import Celery
+from kombu import Queue
 import logging
 from core.config import settings
 
@@ -16,7 +17,8 @@ celery_app = Celery(
     broker=settings.CELERY_BROKER_URL,
     backend=None,  # Disabled to reduce Redis connections
     include=[
-        "tasks.document_processor"
+        "tasks.document_processor",
+        "tasks.yargitay_document_processor"
     ]
 )
 
@@ -51,20 +53,33 @@ celery_app.conf.update(
     # CRITICAL: Redis connection pool optimization for Free Plan (30 max)
     broker_pool_limit=3,  # Max 3 broker connections per worker
     broker_transport_options={
-        'max_connections': 3,
+        "max_connections": 3,
+        "visibility_timeout": 3600,
+        "socket_connect_timeout": 10,
+        "socket_timeout": 30,
+        "health_check_interval": 30
     },
+    # Connection loss behavior
+    worker_cancel_long_running_tasks_on_connection_loss=True,
     
     # Task routing
     task_routes={
         "tasks.document_processor.process_document_task": {"queue": "celery"},
         "tasks.document_processor.bulk_process_documents_task": {"queue": "celery"},
         "tasks.document_processor.cleanup_failed_documents": {"queue": "celery"},
+        "process_yargitay_document_task": {"queue": "yargitay"},
     },
     
     # Task retry settings
     task_default_retry_delay=60,  # 1 minute
     task_max_retries=3,
     
+    # Queues
+    task_queues=(
+        Queue("celery"),
+        Queue("yargitay"),
+    ),
+
     # Beat scheduler settings (for periodic tasks)
     beat_schedule={
         "cleanup-failed-documents": {

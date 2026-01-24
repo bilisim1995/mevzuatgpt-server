@@ -48,7 +48,15 @@ class Settings(BaseSettings):
     # Elasticsearch Vector Database (Primary)
     ELASTICSEARCH_URL: str = "https://elastic.mevzuatgpt.org"
     ELASTICSEARCH_INDEX: str = "mevzuat_embeddings"
+    ELASTICSEARCH_YARGITAY_INDEX: str = "yargitay_embeddings"
     ELASTICSEARCH_TIMEOUT: int = 30
+
+    # MongoDB (Yargitay metadata)
+    MONGODB_CONNECTION_STRING: str
+    MONGODB_DATABASE: str
+    MONGODB_METADATA_COLLECTION: str
+    MONGODB_CONTENT_COLLECTION: str
+    MONGODB_YARGI_COLLECTION: str
 
     # Bunny.net Storage
     BUNNY_STORAGE_API_KEY: str = "your-bunny-api-key"

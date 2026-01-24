@@ -26,6 +26,8 @@ from models.supabase_client import supabase_client
 from services.storage_service import StorageService
 from services.redis_service import RedisService
 from tasks.document_processor import process_document_task
+from tasks.yargitay_document_processor import process_yargitay_document_task
+from services.yargitay_mongo_service import yargitay_mongo_service
 from utils.response import success_response, error_response
 from utils.exceptions import AppException
 
@@ -831,6 +833,8 @@ async def list_documents(
     category: Optional[str] = Query(None, description="Filter by category"),
     status: Optional[str] = Query(None, description="Filter by processing status"),
     search: Optional[str] = Query(None, description="Search in title or filename"),
+    esasNo: Optional[str] = Query(None, description="Filter by esasNo (metadata)"),
+    kararNo: Optional[str] = Query(None, description="Filter by kararNo (metadata)"),
     current_user: UserResponse = Depends(get_admin_user)
 ):
     """
@@ -843,6 +847,21 @@ async def list_documents(
     - File sizes and creation dates
     """
     try:
+        if esasNo and kararNo:
+            response = supabase_client.supabase.table('yargitay_documents').select(
+                'id, esas_no, karar_no'
+            ).eq('esas_no', esasNo).eq('karar_no', kararNo).execute()
+
+            data = []
+            for doc in response.data or []:
+                data.append({
+                    "id": doc.get("id"),
+                    "esasNo": doc.get("esas_no"),
+                    "kararNo": doc.get("karar_no")
+                })
+
+            return {"data": data}
+
         logger.info(f"Admin listing documents - page: {page}, limit: {limit}, filters: category={category}, status={status}")
         
         # Build query
@@ -4607,6 +4626,136 @@ async def bulk_upload_documents(
             detail=str(e),
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code="BULK_UPLOAD_FAILED"
+        )
+
+
+@router.post("/documents/bulk-upload-yargitay")
+async def bulk_upload_yargitay(
+    kurum_id: str = Form(...),
+    category: str = Form(...),
+    institution: str = Form(...),
+    belge_adi: str = Form(...),
+    daire: str = Form(...),
+    esasNo: str = Form(...),
+    kararNo: str = Form(...),
+    kararTarihi: str = Form(...),
+    etiketler: str = Form(...),
+    icerik: str = Form(...),
+    icerik_text: str = Form(...),
+    sayfa_sayisi: int = Form(...),
+    dosya_boyutu_mb: float = Form(...),
+    pdf_url: str = Form(...),
+    url_slug: str = Form(...),
+    mode: str = Form(...),
+    current_user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Yargitay bulk upload with HTML content (Admin only)
+    """
+    try:
+        if not icerik:
+            raise AppException(
+                message="icerik alanı boş olamaz",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="YARGITAY_EMPTY_CONTENT"
+            )
+
+        karar_tarihi = None
+        try:
+            karar_tarihi = datetime.strptime(kararTarihi, "%d.%m.%Y").date().isoformat()
+        except ValueError:
+            try:
+                karar_tarihi = datetime.strptime(kararTarihi, "%Y-%m-%d").date().isoformat()
+            except ValueError as e:
+                raise AppException(
+                    message="kararTarihi formatı geçersiz",
+                    detail=str(e),
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    error_code="YARGITAY_INVALID_DATE"
+                )
+
+        mongo_id = None
+        if mode in ["t", "p"]:
+            mongo_payload = {
+                "pdf_adi": belge_adi,
+                "kurum_id": kurum_id,
+                "belge_turu": category,
+                "belge_durumu": "Yürürlükte",
+                "url_slug": url_slug,
+                "status": "aktif",
+                "sayfa_sayisi": sayfa_sayisi,
+                "dosya_boyutu_mb": dosya_boyutu_mb,
+                "olusturulma_tarihi": datetime.utcnow(),
+                "pdf_url": pdf_url,
+                "daire": daire,
+                "esasNo": esasNo,
+                "kararNo": kararNo,
+                "kararTarihi": kararTarihi,
+                "etiketler": etiketler,
+            "icerik": icerik,
+            "icerik_text": icerik_text
+            }
+
+            logger.info("\033[94m[YARGITAY] MongoDB kayıt başladı\033[0m")
+            mongo_id = await yargitay_mongo_service.insert_metadata(mongo_payload)
+            logger.info(f"\033[92m[YARGITAY] MongoDB kayıt bitti - mongo_id={mongo_id}\033[0m")
+        else:
+            logger.info("\033[93m[YARGITAY] MongoDB kayıt atlandı (mode=m)\033[0m")
+
+        document_id = None
+        celery_task = None
+        if mode in ["t", "m"]:
+            supabase_payload = {
+                "kurum_id": kurum_id,
+                "category": category,
+                "institution": institution,
+                "belge_adi": belge_adi,
+                "daire": daire,
+                "esas_no": esasNo,
+                "karar_no": kararNo,
+                "karar_tarihi": karar_tarihi,
+                "etiketler": etiketler,
+                "icerik_html": icerik,
+                "icerik_text": icerik_text,
+                "pdf_url": pdf_url,
+                "url_slug": url_slug,
+                "status": "aktif",
+                "sayfa_sayisi": sayfa_sayisi,
+                "dosya_boyutu_mb": dosya_boyutu_mb,
+                "belge_durumu": "Yürürlükte"
+            }
+
+            logger.info(
+                f"\033[94m[YARGITAY] Supabase kayıt başladı - sayfa_sayisi={supabase_payload.get('sayfa_sayisi')}, "
+                f"dosya_boyutu_mb={supabase_payload.get('dosya_boyutu_mb')}\033[0m"
+            )
+            document_id = await supabase_client.create_yargitay_document(supabase_payload)
+            logger.info("\033[92m[YARGITAY] Supabase kayıt bitti\033[0m")
+
+            logger.info(f"\033[94m[YARGITAY] Celery enqueue başladı - document_id={document_id}\033[0m")
+            celery_task = process_yargitay_document_task.delay(str(document_id))
+            logger.info(f"\033[92m[YARGITAY] Celery enqueue bitti - task_id={celery_task.id}\033[0m")
+        else:
+            logger.info("\033[93m[YARGITAY] Supabase/Celery atlandı (mode=p)\033[0m")
+
+        return success_response(
+            data={
+                "document_id": str(document_id) if document_id else None,
+                "task_id": celery_task.id if celery_task else None,
+                "mongo_id": mongo_id
+            },
+            message="Yargitay bulk upload queued"
+        )
+
+    except AppException:
+        raise
+    except Exception as e:
+        logger.error(f"Yargitay bulk upload failed: {str(e)}")
+        raise AppException(
+            message="Yargitay bulk upload failed",
+            detail=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_code="YARGITAY_BULK_UPLOAD_FAILED"
         )
 
 @router.get("/documents/bulk-upload/batch/{batch_id}/progress")

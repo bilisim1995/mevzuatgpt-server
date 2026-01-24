@@ -9,14 +9,16 @@ import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+from core.config import settings
+
 logger = logging.getLogger(__name__)
 
 class ElasticsearchService:
     """Simple HTTP-based Elasticsearch client to avoid version compatibility issues"""
     
-    def __init__(self):
-        self.elasticsearch_url = "https://elastic.mevzuatgpt.org"
-        self.index_name = "mevzuat_embeddings"
+    def __init__(self, index_name: Optional[str] = None):
+        self.elasticsearch_url = settings.ELASTICSEARCH_URL
+        self.index_name = index_name or settings.ELASTICSEARCH_INDEX
         self.session = None
         
         logger.info(f"Simple Elasticsearch service initialized: {self.elasticsearch_url}")

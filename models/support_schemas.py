@@ -5,7 +5,7 @@ Destek ticket sistemi için veri modelleri ve validasyonlar
 
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, ConfigDict
 from enum import Enum
 
 
@@ -82,8 +82,7 @@ class TicketCreateRequest(BaseModel):
             raise ValueError('Mesaj en az 10 karakter olmalıdır')
         return v.strip()
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class MessageCreateRequest(BaseModel):
@@ -101,8 +100,7 @@ class TicketStatusUpdate(BaseModel):
     """Ticket durum güncelleme (Admin için)"""
     status: TicketStatus = Field(..., description="Yeni ticket durumu")
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class SupportMessage(BaseModel):
@@ -118,8 +116,7 @@ class SupportMessage(BaseModel):
     sender_email: Optional[str] = None
     is_admin: Optional[bool] = False
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SupportTicket(BaseModel):
@@ -142,9 +139,7 @@ class SupportTicket(BaseModel):
     message_count: Optional[int] = 0
     last_reply_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
-        use_enum_values = True
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
 
 class SupportTicketDetail(SupportTicket):
@@ -195,8 +190,7 @@ class TicketFilterParams(BaseModel):
     user_id: Optional[str] = None
     search: Optional[str] = None  # Konu veya mesajlarda arama
     
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 # Error responses

@@ -2,19 +2,18 @@
 Password Reset Schemas for MevzuatGPT
 """
 
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, validator, ConfigDict
 from typing import Optional
 
 class PasswordResetRequestSchema(BaseModel):
     """Schema for password reset request"""
     email: EmailStr
     
-    class Config:
-        schema_extra = {
-            "example": {
-                "email": "user@example.com"
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "email": "user@example.com"
         }
+    })
 
 class PasswordResetConfirmSchema(BaseModel):
     """Schema for password reset confirmation"""
@@ -40,23 +39,21 @@ class PasswordResetConfirmSchema(BaseModel):
         
         return v
     
-    class Config:
-        schema_extra = {
-            "example": {
-                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                "new_password": "NewPassword123!"
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "new_password": "NewPassword123!"
         }
+    })
 
 class PasswordResetResponseSchema(BaseModel):
     """Schema for password reset response"""
     success: bool
     message: str
     
-    class Config:
-        schema_extra = {
-            "example": {
-                "success": True,
-                "message": "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi"
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "success": True,
+            "message": "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi"
         }
+    })

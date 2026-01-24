@@ -3,7 +3,7 @@ Pydantic models for request/response validation
 Data transfer objects with type validation and serialization
 """
 
-from pydantic import BaseModel, Field, EmailStr, validator
+from pydantic import BaseModel, Field, EmailStr, validator, ConfigDict
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, date
 from uuid import UUID
@@ -91,8 +91,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Token Models
 class TokenResponse(BaseModel):
@@ -142,8 +141,7 @@ class DocumentResponse(DocumentBase):
     uploaded_at: datetime
     updated_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class DocumentListResponse(BaseModel):
     """Document list response with pagination"""
@@ -289,8 +287,7 @@ class EmbeddingResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Response Models
 class ApiResponse(BaseModel):
@@ -363,8 +360,7 @@ class AdminUserResponse(BaseModel):
     is_banned: Optional[bool] = None
     banned_until: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class AdminUserListResponse(BaseModel):
     """Admin user list response with pagination"""

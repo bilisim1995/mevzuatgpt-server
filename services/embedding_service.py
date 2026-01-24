@@ -156,7 +156,9 @@ class EmbeddingService:
     async def store_embeddings(
         self, 
         document_id: str, 
-        chunks: List[Dict[str, Any]]
+        chunks: List[Dict[str, Any]],
+        index_name: Optional[str] = None,
+        include_positions: bool = True
     ) -> List[str]:
         """
         Store embeddings in Elasticsearch with ultra optimization
@@ -173,7 +175,7 @@ class EmbeddingService:
         """
         try:
             # Use context manager to ensure session cleanup
-            async with ElasticsearchService() as es_service:
+            async with ElasticsearchService(index_name=index_name) as es_service:
                 # Delete existing embeddings for this document
                 await es_service.delete_document_embeddings(document_id)
                 
@@ -203,13 +205,16 @@ class EmbeddingService:
                         "content": chunk["content"],
                         "embedding": embedding_vector,
                         "chunk_index": i,
-                        "page_number": chunk.get("page_number"),
-                        "line_start": chunk.get("line_start"),
-                        "line_end": chunk.get("line_end"),
                         "source_institution": chunk.get("source_institution"),
                         "source_document": chunk.get("source_document"),
                         "metadata": chunk.get("metadata", {})
                     }
+                    if chunk.get("belge_adi"):
+                        embedding_data["belge_adi"] = chunk.get("belge_adi")
+                    if include_positions:
+                        embedding_data["page_number"] = chunk.get("page_number")
+                        embedding_data["line_start"] = chunk.get("line_start")
+                        embedding_data["line_end"] = chunk.get("line_end")
                     embeddings_data.append(embedding_data)
                 
                 # Bulk insert to Elasticsearch

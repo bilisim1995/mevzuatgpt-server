@@ -46,6 +46,9 @@ redis>=5.0.1
 aiohttp>=3.9.0
 httpx>=0.28.1
 
+# MongoDB
+motor>=3.3.2
+
 # External Services
 supabase>=2.18.0
 elasticsearch>=9.1.0
