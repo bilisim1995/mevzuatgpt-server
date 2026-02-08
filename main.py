@@ -267,18 +267,6 @@ app.include_router(admin_groq_router, prefix="/api/admin", tags=["Admin-Groq"]) 
 app.include_router(public_router, prefix="/api", tags=["Public"])                                  # Public endpoints
 app.include_router(payment_router, prefix="/api/payment", tags=["Payment"])                        # İyzico payment endpoints
 
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    logger.info("MevzuatGPT API starting up...")
-    logger.info(f"Environment: {settings.ENVIRONMENT}")
-    logger.info(f"Debug mode: {settings.DEBUG}")
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("MevzuatGPT API shutting down...")
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

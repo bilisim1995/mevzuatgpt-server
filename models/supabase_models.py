@@ -133,6 +133,44 @@ CREATE POLICY "Admins can view all search logs" ON public.search_logs
         )
     );
 
+-- Conversation messages for chat history
+CREATE TABLE IF NOT EXISTS public.conversation_messages (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    conversation_id UUID NOT NULL,
+    user_id UUID REFERENCES auth.users(id) NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+    search_log_id UUID REFERENCES public.search_logs(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for conversation messages
+CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation_id
+    ON public.conversation_messages(conversation_id);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_messages_user_id
+    ON public.conversation_messages(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_messages_created_at
+    ON public.conversation_messages(created_at);
+
+-- Enable RLS
+ALTER TABLE public.conversation_messages ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for conversation messages
+CREATE POLICY "Users can view own conversation messages" ON public.conversation_messages
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own conversation messages" ON public.conversation_messages
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Admins can view all conversation messages" ON public.conversation_messages
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.user_profiles 
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
 -- Vector search function
 CREATE OR REPLACE FUNCTION search_embeddings(
     query_embedding vector(1536),

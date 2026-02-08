@@ -190,6 +190,7 @@ class SearchResponse(BaseModel):
 class AskRequest(BaseModel):
     """Ask endpoint request model"""
     query: str = Field(..., min_length=3, max_length=1000, description="User's question")
+    conversation_id: Optional[UUID] = Field(None, description="Conversation ID")
     institution_filter: Optional[str] = Field(None, description="Filter by institution name")
     limit: int = Field(10, ge=1, le=50, description="Maximum number of search results")
     similarity_threshold: float = Field(0.5, ge=0.3, le=1.0, description="Minimum similarity score")
@@ -246,12 +247,46 @@ class AskResponse(BaseModel):
     query: str
     answer: str
     search_log_id: str
+    conversation_id: Optional[str] = None
     confidence_score: float = Field(..., ge=0.0, le=1.0)
     confidence_breakdown: Optional[ConfidenceBreakdown] = None
     sources: List[SourceItem]
     institution_filter: Optional[str]
     search_stats: AskSearchStats
     llm_stats: LLMStats
+
+class ConversationMessageItem(BaseModel):
+    """Single conversation message"""
+    id: str
+    conversation_id: str
+    user_id: str
+    role: str
+    query: Optional[str] = None
+    response: Optional[str] = None
+    search_log_id: Optional[str] = None
+    credits_used: Optional[int] = None
+    reliability_score: Optional[float] = None
+    sources: Optional[List[Dict[str, Any]]] = None
+    feedback_type: Optional[str] = None
+    created_at: datetime
+
+class ConversationMessagesResponse(BaseModel):
+    """Conversation messages response"""
+    conversation_id: str
+    messages: List[ConversationMessageItem]
+    total_count: int
+
+class ConversationSummaryItem(BaseModel):
+    """Conversation summary for listing"""
+    conversation_id: str
+    title: str
+    created_at: datetime
+    message_count: int
+
+class ConversationListResponse(BaseModel):
+    """Conversation list response"""
+    conversations: List[ConversationSummaryItem]
+    total_count: int
 
 class UserSuggestion(BaseModel):
     """User search suggestion"""

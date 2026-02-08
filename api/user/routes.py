@@ -4,6 +4,7 @@ Accessible by authenticated users with appropriate permissions
 """
 
 from fastapi import APIRouter, Depends, Query, HTTPException, status, File, UploadFile, Form
+from uuid import UUID
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
@@ -15,7 +16,7 @@ from models.supabase_client import supabase_client
 from models.schemas import (
     UserResponse, SearchRequest, SearchResponse, 
     DocumentResponse, DocumentListResponse,
-    AskRequest, AskResponse, SuggestionsResponse,
+    AskRequest, AskResponse, SuggestionsResponse, ConversationMessagesResponse, ConversationListResponse,
     TranscriptionResponse, VoiceQueryResponse
 )
 from models.search_history_schemas import SearchHistoryResponse, SearchHistoryFilters
@@ -460,6 +461,32 @@ async def ask_question(
                 "no_info_detected": is_no_info_response  # Debug bilgisi
             }
         
+        # Konuşma ID'yi response'a ekle
+        result["conversation_id"] = str(ask_request.conversation_id) if ask_request.conversation_id else None
+
+        # 8. Konuşma mesajlarını kaydet (best-effort)
+        conversation_id = ask_request.conversation_id
+        if conversation_id:
+            try:
+                search_log_id = result.get("search_log_id")
+                messages_payload = [
+                    {
+                        "conversation_id": str(conversation_id),
+                        "user_id": user_id,
+                        "role": "user",
+                        "search_log_id": search_log_id
+                    },
+                    {
+                        "conversation_id": str(conversation_id),
+                        "user_id": user_id,
+                        "role": "assistant",
+                        "search_log_id": search_log_id
+                    }
+                ]
+                supabase_client.supabase.table("conversation_messages").insert(messages_payload).execute()
+            except Exception as e:
+                logger.warning(f"Conversation messages insert failed for user {user_id}: {e}")
+        
         logger.info(f"Ask query processed for user {user_id}: '{ask_request.query[:50]}' - confidence: {result['confidence_score']}")
         
         return success_response(data=result)
@@ -556,6 +583,192 @@ async def get_user_suggestions(
             "popular_searches": [],
             "available_institutions": [],
             "suggestions": []
+        })
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationMessagesResponse)
+async def get_conversation_messages(
+    conversation_id: UUID,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get conversation messages by conversation_id
+    
+    Returns the ordered message list for the given conversation.
+    """
+    try:
+        query = supabase_client.supabase.table("conversation_messages").select(
+            "id, conversation_id, user_id, role, search_log_id, created_at"
+        ).eq("conversation_id", str(conversation_id))
+        
+        if current_user.role != "admin":
+            query = query.eq("user_id", str(current_user.id))
+        
+        result = query.order("created_at", desc=False).execute()
+        messages = result.data or []
+        
+        # Enrich with search_logs and feedback (best-effort)
+        search_log_ids = [m.get("search_log_id") for m in messages if m.get("search_log_id")]
+        search_log_map = {}
+        feedback_map = {}
+        
+        if search_log_ids:
+            try:
+                search_logs_result = supabase_client.supabase.table("search_logs").select(
+                    "id, query, response, credits_used, reliability_score, sources"
+                ).in_("id", search_log_ids).execute()
+                search_log_map = {row["id"]: row for row in (search_logs_result.data or [])}
+            except Exception as e:
+                logger.warning(f"Search logs lookup failed for conversation {conversation_id}: {e}")
+            
+            try:
+                feedback_result = supabase_client.supabase.table("user_feedback").select(
+                    "search_log_id, feedback_type"
+                ).in_("search_log_id", search_log_ids).execute()
+                feedback_map = {row["search_log_id"]: row.get("feedback_type") for row in (feedback_result.data or [])}
+            except Exception as e:
+                logger.warning(f"Feedback lookup failed for conversation {conversation_id}: {e}")
+        
+        for message in messages:
+            log_id = message.get("search_log_id")
+            if log_id and log_id in search_log_map:
+                log_row = search_log_map[log_id]
+                if message.get("role") == "assistant":
+                    message["query"] = None
+                    message["response"] = log_row.get("response") or ""
+                else:
+                    message["query"] = log_row.get("query") or ""
+                    message["response"] = None
+                message["credits_used"] = log_row.get("credits_used")
+                message["reliability_score"] = log_row.get("reliability_score")
+                message["sources"] = log_row.get("sources")
+            else:
+                message["query"] = None
+                message["response"] = None
+                message["credits_used"] = None
+                message["reliability_score"] = None
+                message["sources"] = None
+            
+            message["feedback_type"] = feedback_map.get(log_id) if log_id else None
+        
+        return success_response(data={
+            "conversation_id": str(conversation_id),
+            "messages": messages,
+            "total_count": len(messages)
+        })
+        
+    except Exception as e:
+        logger.warning(f"Failed to get conversation messages for {conversation_id}: {e}")
+        return success_response(data={
+            "conversation_id": str(conversation_id),
+            "messages": [],
+            "total_count": 0
+        })
+
+
+@router.get("/conversations", response_model=ConversationListResponse)
+async def get_user_conversations(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    List user's conversations with title (first question).
+    """
+    try:
+        query = supabase_client.supabase.table("conversation_messages").select(
+            "conversation_id, search_log_id, role, created_at"
+        ).eq("user_id", str(current_user.id))
+        
+        result = query.order("created_at", desc=False).execute()
+        rows = result.data or []
+        
+        first_user_message = {}
+        message_counts = {}
+        for row in rows:
+            conv_id = row.get("conversation_id")
+            if not conv_id:
+                continue
+            message_counts[conv_id] = message_counts.get(conv_id, 0) + 1
+            if conv_id in first_user_message:
+                continue
+            if row.get("role") == "user":
+                first_user_message[conv_id] = {
+                    "search_log_id": row.get("search_log_id"),
+                    "created_at": row.get("created_at")
+                }
+        
+        search_log_ids = [
+            item["search_log_id"]
+            for item in first_user_message.values()
+            if item.get("search_log_id")
+        ]
+        search_log_map = {}
+        
+        if search_log_ids:
+            try:
+                search_logs_result = supabase_client.supabase.table("search_logs").select(
+                    "id, query"
+                ).in_("id", search_log_ids).execute()
+                search_log_map = {row["id"]: row for row in (search_logs_result.data or [])}
+            except Exception as e:
+                logger.warning(f"Search logs lookup failed for conversation list: {e}")
+        
+        conversations = []
+        for conv_id, meta in first_user_message.items():
+            log_id = meta.get("search_log_id")
+            title = ""
+            if log_id and log_id in search_log_map:
+                title = search_log_map[log_id].get("query") or ""
+            conversations.append({
+                "conversation_id": str(conv_id),
+                "title": title,
+                "created_at": meta.get("created_at"),
+                "message_count": message_counts.get(conv_id, 0)
+            })
+        
+        return success_response(data={
+            "conversations": conversations,
+            "total_count": len(conversations)
+        })
+        
+    except Exception as e:
+        logger.warning(f"Failed to list conversations for user {current_user.id}: {e}")
+        return success_response(data={
+            "conversations": [],
+            "total_count": 0
+        })
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: UUID,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Delete conversation messages for a conversation_id.
+    
+    Only deletes from conversation_messages table.
+    """
+    try:
+        query = supabase_client.supabase.table("conversation_messages") \
+            .delete() \
+            .eq("conversation_id", str(conversation_id))
+        
+        if current_user.role != "admin":
+            query = query.eq("user_id", str(current_user.id))
+        
+        result = query.execute()
+        deleted_count = len(result.data) if result.data else 0
+        
+        return success_response(data={
+            "conversation_id": str(conversation_id),
+            "deleted_count": deleted_count
+        })
+        
+    except Exception as e:
+        logger.warning(f"Failed to delete conversation {conversation_id} for user {current_user.id}: {e}")
+        return success_response(data={
+            "conversation_id": str(conversation_id),
+            "deleted_count": 0
         })
 
 
