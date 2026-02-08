@@ -82,7 +82,8 @@ class GroqService:
         model: Optional[str] = None,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
-        response_style: Optional[str] = None
+        response_style: Optional[str] = None,
+        conversation_context: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Generate AI response using Groq with dynamic admin settings
@@ -165,14 +166,21 @@ YAPISAL ORGANİZASYON (bu başlıkları EMOJİ ile kullan):
             style_instruction = style_instructions.get(response_style_final, style_instructions["detailed"])
             
             # Construct user message with context
+            conversation_section = ""
+            if conversation_context and conversation_context.strip():
+                conversation_section = f"""ÖNCEKİ KONUŞMALAR (yalnızca bağlam için, bilgi kaynağı değildir):
+{conversation_context}
+
+"""
+
             if not context or context.strip() == "":
-                user_message = f"""BELGE İÇERİĞİ: [BOŞ]
+                user_message = f"""{conversation_section}BELGE İÇERİĞİ: [BOŞ]
 
 SORU: {query}
 
 {style_instruction}"""
             else:
-                user_message = f"""BELGE İÇERİĞİ:
+                user_message = f"""{conversation_section}BELGE İÇERİĞİ:
 {context}
 
 SORU: {query}

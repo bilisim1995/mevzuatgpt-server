@@ -370,7 +370,8 @@ async def ask_question(
             limit=ask_request.limit,
             similarity_threshold=ask_request.similarity_threshold,
             use_cache=ask_request.use_cache,
-            intent=query_intent
+            intent=query_intent,
+            conversation_id=str(ask_request.conversation_id) if ask_request.conversation_id else None
         )
         
         # 6. AI cevabını kontrol et - bilgi bulunamadıysa kredi iade et

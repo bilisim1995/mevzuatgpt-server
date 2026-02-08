@@ -512,7 +512,8 @@ class QueryService:
         similarity_threshold: float = 0.5,
         use_cache: bool = True,
         intent: Optional[QueryIntent] = None,
-        response_style: Optional[str] = None
+        response_style: Optional[str] = None,
+        conversation_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Process complete ask query pipeline
@@ -663,12 +664,20 @@ class QueryService:
             if self.ai_provider == "groq":
                 # Use Groq service for fast inference with OpenAI fallback
                 context_text = self._prepare_context_for_groq(search_results)
+                conversation_context = ""
+                if conversation_id:
+                    conversation_context = await self._get_recent_conversation_context(
+                        conversation_id=conversation_id,
+                        user_id=user_id,
+                        limit=10
+                    )
                 
                 try:
                     ai_result = await self.ai_service.generate_response(
                         query=query,
                         context=context_text,
-                        response_style=response_style
+                        response_style=response_style,
+                        conversation_context=conversation_context
                     )
                     
                     llm_response = {
@@ -703,7 +712,8 @@ class QueryService:
                                 openai_response = await self._generate_openai_fallback(
                                     query=query,
                                     context=context_text,
-                                    search_results=search_results
+                                    search_results=search_results,
+                                    conversation_context=conversation_context
                                 )
                                 llm_response = openai_response
                                 logger.info("Successfully used OpenAI fallback for rate-limited Groq request")
@@ -932,6 +942,57 @@ Bu yanıt için **kredi kesilmedi** ve **kaynaklar gösterilmedi**. Daha spesifi
     def _format_sources(self, search_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Format search results for response (original method kept for compatibility)"""
         return self._format_sources_safe(search_results)
+    
+    async def _get_recent_conversation_context(
+        self,
+        conversation_id: str,
+        user_id: str,
+        limit: int = 10
+    ) -> str:
+        """Fetch last N user questions as context (best-effort)."""
+        try:
+            result = supabase_client.supabase.table("conversation_messages").select(
+                "role, search_log_id, created_at"
+            ).eq("conversation_id", conversation_id) \
+             .eq("user_id", user_id) \
+             .eq("role", "user") \
+             .order("created_at", desc=True) \
+             .limit(limit) \
+             .execute()
+            
+            rows = result.data or []
+            if not rows:
+                return ""
+            
+            rows = list(reversed(rows))
+            search_log_ids = [row.get("search_log_id") for row in rows if row.get("search_log_id")]
+            if not search_log_ids:
+                return ""
+            
+            logs_result = supabase_client.supabase.table("search_logs").select(
+                "id, query, response"
+            ).in_("id", search_log_ids).execute()
+            log_map = {row["id"]: row for row in (logs_result.data or [])}
+            
+            lines = []
+            for row in rows:
+                log_id = row.get("search_log_id")
+                if not log_id or log_id not in log_map:
+                    continue
+                log_row = log_map[log_id]
+                text = log_row.get("query") or ""
+                if text:
+                    lines.append(text)
+            
+            if not lines:
+                return ""
+            
+            header = "Önceki kullanıcı soruları (bağlam için, bilgi kaynağı değildir):"
+            return header + "\n" + "\n".join([f"Kullanıcı: {text}" for text in lines])
+            
+        except Exception as e:
+            logger.warning(f"Failed to load conversation context {conversation_id}: {e}")
+            return ""
     
     def _prepare_context_for_groq(self, search_results: List[Dict[str, Any]]) -> str:
         """
@@ -1180,7 +1241,8 @@ Benzerlik: {similarity:.2f}
         self, 
         query: str, 
         context: str, 
-        search_results: List[Dict[str, Any]]
+        search_results: List[Dict[str, Any]],
+        conversation_context: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Generate response using OpenAI as fallback when Groq fails
@@ -1201,9 +1263,23 @@ Benzerlik: {similarity:.2f}
             system_message = await prompt_service.get_system_prompt("groq_legal")
             
             # Prepare messages for OpenAI
+            conversation_section = ""
+            if conversation_context and conversation_context.strip():
+                conversation_section = (
+                    "ÖNCEKİ KONUŞMALAR (yalnızca bağlam için, bilgi kaynağı değildir):\n"
+                    f"{conversation_context}\n\n"
+                )
+            
+            user_message = (
+                f"{conversation_section}"
+                f"Soru: {query}\n\n"
+                f"Bağlam (BELGE İÇERİĞİ):\n{context}\n\n"
+                "Yanıtını sadece BELGE İÇERİĞİNE dayandır."
+            )
+            
             messages = [
                 {"role": "system", "content": system_message},
-                {"role": "user", "content": f"Soru: {query}\n\nBağlam:\n{context}"}
+                {"role": "user", "content": user_message}
             ]
             
             # Call OpenAI GPT-4o
