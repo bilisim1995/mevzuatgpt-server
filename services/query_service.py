@@ -786,7 +786,22 @@ class QueryService:
                 )
                 await self.redis_service.increment_search_popularity(query)
             
+            pipeline_time = int((time.time() - pipeline_start) * 1000)
+            
             # 9. Log search with enhanced data
+            search_stats = {
+                "total_chunks_found": len(search_results),
+                "embedding_time_ms": embedding_time,
+                "search_time_ms": search_time,
+                "generation_time_ms": llm_response.get("generation_time_ms", ai_time),
+                "reliability_time_ms": reliability_time,
+                "total_pipeline_time_ms": pipeline_time,
+                "cache_used": cached_results is not None,
+                "rate_limit_remaining": remaining,
+                "low_confidence": is_low_confidence,
+                "confidence_threshold": confidence_threshold,
+                "credits_waived": is_low_confidence
+            }
             
             search_log_id = await self._log_search_query(
                 user_id=user_id,
@@ -797,10 +812,10 @@ class QueryService:
                 credits_used=actual_credits,
                 institution_filter=institution_filter,
                 results_count=len(search_results),
-                response_generated=True
+                response_generated=True,
+                confidence_breakdown=confidence_breakdown,
+                search_stats=search_stats
             )
-            
-            pipeline_time = int((time.time() - pipeline_start) * 1000)
             
             # 10. Build response with enhanced confidence and conditional warning
             original_answer = llm_response.get("answer", llm_response.get("response", ""))
@@ -828,19 +843,7 @@ Bu yanıt için **kredi kesilmedi** ve **kaynaklar gösterilmedi**. Daha spesifi
                 "confidence_breakdown": confidence_breakdown,  # Add detailed breakdown
                 "sources": filtered_sources,  # Use filtered sources based on confidence
                 "institution_filter": institution_filter,
-                "search_stats": {
-                    "total_chunks_found": len(search_results),
-                    "embedding_time_ms": embedding_time,
-                    "search_time_ms": search_time,
-                    "generation_time_ms": llm_response.get("generation_time_ms", ai_time),
-                    "reliability_time_ms": reliability_time,
-                    "total_pipeline_time_ms": pipeline_time,
-                    "cache_used": cached_results is not None,
-                    "rate_limit_remaining": remaining,
-                    "low_confidence": is_low_confidence,  # Track low confidence responses
-                    "confidence_threshold": confidence_threshold,
-                    "credits_waived": is_low_confidence  # Track if credits were waived
-                },
+                "search_stats": search_stats,
                 "llm_stats": {
                     "model_used": llm_response.get("model_used", "llama3-8b-8192"),
                     "prompt_tokens": llm_response.get("prompt_tokens", 0),
@@ -1207,7 +1210,9 @@ Benzerlik: {similarity:.2f}
         credits_used: int = 0,
         institution_filter: Optional[str] = None,
         results_count: int = 0,
-        response_generated: bool = True
+        response_generated: bool = True,
+        confidence_breakdown: Optional[Dict[str, Any]] = None,
+        search_stats: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
         """Log search query with full details and return the search log ID"""
         try:
@@ -1222,7 +1227,9 @@ Benzerlik: {similarity:.2f}
                 "institution_filter": institution_filter,
                 "results_count": results_count,
                 "execution_time": 0.5,  # Add execution time placeholder
-                "ip_address": "127.0.0.1"
+                "ip_address": "127.0.0.1",
+                "confidence_breakdown": confidence_breakdown,
+                "search_stats": search_stats
             }
             
             result = supabase_client.service_client.table('search_logs').insert(log_data).execute()

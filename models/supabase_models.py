@@ -109,9 +109,16 @@ CREATE TABLE IF NOT EXISTS public.search_logs (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id),
     query TEXT NOT NULL,
+    response TEXT,
+    sources JSONB,
+    reliability_score DOUBLE PRECISION,
+    credits_used INTEGER DEFAULT 1,
+    institution_filter VARCHAR,
     results_count INTEGER,
     execution_time FLOAT,
     ip_address INET,
+    confidence_breakdown JSONB,
+    search_stats JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -48,7 +48,7 @@ class SearchHistoryService:
                 .select('''
                     id, query, response, sources, reliability_score, 
                     credits_used, institution_filter, results_count, 
-                    execution_time, created_at
+                    execution_time, created_at, confidence_breakdown, search_stats
                 ''') \
                 .eq('user_id', str(user_id))
             
@@ -109,6 +109,8 @@ class SearchHistoryService:
                         response=row.get('response'),
                         sources=row.get('sources'),
                         reliability_score=row.get('reliability_score'),
+                        confidence_breakdown=row.get('confidence_breakdown'),
+                        search_stats=row.get('search_stats'),
                         credits_used=row.get('credits_used', 0),
                         institution_filter=row.get('institution_filter'),
                         results_count=row.get('results_count', 0),

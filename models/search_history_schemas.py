@@ -14,6 +14,8 @@ class SearchHistoryItem(BaseModel):
     response: Optional[str] = None
     sources: Optional[List[Dict[str, Any]]] = None
     reliability_score: Optional[float] = None
+    confidence_breakdown: Optional[Dict[str, Any]] = None
+    search_stats: Optional[Dict[str, Any]] = None
     credits_used: Optional[int] = 0
     institution_filter: Optional[str] = None
     results_count: int = 0
